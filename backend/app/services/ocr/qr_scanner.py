@@ -19,7 +19,6 @@ from urllib.parse import parse_qs, urlparse
 
 import cv2
 import numpy as np
-from pyzbar.pyzbar import decode as pyzbar_decode
 
 from app.services.ocr.ocr_result import QRResult
 
@@ -43,6 +42,7 @@ def _load_image(image_bytes: bytes) -> np.ndarray | None:
 def _try_decode(img: np.ndarray) -> str | None:
     """Attempt pyzbar decode; return raw QR data string or None."""
     try:
+        from pyzbar.pyzbar import decode as pyzbar_decode  # lazy: optional C lib
         results = pyzbar_decode(img)
     except Exception:
         return None

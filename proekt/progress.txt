@@ -380,3 +380,27 @@
 - C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
 - D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
 - B-06 (Drug Normalizer, high) — depends on A-01 ✅
+
+---
+
+## B-07 | 2026-03-17 | DONE
+
+**Задача**: OCR Pipeline Orchestrator — параллельный QR + EasyOCR + merge + normalize
+
+**Что создано**:
+- `backend/app/services/ocr/pipeline.py` — async `process_image(image_bytes) -> ParsedReceipt`:
+  - `ParsedReceipt`: все поля MergedReceipt + items + processing_time_ms + ocr_status (DONE/REVIEW/FAILED)
+  - `NormalizedItem`: drug_name_raw, drug_inn, is_rx, quantity, unit_price, total_price, drug_match_score
+  - Параллельный запуск: `run_in_executor(scan_qr)` + `_run_easyocr` через asyncio.gather
+  - ReceiptAgeEstimator: QR > 12 мес → qr_result=None
+  - EasyOCR fallback: < 5 блоков → TesseractEngine; любое исключение → Tesseract
+  - Логирование времени каждого шага (preprocess, qr+ocr, merge, normalize)
+- `backend/app/services/ocr/qr_scanner.py`: pyzbar теперь lazy-imported внутри `_try_decode`
+- `backend/tests/test_ocr/test_pipeline.py` — 12 тестов: age estimator, ocr_status, merged, ocr_only, both_failed, fallback, items, timing
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_ocr/` ✅ 74/74 (без qr_scanner — pyzbar не установлен в dev-env)
+
+**Следующие задачи** (зависимости выполнены):
+- D-02 (Auth Router, critical) — depends on D-01 ✅
+- D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
+- C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
