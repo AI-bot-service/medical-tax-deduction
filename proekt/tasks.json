@@ -123,7 +123,7 @@
         "Шаг 4: pytest tests/test_health.py — health check проходит"
       ],
       "dependencies": ["A-01"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "A-06",

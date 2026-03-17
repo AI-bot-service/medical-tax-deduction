@@ -30,3 +30,23 @@
 
 **Следующая задача**: A-05 (FastAPI app factory) — critical, зависит только от A-01 ✅ (теперь done)
   ИЛИ A-02 (Docker Compose) — но там уже есть базовый docker-compose.yml в infra/
+
+---
+
+## A-05 | 2026-03-17 | DONE
+
+**Задача**: FastAPI app factory — main.py, config.py, dependencies.py, health endpoint
+
+**Что создано**:
+- `backend/app/config.py` — Pydantic BaseSettings, читает из .env, все переменные аннотированы (DB, Redis, YOS, Telegram, JWT, Sentry, App)
+- `backend/app/dependencies.py` — `get_db()` (AsyncSession через async_sessionmaker), `get_redis()` (aioredis, singleton pool), `get_s3_client()` (boto3 YOS, deferred import)
+- `backend/app/main.py` — `create_app()` factory, lifespan (Sentry init → yield → engine.dispose + redis.aclose), CORS (origins из config), `GET /api/v1/health` (проверяет DB + Redis, возвращает `{status, db, redis}`)
+- `backend/tests/test_health.py` — 3 теста: all_ok / db_error / redis_error с mock AsyncSessionFactory и get_redis
+
+**Верификация**: синтаксис всех 4 файлов проверен `python -m py_compile` ✅
+**Замечание**: `uv` не в PATH в bash-оболочке → `uv run ruff check .` и `uv run pytest` нужно запускать из Windows-терминала: `cd backend && uv sync && uv run ruff check . && uv run pytest tests/test_health.py`
+
+**Следующая задача**:
+- A-02 (Docker Compose, critical) — depends on A-01 ✅
+- B-01 (S3 Client, critical) — depends on A-01 ✅
+- B-02 (Image Preprocessor, critical) — depends on A-01 ✅
