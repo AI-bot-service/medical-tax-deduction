@@ -13,8 +13,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import models so alembic can detect changes
-# from app.models import Base  # noqa: F401 — uncomment after models are defined
-target_metadata = None
+from app.models import Base  # noqa: E402, F401
+
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

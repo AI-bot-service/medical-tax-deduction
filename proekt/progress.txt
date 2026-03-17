@@ -131,3 +131,57 @@
 - B-03 (QR Scanner, critical) — depends on B-02 ✅
 - B-04 (EasyOCR Engine, critical) — depends on B-02 ✅
 - B-01 (S3 Client, critical) — depends on A-01 ✅
+
+---
+
+## B-01 | 2026-03-17 | IN PROGRESS
+
+**Задача**: S3 Client для Yandex Object Storage — boto3 wrapper с SSE-S3 и presigned URLs
+
+**Что подготовлено** (в proekt/staging/backend/ — интерактивная сессия без acceptEdits не могла писать в backend/):
+- `staging/backend/app/services/storage/s3_client.py` — класс `S3Client`:
+  - `upload_file(bucket, key, data, content_type)` — `put_object` с `ServerSideEncryption='AES256'`
+  - `generate_presigned_url(bucket, key, ttl=900)` — presigned GET URL, TTL=900 по умолчанию
+  - `delete_object(bucket, key)` — boto3 delete
+  - `get_object(bucket, key) -> bytes` — поднимает `ClientError` если не найдено
+  - Константы: `BUCKET_RECEIPTS='medvychet-receipts'`, `BUCKET_PRESCRIPTIONS`, `BUCKET_EXPORTS`
+  - YOS endpoint/region в `_YOS_ENDPOINT`/`_YOS_REGION`
+- `staging/backend/tests/test_s3_client.py` — 11 тестов с `moto.mock_aws`:
+  - Bucket constants (4 теста), upload (3 теста), presigned URL (3 теста), delete/get (3 теста)
+- `proekt/b01_s3client.patch` — git patch для применения файлов в `backend/`
+
+**Для следующей итерации через ralph.sh**:
+1. `git apply proekt/b01_s3client.patch` — создаст файлы в `backend/`
+2. В `backend/`: `uv run ruff check app/services/storage/s3_client.py`
+3. В `backend/`: `uv run pytest tests/test_s3_client.py -v`
+4. Обновить `tasks.json`: B-01 → `"done"`, коммит
+
+**Альтернатива**: реализовать B-01 с нуля (реализация простая — ~70 строк).
+
+---
+
+## A-03 | 2026-03-17 | DONE
+
+**Задача**: Alembic 0001_initial — таблицы users, receipts, receipt_items, prescriptions + ENUM типы + индексы
+
+**Что создано/доработано**:
+- `backend/app/models/base.py` — `Base(DeclarativeBase)` + `TimestampMixin` с `created_at`
+- `backend/app/models/enums.py` — `OCRStatus`, `DocType` (7 значений), `RiskLevel`, `ReceiptStatus` через `enum.StrEnum`
+- `backend/app/models/user.py` — `User`: UUID PK, telegram_id BIGINT, phone_hash VARCHAR(72), telegram_username. `UniqueConstraint("telegram_id")` + `Index("ix_users_telegram_id", unique=True)` для совместимости с SQLite-рефлекцией в тестах
+- `backend/app/models/receipt.py` — `Receipt`: все поля согласно спецификации, `Index("ix_receipts_purchase_date")`
+- `backend/app/models/receipt_item.py` — `ReceiptItem`: FK → receipts (CASCADE), FK → prescriptions (SET NULL), `Index("ix_receipt_items_drug")`
+- `backend/app/models/prescription.py` — `Prescription`: все поля, `Index("ix_prescriptions_search")`
+- `backend/app/models/__init__.py` — импорт всех моделей
+- `backend/alembic/versions/0001_initial.py` — миграция с CREATE TYPE для ENUM, все 4 таблицы, индексы
+- `backend/alembic/env.py` — async SQLAlchemy, импорт `Base.metadata`
+- `backend/tests/test_models.py` — 19 тестов: enum values, table columns, FK constraints, CRUD через SQLite in-memory
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_models.py` ✅ 19/19
+
+**Ruff fix**: `str, enum.Enum` → `enum.StrEnum` (UP042), imports sorted (I001), `Union[X,None]` → `X | None` (UP007), E402 noqa в alembic/env.py
+
+**Следующие задачи** (все зависимости выполнены):
+- B-01 (S3 Client, critical) — файлы уже в `backend/app/services/storage/s3_client.py`, нужно запустить `pytest tests/test_s3_client.py` и закоммитить
+- B-04 (EasyOCR Engine, critical) — depends on B-02 ✅
+- D-01 (OTP + JWT Service, critical) — depends on A-03 ✅, A-05 ✅
+- A-04 (Alembic 0002_indexes) — depends on A-03 ✅
