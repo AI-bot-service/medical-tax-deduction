@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 RUN pip install uv
 COPY pyproject.toml .
-RUN uv sync --no-dev --no-install-project
+RUN uv sync --no-dev --no-install-project --python 3.11
 
 FROM python:3.11-slim
 
@@ -17,11 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Install venv outside /app so volume mounts don't shadow it
+COPY --from=builder /build/.venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
+WORKDIR /app
 COPY . .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
