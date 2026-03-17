@@ -220,6 +220,30 @@
 
 ---
 
+## B-05 | 2026-03-17 | DONE
+
+**Задача**: Result Merger — объединение результатов QR и OCR по 6 стратегиям
+
+**Что создано**:
+- `backend/app/services/ocr/result_merger.py` — функция `merge(qr: QRResult | None, ocr: OCRResult) -> MergedReceipt`:
+  - `MergedReceipt` dataclass: `strategy, confidence, purchase_date, total_amount, pharmacy_name, raw_text`
+  - 6 стратегий: `merged` (confidence=1.0), `merged_date_conflict` (0.92), `fns_only` (0.9), `ocr_only` (из OCR), `conflict` (0.5, total_amount=None), `both_failed` (0.0)
+  - Алгоритм match: конфликт = diff > 2% И diff > 5 руб → match = diff ≤ 2% ИЛИ diff ≤ 5 руб
+  - OCR парсеры: `_extract_ocr_amount` (ИТОГО + fallback), `_extract_ocr_date` (DD.MM.YYYY), `_extract_pharmacy` (ключевые слова)
+- `backend/app/services/ocr/ocr_result.py` — добавлен `QRResult` dataclass (перенесён из qr_scanner.py для развязки зависимостей)
+- `backend/app/services/ocr/qr_scanner.py` — `QRResult` теперь импортируется из `ocr_result`, re-экспортируется через `__all__`
+- `backend/tests/test_ocr/test_merger.py` — 24 теста: все 6 стратегий + контракт типов + pharmacy extraction
+
+**Верификация**: синтаксис всех 4 файлов ✅, `pytest tests/test_ocr/test_merger.py` ✅ 24/24
+
+**Следующие задачи** (зависимости выполнены):
+- B-06 (Drug Normalizer, high) — depends on A-01 ✅
+- B-07 (OCR Pipeline Orchestrator, critical) — depends on B-03 ✅, B-04 ✅, B-05 ✅, B-06 (pending)
+- D-01 (OTP + JWT Service, critical) — depends on A-03 ✅, A-05 ✅
+- C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
+
+---
+
 ## A-03 fixups | 2026-03-17 | DONE
 
 **Сессия**: Финальные исправления тестов и ruff для A-03

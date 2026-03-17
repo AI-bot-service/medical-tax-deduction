@@ -272,7 +272,7 @@
         "Шаг 4: тест both_failed: QR=None, OCR пустой → both_failed, confidence=0.0"
       ],
       "dependencies": ["B-03", "B-04"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "B-06",

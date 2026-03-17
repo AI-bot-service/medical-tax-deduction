@@ -13,7 +13,6 @@ FNS QR format: query-string params
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from urllib.parse import parse_qs, urlparse
@@ -22,24 +21,11 @@ import cv2
 import numpy as np
 from pyzbar.pyzbar import decode as pyzbar_decode
 
+from app.services.ocr.ocr_result import QRResult
+
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Public types
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class QRResult:
-    """Parsed fields from an FNS fiscal receipt QR code."""
-
-    date: datetime
-    amount: Decimal
-    fn: str
-    fd: str
-    fp: str
-    raw_url: str
+__all__ = ["QRResult", "scan_qr"]
 
 
 # ---------------------------------------------------------------------------
