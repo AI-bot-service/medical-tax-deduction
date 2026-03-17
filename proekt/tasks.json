@@ -225,7 +225,7 @@
         "Шаг 4: тест с некорректным URL в QR — возвращает None (не падает)"
       ],
       "dependencies": ["B-02"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "B-04",
