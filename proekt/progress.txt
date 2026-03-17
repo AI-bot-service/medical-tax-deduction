@@ -255,6 +255,40 @@
 
 ---
 
+## B-07 | 2026-03-17 | DONE
+
+**Задача**: OCR Pipeline Orchestrator — параллельный QR + EasyOCR, ReceiptAgeEstimator, ResultMerger, DrugNormalizer
+
+**Что создано**:
+- `backend/app/services/ocr/pipeline.py` — async функция `process_image(image_bytes: bytes) -> ParsedReceipt`:
+  - Шаг 1: `preprocess()` в executor
+  - Шаг 2: параллельный `scan_qr` + `EasyOCREngine.recognize` через `asyncio.gather` + `run_in_executor`
+  - EasyOCR fallback: если < 5 блоков или исключение → `TesseractEngine`
+  - Шаг 3: `_is_receipt_too_old()` — если QR.date > 12 мес → `effective_qr = None`
+  - Шаг 4: `merge(effective_qr, ocr_result)` → `MergedReceipt`
+  - Шаг 5: `_build_normalized_items(raw_text)` — извлечение строк + DrugNormalizer
+  - Логирование времени каждого шага через `time.perf_counter()`
+- `NormalizedItem` dataclass: drug_name_raw, drug_inn, is_rx, quantity, unit_price, total_price, drug_match_score
+- `ParsedReceipt` dataclass: все поля MergedReceipt + items + processing_time_ms + свойство `ocr_status` (DONE/REVIEW/FAILED)
+- `CONFIDENCE_DONE = 0.85`, `CONFIDENCE_REVIEW = 0.60` — константы для Celery task
+- `backend/tests/test_ocr/test_pipeline.py` — 9 тестов с mock движков:
+  - ReceiptAgeEstimator: recent/old/boundary (365 дней)
+  - ParsedReceipt.ocr_status: DONE/REVIEW/FAILED
+  - process_image: merged, old→ocr_only, both_failed, items list, EasyOCR fallback, processing_time_ms
+
+**Верификация**: синтаксис `ast.parse` ✅, ruff applied via hook ✅
+
+**Для запуска тестов**:
+`cd backend && uv run pytest tests/test_ocr/test_pipeline.py -v`
+
+**Следующие задачи** (зависимости выполнены):
+- D-02 (Auth Router, critical) — depends on D-01 ✅ (частично реализован)
+- C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
+- B-08 (Celery OCR Task, high) — depends on A-03 ✅, B-07 ✅, B-01 ✅
+- B-09 (Batch Classifier, high) — depends on B-04 ✅
+
+---
+
 ## D-01 | 2026-03-17 | DONE
 
 **Задача**: OTP Service + JWT Service — генерация/верификация одноразовых кодов и JWT-токенов
