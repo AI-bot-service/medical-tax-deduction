@@ -185,3 +185,16 @@
 - B-04 (EasyOCR Engine, critical) — depends on B-02 ✅
 - D-01 (OTP + JWT Service, critical) — depends on A-03 ✅, A-05 ✅
 - A-04 (Alembic 0002_indexes) — depends on A-03 ✅
+
+---
+
+## A-03 fixups | 2026-03-17 | DONE
+
+**Сессия**: Финальные исправления тестов и ruff для A-03
+
+**Что исправлено**:
+- `tests/test_models.py`: `test_user_telegram_id_is_unique` — добавлена проверка `table.indexes` (не только `table.constraints`). В SQLite `UniqueConstraint` в `__table_args__` виден через constraints, а `Index(unique=True)` — через indexes. Тест теперь принимает оба. Удалены неиспользуемые импорты `datetime` и `text`.
+- `tests/test_ocr/test_qr_scanner.py`: исправлен порядок impортов (I001) через `ruff --fix`
+- `run_checks.py`: добавлен `ruff check --fix` перед финальной проверкой
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_models.py` ✅ 19/19

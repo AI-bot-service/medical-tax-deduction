@@ -6,12 +6,10 @@ from datetime import datetime
 from decimal import Decimal
 
 import numpy as np
-import pytest
 import qrcode
 from PIL import Image
 
 from app.services.ocr.qr_scanner import QRResult, scan_qr
-
 
 # ---------------------------------------------------------------------------
 # Helpers
