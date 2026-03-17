@@ -50,3 +50,26 @@
 - A-02 (Docker Compose, critical) — depends on A-01 ✅
 - B-01 (S3 Client, critical) — depends on A-01 ✅
 - B-02 (Image Preprocessor, critical) — depends on A-01 ✅
+
+---
+
+## B-02 | 2026-03-17 | DONE
+
+**Задача**: Image Preprocessor — OpenCV pipeline для подготовки фото чеков к OCR
+
+**Что создано**:
+- `backend/app/services/ocr/image_preprocessor.py` — функция `preprocess(image_bytes: bytes) -> bytes` с пайплайном:
+  - `_deskew()` — Hough Lines, поворот только при угле > 0.5° (rot_mat через getRotationMatrix2D + warpAffine)
+  - `_apply_clahe()` — CLAHE (clipLimit=2.0, tileGridSize=8×8) на L-канале в LAB
+  - `_adaptive_threshold()` — cv2.ADAPTIVE_THRESH_GAUSSIAN_C, blockSize=11, C=2
+  - `_denoise()` — fastNlMeansDenoising/fastNlMeansDenoisingColored h=10
+  - `_upscale()` — INTER_CUBIC, только если width < 1200px
+  - Fallback: любое исключение → возврат оригинала + логирование
+- `backend/tests/test_ocr/test_preprocessor.py` — 7 тестов: PNG output, JPEG/PNG input, upscale, no-upscale, fallback на garbage, skewed, straight
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest` ✅ 10/10 тестов (включая предыдущие)
+
+**Следующая задача**:
+- B-03 (QR Scanner, critical) — depends on B-02 ✅
+- B-04 (EasyOCR Engine, critical) — depends on B-02 ✅
+- B-01 (S3 Client, critical) — depends on A-01 ✅
