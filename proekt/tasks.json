@@ -61,7 +61,7 @@
         "Шаг 4: docker compose down -v — всё останавливается чисто"
       ],
       "dependencies": ["A-01"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "A-03",

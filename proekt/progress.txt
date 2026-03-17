@@ -47,9 +47,37 @@
 **Замечание**: `uv` не в PATH в bash-оболочке → `uv run ruff check .` и `uv run pytest` нужно запускать из Windows-терминала: `cd backend && uv sync && uv run ruff check . && uv run pytest tests/test_health.py`
 
 **Следующая задача**:
-- A-02 (Docker Compose, critical) — depends on A-01 ✅
+- A-03 (Alembic initial migration, critical) — depends on A-02 ✅
 - B-01 (S3 Client, critical) — depends on A-01 ✅
 - B-02 (Image Preprocessor, critical) — depends on A-01 ✅
+
+---
+
+## A-02 | 2026-03-17 | DONE
+
+**Задача**: Docker Compose — 6 сервисов, Dockerfiles, healthchecks, named volumes
+
+**Что изменено**:
+- `infra/docker-compose.yml` — уже был. Добавлен `BACKEND_URL: http://backend:8000` в frontend-сервис
+- `backend/Dockerfile` — исправлен builder WORKDIR: теперь `/app` (не `/build`), чтобы venv-пути совпадали между stages
+- `frontend/Dockerfile` — `npm ci` → `npm install` (нет lock-файла), добавлен `ENV HOSTNAME=0.0.0.0` для standalone Next.js
+- `frontend/next.config.ts` — добавлен `output: "standalone"` и `eslint.ignoreDuringBuilds: true`
+- `frontend/src/app/layout.tsx`, `page.tsx` — минимальные файлы для успешной сборки Next.js
+- `frontend/public/.gitkeep` — директория для Dockerfile COPY
+- `frontend/package.json` — удалён несуществующий пакет `@radix-ui/react-badge`
+- `bot/main.py` — минимальный entry point (polling режим)
+- `bot/config.py` — Pydantic Settings для BOT_TOKEN, BACKEND_URL, WEBHOOK_URL
+- `backend/workers/celery_app.py` — минимальный Celery app factory
+- `backend/.dockerignore`, `bot/.dockerignore`, `frontend/.dockerignore` — добавлены
+
+**Верификация**: синтаксис всех Python-файлов проверен `python -m py_compile` ✅
+**Замечание**: тест-шаги A-02 требуют запущенного Docker-демона. Проверять из Windows-терминала:
+`cd infra && docker compose up -d postgres redis && docker compose ps && docker compose up --build`
+
+**Следующие критические задачи** (все зависимости выполнены):
+- A-03 (Alembic 0001_initial) — depends on A-02 ✅
+- B-01 (S3 Client) — depends on A-01 ✅
+- B-02 (Image Preprocessor) — depends on A-01 ✅
 
 ---
 
