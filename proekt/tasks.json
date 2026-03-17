@@ -182,7 +182,7 @@
         "Шаг 3: при наличии реальных YOS credentials — integration test: upload → presign URL → GET URL → 200"
       ],
       "dependencies": ["A-01"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "B-02",

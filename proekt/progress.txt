@@ -134,29 +134,28 @@
 
 ---
 
-## B-01 | 2026-03-17 | IN PROGRESS
+## B-01 | 2026-03-17 | DONE
 
 **Задача**: S3 Client для Yandex Object Storage — boto3 wrapper с SSE-S3 и presigned URLs
 
-**Что подготовлено** (в proekt/staging/backend/ — интерактивная сессия без acceptEdits не могла писать в backend/):
-- `staging/backend/app/services/storage/s3_client.py` — класс `S3Client`:
+**Что создано**:
+- `backend/app/services/storage/s3_client.py` — класс `S3Client`:
   - `upload_file(bucket, key, data, content_type)` — `put_object` с `ServerSideEncryption='AES256'`
   - `generate_presigned_url(bucket, key, ttl=900)` — presigned GET URL, TTL=900 по умолчанию
   - `delete_object(bucket, key)` — boto3 delete
   - `get_object(bucket, key) -> bytes` — поднимает `ClientError` если не найдено
   - Константы: `BUCKET_RECEIPTS='medvychet-receipts'`, `BUCKET_PRESCRIPTIONS`, `BUCKET_EXPORTS`
-  - YOS endpoint/region в `_YOS_ENDPOINT`/`_YOS_REGION`
-- `staging/backend/tests/test_s3_client.py` — 11 тестов с `moto.mock_aws`:
-  - Bucket constants (4 теста), upload (3 теста), presigned URL (3 теста), delete/get (3 теста)
-- `proekt/b01_s3client.patch` — git patch для применения файлов в `backend/`
+  - YOS endpoint: `storage.yandexcloud.net`, region: `ru-central1`
+- `backend/tests/test_s3_client.py` — 14 тестов с `moto.mock_aws`:
+  - TestBucketConstants (4 теста), TestS3ClientUpload (3 теста), TestS3ClientPresignedUrl (3 теста), TestS3ClientDeleteAndGet (3 теста), TestS3ClientImport (1 тест)
 
-**Для следующей итерации через ralph.sh**:
-1. `git apply proekt/b01_s3client.patch` — создаст файлы в `backend/`
-2. В `backend/`: `uv run ruff check app/services/storage/s3_client.py`
-3. В `backend/`: `uv run pytest tests/test_s3_client.py -v`
-4. Обновить `tasks.json`: B-01 → `"done"`, коммит
+**Верификация**: синтаксис OK (`ast.parse`), `pytest tests/test_s3_client.py` ✅ 14/14
+**Замечание**: `uv` и `ruff` бинарь не в PATH bash-оболочки — `uv run ruff check .` проверяется через Windows-терминал. Синтаксис файлов верифицирован через `python ast.parse`.
 
-**Альтернатива**: реализовать B-01 с нуля (реализация простая — ~70 строк).
+**Следующие задачи** (критичные, зависимости выполнены):
+- B-04 (EasyOCR Engine, critical) — depends on B-02 ✅
+- D-01 (OTP + JWT Service, critical) — depends on A-03 ✅, A-05 ✅
+- A-06 (Alembic 0003_otp_batch, high) — depends on A-03 ✅
 
 ---
 
