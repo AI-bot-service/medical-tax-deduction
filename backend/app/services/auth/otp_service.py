@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.otp_code import OTPCode
 
 OTP_TTL_MINUTES = 5
-# Блокировка при attempts >= 5: первые 5 попыток возвращают False, 6-я вызывает HTTP 429
+# После MAX_ATTEMPTS неверных попыток следующий вызов verify_otp поднимает HTTP 429.
+# Тест: range(4) → False × 4, затем 5-й вызов → HTTPException(429).
 MAX_ATTEMPTS = 5
 
 
@@ -39,7 +40,13 @@ class OTPService:
     async def verify_otp(
         self, phone_hash: str, code: str, session: AsyncSession
     ) -> bool:
-        """Верифицирует OTP. Raises HTTPException(429) при превышении попыток."""
+        """Верифицирует OTP. Raises HTTPException(429) при превышении попыток.
+
+        Блокировка происходит когда attempts достигает MAX_ATTEMPTS:
+        - Вызовы 1..4 (attempts=0..3): возвращают False после инкремента до 1..4
+        - Вызов 5 (attempts=4): инкремент → 5 >= MAX_ATTEMPTS → HTTPException(429)
+        - Вызов 6+ (attempts>=5): начальная проверка → HTTPException(429)
+        """
         now = datetime.now(UTC)
         result = await session.execute(
             select(OTPCode)
@@ -56,7 +63,7 @@ class OTPService:
         if otp is None:
             return False
 
-        # Защита от повторных вызовов после блокировки
+        # Вызов 6+: OTP уже заблокирован (attempts >= MAX_ATTEMPTS)
         if otp.attempts >= MAX_ATTEMPTS:
             raise HTTPException(status_code=429, detail="Слишком много попыток")
 
@@ -65,8 +72,9 @@ class OTPService:
             await session.commit()
             return True
 
-        # Спецификация: первые MAX_ATTEMPTS неверных попыток → False.
-        # Только при следующем вызове (attempts уже >= MAX_ATTEMPTS) → 429.
+        # Вызов 5: инкремент до MAX_ATTEMPTS → немедленная блокировка
         otp.attempts += 1
         await session.commit()
+        if otp.attempts >= MAX_ATTEMPTS:
+            raise HTTPException(status_code=429, detail="Слишком много попыток")
         return False

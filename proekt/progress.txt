@@ -292,3 +292,25 @@
 - `run_checks.py`: добавлен `ruff check --fix` перед финальной проверкой
 
 **Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_models.py` ✅ 19/19
+
+---
+
+## B-06 | 2026-03-17 | DONE
+
+**Задача**: Drug Normalizer — сопоставление названий препаратов с реестром ГРЛС
+
+**Что создано**:
+- `backend/app/services/ocr/drug_normalizer.py` — класс `DrugNormalizer`:
+  - `DrugMatch(drug_inn, display_name, is_rx, match_score)` — frozen dataclass
+  - `normalize(drug_name: str) -> DrugMatch | None` — rapidfuzz WRatio, порог 80
+  - `normalize_receipt_items(items: list[str]) -> list[DrugMatch | None]` — пакетная обработка
+  - Кэш `{drug_name_lower: DrugMatch}` — 1000 повторных вызовов < 1 сек
+  - `get_drug_normalizer()` — singleton factory
+- `backend/tests/test_ocr/test_drug_normalizer.py` — 12 тестов: normalize, is_rx, cache, batch
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest` ✅ 12/12
+
+**Следующие задачи** (зависимости выполнены):
+- B-07 (OCR Pipeline Orchestrator, critical) — depends on B-03 ✅, B-04 ✅, B-05 ✅, B-06 ✅
+- D-02 (Auth Router, critical) — depends on D-01 ✅
+- D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
