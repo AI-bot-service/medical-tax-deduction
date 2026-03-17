@@ -187,6 +187,39 @@
 
 ---
 
+## B-04 | 2026-03-17 | DONE
+
+**Задача**: EasyOCR Engine + Tesseract Fallback — единый OCR интерфейс
+
+**Что создано**:
+- `backend/app/services/ocr/ocr_result.py` — shared dataclasses:
+  - `TextBlock(text, confidence, bbox)` — единый формат текстового блока
+  - `OCRResult(blocks, confidence, engine_used)` — результат любого движка, свойство `full_text`
+- `backend/app/services/ocr/easyocr_engine.py` — класс `EasyOCREngine`:
+  - Singleton `_reader` — модель EasyOCR загружается один раз (ru+en, GPU=False)
+  - Глобальный `ThreadPoolExecutor(max_workers=1)` — изоляция потока EasyOCR
+  - `recognize(image_bytes) -> OCRResult` — таймаут 8 сек через `future.result(timeout=8)`
+  - Bbox нормализован из 4-точечного полигона EasyOCR в `(xmin, ymin, xmax, ymax)`
+  - `RuntimeError` при таймауте или падении движка
+- `backend/app/services/ocr/tesseract_engine.py` — класс `TesseractEngine`:
+  - Ленивый `import pytesseract` внутри функции (позволяет мокировать в тестах)
+  - psm 6 (uniform block) → fallback на psm 4 (single column) если < 5 блоков
+  - Confidence нормализован из tesseract 0-100 в 0.0-1.0
+  - Блоки с confidence=-1 (не-текст регионы) пропускаются
+- `backend/tests/test_ocr/test_engines.py` — 19 тестов:
+  - 4 теста OCRResult/TextBlock контракт типов
+  - 7 тестов EasyOCREngine (mock executor.submit): результат, фильтр пустых, таймаут, исключение, пустой результат, порог блоков, bbox
+  - 8 тестов TesseractEngine (monkeypatch sys.modules["pytesseract"]): результат, psm6 primary, fallback psm4, без fallback≥5 блоков, нормализация confidence, пропуск conf=-1, label движка, bad bytes
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_ocr/test_engines.py` ✅ 19/19
+
+**Следующие задачи** (зависимости теперь выполнены):
+- B-05 (Result Merger, critical) — depends on B-03 ✅, B-04 ✅
+- B-06 (Drug Normalizer, high) — depends on A-01 ✅
+- B-09 (Batch Classifier, high) — depends on B-04 ✅
+
+---
+
 ## A-03 fixups | 2026-03-17 | DONE
 
 **Сессия**: Финальные исправления тестов и ruff для A-03

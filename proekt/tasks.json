@@ -248,7 +248,7 @@
         "Шаг 4: python -c \"from app.services.ocr.easyocr_engine import EasyOCREngine; e = EasyOCREngine()\" — инициализация без ошибок"
       ],
       "dependencies": ["B-02"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "B-05",
