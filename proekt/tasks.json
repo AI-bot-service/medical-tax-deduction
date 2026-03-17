@@ -1,0 +1,1042 @@
+{
+  "agent_instructions": {
+    "before_start": [
+      "Прочитай этот файл и выполни: git log --oneline -20",
+      "Выбери ОДНУ задачу со статусом pending и наивысшим приоритетом (critical > high > medium > low)",
+      "Проверь, что все dependencies этой задачи имеют статус done",
+      "Прочитай CLAUDE.md и proekt/PRD.md для контекста"
+    ],
+    "during_work": [
+      "Работай только над выбранной задачей",
+      "Делай коммиты после каждого логического изменения",
+      "Не трогай код, не связанный с текущей задачей"
+    ],
+    "before_finish": [
+      "Выполни ВСЕ test_steps из задачи",
+      "Меняй status на done ТОЛЬКО после успешного прохождения всех тестов",
+      "Напиши summary в proekt/progress.md",
+      "ЗАПРЕЩЕНО удалять или редактировать задачи — только менять status"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "A-01",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Monorepo scaffold: структура папок backend/, bot/, frontend/, infra/, .github/. pyproject.toml (uv + ruff + mypy) для backend и bot, package.json для frontend. Файл .env.example со всеми переменными окружения",
+      "acceptance_criteria": [
+        "Структура папок создана согласно архитектуре monorepo",
+        "backend/pyproject.toml содержит зависимости: fastapi, uvicorn, sqlalchemy, alembic, celery, redis, boto3, easyocr, pytesseract, opencv-python, pyzbar, rapidfuzz, python-telegram-bot, pydantic-settings, python-jose, passlib, reportlab",
+        "bot/pyproject.toml содержит: python-telegram-bot, httpx, pydantic-settings",
+        "frontend/package.json содержит: next, react, typescript, tailwindcss, shadcn/ui, @tanstack/react-query, zustand",
+        ".env.example содержит все переменные: DATABASE_URL, REDIS_URL, YOS_BUCKET_*, YOS_ACCESS_KEY, YOS_SECRET_KEY, TELEGRAM_BOT_TOKEN, JWT_SECRET_KEY, SENTRY_DSN"
+      ],
+      "test_steps": [
+        "Шаг 1: cd backend && uv sync — зависимости устанавливаются без ошибок",
+        "Шаг 2: cd bot && uv sync — зависимости устанавливаются без ошибок",
+        "Шаг 3: cd frontend && npm install — зависимости устанавливаются без ошибок",
+        "Шаг 4: проверить наличие всех папок из архитектурной схемы"
+      ],
+      "dependencies": [],
+      "status": "done"
+    },
+    {
+      "id": "A-02",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Docker Compose: сервисы postgres:15, redis:7-alpine, backend (FastAPI+Uvicorn), celery_worker, bot, frontend (Next.js). Healthcheck для postgres и redis. Named volumes для данных. Загрузка переменных из .env",
+      "acceptance_criteria": [
+        "docker-compose.yml описывает все 6 сервисов",
+        "postgres healthcheck: pg_isready",
+        "redis healthcheck: redis-cli ping",
+        "backend и celery_worker зависят от postgres и redis через condition: service_healthy",
+        "Dockerfile для backend: multi-stage, финальный образ на python:3.11-slim",
+        "Dockerfile для bot: python:3.11-slim",
+        "Dockerfile для frontend: node:20-alpine multi-stage"
+      ],
+      "test_steps": [
+        "Шаг 1: docker compose up -d postgres redis — сервисы стартуют",
+        "Шаг 2: docker compose ps — статус postgres и redis healthy",
+        "Шаг 3: docker compose up --build — все сервисы стартуют без ошибок сборки",
+        "Шаг 4: docker compose down -v — всё останавливается чисто"
+      ],
+      "dependencies": ["A-01"],
+      "status": "pending"
+    },
+    {
+      "id": "A-03",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Alembic 0001_initial: таблицы users, receipts, receipt_items, prescriptions. ENUM-типы: OCRStatus (PENDING/DONE/REVIEW/FAILED), DocType (7 значений), RiskLevel, ReceiptStatus. UUID PK везде. Базовые индексы на user_id, purchase_date, drug_inn",
+      "acceptance_criteria": [
+        "Таблица users: id UUID PK, telegram_id BIGINT UNIQUE, phone_hash VARCHAR(72), telegram_username VARCHAR, created_at TIMESTAMPTZ",
+        "Таблица receipts: id, user_id FK, s3_key, ocr_status OCRStatus, needs_prescription BOOL, purchase_date DATE NULL, pharmacy_name VARCHAR NULL, total_amount DECIMAL(10,2) NULL, ocr_confidence FLOAT NULL, merge_strategy VARCHAR NULL, created_at",
+        "Таблица receipt_items: id, receipt_id FK CASCADE, drug_name VARCHAR, drug_inn VARCHAR NULL, quantity FLOAT, unit_price DECIMAL, total_price DECIMAL, is_rx BOOL DEFAULT false, prescription_id UUID NULL FK prescriptions",
+        "Таблица prescriptions: id, user_id FK, doc_type DocType, doctor_name VARCHAR, doctor_specialty VARCHAR NULL, clinic_name VARCHAR NULL, issue_date DATE, expires_at DATE, drug_name VARCHAR, drug_inn VARCHAR NULL, dosage VARCHAR NULL, s3_key VARCHAR NULL, risk_level RiskLevel DEFAULT STANDARD, status VARCHAR DEFAULT active",
+        "Alembic env.py настроен для async SQLAlchemy"
+      ],
+      "test_steps": [
+        "Шаг 1: alembic upgrade head — миграция применяется без ошибок",
+        "Шаг 2: psql -c '\\dt' — все 4 таблицы присутствуют",
+        "Шаг 3: psql -c '\\dT' — все ENUM типы присутствуют",
+        "Шаг 4: alembic downgrade -1 && alembic upgrade head — rollback/upgrade работает",
+        "Шаг 5: pytest tests/test_models.py — базовые CRUD операции через SQLAlchemy"
+      ],
+      "dependencies": ["A-02"],
+      "status": "pending"
+    },
+    {
+      "id": "A-04",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Alembic 0002_indexes: составные индексы для L1-L4 поиска рецептов. Индекс на receipts.needs_prescription. Составной индекс prescriptions(user_id, drug_inn, expires_at). GIN-индекс на drug_name для fuzzy search",
+      "acceptance_criteria": [
+        "Индекс ix_prescriptions_search: (user_id, drug_inn, issue_date, expires_at)",
+        "Индекс ix_receipts_needs_prescription: (user_id, needs_prescription) WHERE needs_prescription = true",
+        "Индекс ix_receipt_items_drug: (drug_inn, is_rx)",
+        "Индекс ix_receipts_purchase_date: (user_id, purchase_date DESC)"
+      ],
+      "test_steps": [
+        "Шаг 1: alembic upgrade head — миграция применяется",
+        "Шаг 2: psql -c '\\d prescriptions' — индексы видны",
+        "Шаг 3: EXPLAIN ANALYZE по L1 запросу — Index Scan (не Seq Scan)"
+      ],
+      "dependencies": ["A-03"],
+      "status": "pending"
+    },
+    {
+      "id": "A-05",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "FastAPI app factory: main.py с lifespan (startup/shutdown), CORS для frontend origin, подключение всех роутеров, Sentry middleware, health endpoint GET /api/v1/health. config.py на Pydantic Settings",
+      "acceptance_criteria": [
+        "app/main.py: FastAPI с lifespan, CORS middleware (origins из config), include_router для всех роутеров",
+        "GET /api/v1/health возвращает {status: ok, db: ok, redis: ok}",
+        "app/config.py: Pydantic BaseSettings, читает из .env, все типы аннотированы",
+        "app/dependencies.py: get_db (AsyncSession), get_redis, get_s3_client",
+        "Uvicorn запускается на порту 8000"
+      ],
+      "test_steps": [
+        "Шаг 1: uvicorn app.main:app --reload — старт без ошибок",
+        "Шаг 2: curl http://localhost:8000/api/v1/health — {\"status\": \"ok\"}",
+        "Шаг 3: curl http://localhost:8000/docs — Swagger UI открывается",
+        "Шаг 4: pytest tests/test_health.py — health check проходит"
+      ],
+      "dependencies": ["A-01"],
+      "status": "pending"
+    },
+    {
+      "id": "A-06",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Alembic 0003_otp_batch: таблицы otp_codes, batch_jobs. Добавить batch_id UUID NULL FK → batch_jobs в receipts и prescriptions. ENUM batchstatus (processing/completed/partial), batchsource (telegram_bot/web/mini_app). Celery beat задача cleanup_expired_otps",
+      "acceptance_criteria": [
+        "Таблица otp_codes: id UUID PK, phone_hash VARCHAR(72) indexed, code_hash VARCHAR(72), expires_at TIMESTAMPTZ, attempts SMALLINT DEFAULT 0, used BOOLEAN DEFAULT false, created_at",
+        "Таблица batch_jobs: id UUID PK, user_id FK CASCADE, status batchstatus, total_files SMALLINT, done_count/review_count/failed_count SMALLINT DEFAULT 0, source batchsource, completed_at TIMESTAMPTZ NULL",
+        "receipts.batch_id и prescriptions.batch_id — nullable FK с индексом ix_receipts_batch_id",
+        "workers/tasks/cleanup_task.py: удаляет otp_codes WHERE expires_at < now() OR used = true"
+      ],
+      "test_steps": [
+        "Шаг 1: alembic upgrade head — миграция применяется",
+        "Шаг 2: psql — таблицы otp_codes и batch_jobs существуют, FK корректны",
+        "Шаг 3: celery -A workers.celery_app beat --loglevel=info — beat стартует, задача в расписании"
+      ],
+      "dependencies": ["A-03"],
+      "status": "pending"
+    },
+    {
+      "id": "A-07",
+      "category": "infrastructure",
+      "priority": "medium",
+      "description": "CI/CD: GitHub Actions ci.yml — ruff + mypy + pytest (backend), eslint + tsc (frontend) на PR. deploy.yml — docker compose pull && up --force-recreate на push в main",
+      "acceptance_criteria": [
+        ".github/workflows/ci.yml: jobs backend-lint (ruff check, mypy), backend-test (pytest с тестовой БД), frontend-lint (eslint, tsc --noEmit)",
+        ".github/workflows/deploy.yml: триггер на push main, ssh на сервер, docker compose up",
+        "pytest с fixtures использует отдельную тестовую БД (TEST_DATABASE_URL из env)"
+      ],
+      "test_steps": [
+        "Шаг 1: создать PR с намеренной ruff-ошибкой — CI падает",
+        "Шаг 2: исправить ошибку — CI проходит",
+        "Шаг 3: push в main — deploy workflow запускается"
+      ],
+      "dependencies": ["A-02"],
+      "status": "pending"
+    },
+    {
+      "id": "B-01",
+      "category": "functional",
+      "priority": "critical",
+      "description": "S3 Client для Yandex Object Storage: boto3 wrapper. Методы: upload_file(bucket, key, data, content_type), generate_presigned_url(bucket, key, ttl=900), delete_object, get_object. Константы трёх бакетов. Unit-тесты с moto",
+      "acceptance_criteria": [
+        "app/services/storage/s3_client.py: класс S3Client с методами upload_file, generate_presigned_url, delete_object, get_object",
+        "YOS endpoint: storage.yandexcloud.net, region: ru-central1",
+        "upload_file: SSE-S3 шифрование (ServerSideEncryption='AES256')",
+        "generate_presigned_url: ttl по умолчанию 900 сек (15 мин)",
+        "Три константы: BUCKET_RECEIPTS, BUCKET_PRESCRIPTIONS, BUCKET_EXPORTS",
+        "BUCKET_EXPORTS объекты с метаданой Expiration 7 дней (через bucket lifecycle rule)",
+        "Unit-тесты покрывают upload, presign, delete"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_s3_client.py — все тесты проходят с moto mock",
+        "Шаг 2: python -c \"from app.services.storage.s3_client import S3Client; print('OK')\" — импорт без ошибок",
+        "Шаг 3: при наличии реальных YOS credentials — integration test: upload → presign URL → GET URL → 200"
+      ],
+      "dependencies": ["A-01"],
+      "status": "pending"
+    },
+    {
+      "id": "B-02",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Image Preprocessor: OpenCV pipeline — deskew (пропуск < 0.5°), CLAHE (clipLimit=2.0, tileGridSize=8x8), adaptive threshold (blockSize=11, C=2), FastNlMeans denoising (h=10), auto-upscale до 1200px ширины. Вход/выход: bytes",
+      "acceptance_criteria": [
+        "app/services/ocr/image_preprocessor.py: функция preprocess(image_bytes: bytes) -> bytes",
+        "deskew: OpenCV Hough Lines, поворот только если угол > 0.5°",
+        "CLAHE: применяется к L-каналу в LAB цветовом пространстве",
+        "adaptive_threshold: cv2.ADAPTIVE_THRESH_GAUSSIAN_C",
+        "upscale: только если width < 1200px, интерполяция INTER_CUBIC",
+        "Функция принимает JPEG/PNG bytes, возвращает PNG bytes",
+        "Обработка исключений: если любой шаг падает — возвращает оригинал"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_preprocessor.py — тесты с тестовыми изображениями",
+        "Шаг 2: python tests/manual/test_preprocess.py sample_receipt.jpg — сохраняет preprocessed.jpg для визуальной проверки",
+        "Шаг 3: тест с наклонным изображением — выходное изображение выровнено"
+      ],
+      "dependencies": ["A-01"],
+      "status": "pending"
+    },
+    {
+      "id": "B-03",
+      "category": "functional",
+      "priority": "critical",
+      "description": "QR Scanner: pyzbar + OpenCV, 5 стратегий декодирования (оригинал, rotate 90/180/270, histogram equalization). Парсинг URL параметров t (дата), s (сумма), fn, i, fp из QR-кода ФНС. Возвращает QRResult(date, amount, fn, fd, fp) | None",
+      "acceptance_criteria": [
+        "app/services/ocr/qr_scanner.py: функция scan_qr(image_bytes: bytes) -> QRResult | None",
+        "5 стратегий применяются последовательно до первого успеха",
+        "Парсинг параметров: t=20231215T1430, s=1250.00, fn=1234567890, i=12345, fp=987654321",
+        "QRResult: dataclass с полями date: datetime, amount: Decimal, fn: str, fd: str, fp: str, raw_url: str",
+        "Если QR не найден ни одной стратегией — возвращает None"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_qr_scanner.py — тест с реальным QR-кодом чека",
+        "Шаг 2: тест с повёрнутым QR (90°) — scanner находит и парсит",
+        "Шаг 3: тест без QR — возвращает None",
+        "Шаг 4: тест с некорректным URL в QR — возвращает None (не падает)"
+      ],
+      "dependencies": ["B-02"],
+      "status": "pending"
+    },
+    {
+      "id": "B-04",
+      "category": "functional",
+      "priority": "critical",
+      "description": "EasyOCR Engine + Tesseract Fallback: единый интерфейс. EasyOCR wrapper (ru+en, GPU=False, таймаут 8 сек через concurrent.futures). Tesseract wrapper (lang=rus+eng, psm 6 → psm 4 если < 5 блоков). Общий dataclass OCRResult(blocks, confidence, engine_used)",
+      "acceptance_criteria": [
+        "app/services/ocr/easyocr_engine.py: класс EasyOCREngine с методом recognize(image_bytes) -> OCRResult",
+        "app/services/ocr/tesseract_engine.py: класс TesseractEngine с методом recognize(image_bytes) -> OCRResult",
+        "OCRResult: dataclass с полями blocks: list[TextBlock], confidence: float, engine_used: str",
+        "TextBlock: text: str, confidence: float, bbox: tuple",
+        "EasyOCR: таймаут через ThreadPoolExecutor(max_workers=1) + future.result(timeout=8)",
+        "Tesseract fallback: если EasyOCR упал или вернул < 5 блоков",
+        "EasyOCR модель загружается один раз при старте (singleton pattern)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_engines.py — тест с реальным фото чека",
+        "Шаг 2: EasyOCR на тестовом чеке — confidence > 0.7",
+        "Шаг 3: симуляция таймаута EasyOCR — автоматически используется Tesseract",
+        "Шаг 4: python -c \"from app.services.ocr.easyocr_engine import EasyOCREngine; e = EasyOCREngine()\" — инициализация без ошибок"
+      ],
+      "dependencies": ["B-02"],
+      "status": "pending"
+    },
+    {
+      "id": "B-05",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Result Merger: объединение результатов QR и OCR по 6 стратегиям. Сравнение total_amount (совпадение если разница ≤2% И ≤5 руб.), date conflict detection. Возвращает MergedReceipt(strategy, confidence, date, amount, pharmacy, items)",
+      "acceptance_criteria": [
+        "app/services/ocr/result_merger.py: функция merge(qr: QRResult | None, ocr: OCRResult) -> MergedReceipt",
+        "Стратегия merged: суммы и даты совпали → confidence=1.0",
+        "Стратегия merged_date_conflict: суммы совпали, дата расходится → confidence=0.92",
+        "Стратегия fns_only: QR успешен, OCR нет → confidence из QR",
+        "Стратегия ocr_only: нет QR → confidence из OCR",
+        "Стратегия conflict: суммы расходятся (>2% и >5 руб.) → confidence ≤ 0.75",
+        "Стратегия both_failed: оба источника не дали результат → confidence=0.0",
+        "MergedReceipt: strategy: str, confidence: float, purchase_date: date|None, total_amount: Decimal|None, pharmacy_name: str|None, raw_text: str"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_merger.py — 6 тест-кейсов по каждой стратегии",
+        "Шаг 2: тест merged: QR сумма=1250.00, OCR сумма=1248.50 (разница <2%) → merged, confidence=1.0",
+        "Шаг 3: тест conflict: QR=1250.00, OCR=890.00 → conflict, confidence≤0.75",
+        "Шаг 4: тест both_failed: QR=None, OCR пустой → both_failed, confidence=0.0"
+      ],
+      "dependencies": ["B-03", "B-04"],
+      "status": "pending"
+    },
+    {
+      "id": "B-06",
+      "category": "functional",
+      "priority": "high",
+      "description": "Drug Normalizer: загрузка ГРЛС из data/grls_drugs.json при старте (singleton). rapidfuzz WRatio против МНН и торговых названий, порог 80. Определение is_rx. Возвращает DrugMatch(drug_inn, display_name, is_rx, match_score) | None",
+      "acceptance_criteria": [
+        "app/services/ocr/drug_normalizer.py: класс DrugNormalizer, метод normalize(drug_name: str) -> DrugMatch | None",
+        "data/grls_drugs.json: минимальный тестовый реестр из 100+ препаратов (МНН + торговые + is_rx флаг)",
+        "Кэш: словарь {drug_name_lower: DrugMatch} для повторных запросов",
+        "Порог match_score >= 80 для принятия результата",
+        "normalize_receipt_items(items: list[str]) -> list[DrugMatch | None] для пакетной обработки"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_drug_normalizer.py",
+        "Шаг 2: normalize('Аспирин') → DrugMatch(drug_inn='ацетилсалициловая кислота', is_rx=False, match_score≥80)",
+        "Шаг 3: normalize('НУРОФЕН ЭКСПРЕСС') → результат для ибупрофена",
+        "Шаг 4: normalize('абракадабра123') → None",
+        "Шаг 5: 1000 вызовов normalize — время < 1 сек (кэш работает)"
+      ],
+      "dependencies": ["A-01"],
+      "status": "pending"
+    },
+    {
+      "id": "B-07",
+      "category": "functional",
+      "priority": "critical",
+      "description": "OCR Pipeline Orchestrator: параллельный запуск QR (sync) + EasyOCR (thread). ReceiptAgeEstimator: если QR-дата > 12 мес — пропустить QR. Вызов ResultMerger + DrugNormalizer. Возвращает ParsedReceipt с полным набором полей",
+      "acceptance_criteria": [
+        "app/services/ocr/pipeline.py: async функция process_image(image_bytes: bytes) -> ParsedReceipt",
+        "Параллельный запуск: QR decode (sync) + asyncio.run_in_executor для EasyOCR",
+        "ReceiptAgeEstimator: если QR.date < now() - 12 мес → qr_result=None для merger",
+        "ParsedReceipt: все поля MergedReceipt + items: list[NormalizedItem] + processing_time_ms: int",
+        "NormalizedItem: drug_name_raw, drug_inn, is_rx, quantity, unit_price, total_price, drug_match_score",
+        "Логирование времени каждого шага (preprocessing, qr, ocr, merge, normalize)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_pipeline.py — интеграционный тест с реальным фото",
+        "Шаг 2: pipeline с чеком с QR → strategy='merged', confidence≥0.85",
+        "Шаг 3: pipeline со старым чеком (имитация > 12 мес) → QR пропущен, strategy='ocr_only'",
+        "Шаг 4: pipeline с плохим фото → strategy='both_failed', confidence=0.0",
+        "Шаг 5: время обработки нормального чека < 8 сек (p95)"
+      ],
+      "dependencies": ["B-03", "B-04", "B-05", "B-06"],
+      "status": "pending"
+    },
+    {
+      "id": "B-08",
+      "category": "functional",
+      "priority": "high",
+      "description": "Celery OCR Task: ocr_task.py — принимает receipt_id, скачивает файл из S3, запускает pipeline, сохраняет ParsedReceipt в БД (receipts + receipt_items), отправляет уведомление через telegram_notifier. Обновляет статус PENDING→DONE/REVIEW/FAILED",
+      "acceptance_criteria": [
+        "workers/tasks/ocr_task.py: задача process_receipt(receipt_id: str)",
+        "Скачивает файл из S3 по ключу из receipts.s3_key",
+        "Вызывает pipeline.process_image()",
+        "Сохраняет в receipts: purchase_date, pharmacy_name, total_amount, ocr_confidence, merge_strategy",
+        "Создаёт receipt_items для каждого элемента ParsedReceipt.items",
+        "Статус: confidence≥0.85 → DONE, 0.60-0.84 → REVIEW, <0.60 → FAILED",
+        "При is_rx=True запускает поиск рецепта (вызов prescription search service)",
+        "Отправляет уведомление пользователю через telegram_notifier"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_workers/test_ocr_task.py — с mock S3 и mock pipeline",
+        "Шаг 2: создать receipt в БД со статусом PENDING, запустить задачу → статус изменился",
+        "Шаг 3: receipt_items созданы в БД с корректными полями",
+        "Шаг 4: celery -A workers.celery_app worker --loglevel=info — воркер стартует и обрабатывает задачу"
+      ],
+      "dependencies": ["A-03", "B-07", "B-01"],
+      "status": "pending"
+    },
+    {
+      "id": "B-09",
+      "category": "functional",
+      "priority": "high",
+      "description": "Batch Classifier: 5-шаговый алгоритм классификации файла как receipt/prescription/unknown. Использует только Tesseract psm6 первые 10 строк (~0.3 сек). Возвращает ClassificationResult",
+      "acceptance_criteria": [
+        "app/services/ocr/batch_classifier.py: функция classify(image_bytes: bytes) -> ClassificationResult",
+        "Шаг 1: QR decode → fn/i/fp параметры → receipt, confidence=1.0",
+        "Шаг 2: Tesseract psm6, слова ФИСКАЛЬНЫЙ/ФН/ФД/ФП/АПТЕКА/ИТОГО → receipt при 3+ словах, confidence=0.85",
+        "Шаг 3: слова Rp./Рецепт/107-1/у/МНН/Дозировка/Врач → prescription при 2+ словах, confidence=0.85",
+        "Шаг 4: слова ВЫПИСКА/МЕДИЦИНСКАЯ КАРТА/003/у/025/у/ДИАГНОЗ → prescription при 2+ словах, confidence=0.80",
+        "Шаг 5: → unknown, confidence=0.0",
+        "ClassificationResult: classified_as: str, confidence: float, keywords_found: list[str], recommended_doc_type: str | None",
+        "Время классификации < 0.5 сек на среднем CPU"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_ocr/test_classifier.py",
+        "Шаг 2: тест с фото чека с QR → receipt, confidence=1.0",
+        "Шаг 3: тест с фото рецепта 107-1/у → prescription, confidence≥0.85",
+        "Шаг 4: тест с рандомным фото → unknown, confidence=0.0",
+        "Шаг 5: 100 вызовов classify → среднее время < 0.5 сек"
+      ],
+      "dependencies": ["B-04"],
+      "status": "pending"
+    },
+    {
+      "id": "C-01",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Bot Foundation: Application builder, webhook/polling режим (polling для dev через env), bot/config.py, api_client.py на httpx с cookie-jar для JWT. Handler errors.py с Sentry. Команды /start регистрируются",
+      "acceptance_criteria": [
+        "bot/main.py: Application.builder().token(config.BOT_TOKEN).build()",
+        "bot/config.py: BOT_TOKEN, BACKEND_URL, WEBHOOK_URL, WEBHOOK_SECRET",
+        "bot/services/api_client.py: класс BackendClient с httpx.AsyncClient, cookie persistence, методы get/post/patch",
+        "При 401 от backend — BackendClient пробует /auth/refresh, затем повторяет запрос",
+        "bot/handlers/errors.py: ErrorHandler отправляет в Sentry, отвечает пользователю «Что-то пошло не так»",
+        "Polling режим работает при BOT_WEBHOOK_URL не задан"
+      ],
+      "test_steps": [
+        "Шаг 1: python bot/main.py — бот стартует в polling режиме без ошибок",
+        "Шаг 2: /start в Telegram — бот отвечает (любым сообщением)",
+        "Шаг 3: pytest tests/test_bot/test_api_client.py — mock httpx тесты"
+      ],
+      "dependencies": ["A-01", "A-05"],
+      "status": "pending"
+    },
+    {
+      "id": "C-02",
+      "category": "functional",
+      "priority": "critical",
+      "description": "OTP Auth FSM: ConversationHandler OTP_AUTH. /start у нового пользователя → ReplyKeyboard «Поделиться контактом» → WAITING_CONTACT → POST /auth/otp-via-bot (telegram_id, phone) → JWT в cookie → приветствие. У вернувшегося пользователя — пропуск",
+      "acceptance_criteria": [
+        "bot/handlers/conversations.py: ConversationHandler OTP_AUTH",
+        "WAITING_CONTACT: ожидает ContactMessage от пользователя",
+        "Нажата кнопка → POST api_client /auth/bot-register {telegram_id, phone, username}",
+        "Успех → JWT сохранён в cookie jar → remove ReplyKeyboard → «Добро пожаловать!»",
+        "Повторный /start у зарегистрированного → сразу приветствие без запроса контакта",
+        "Только контакт самого пользователя принимается (contact.user_id == update.effective_user.id)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_bot/test_otp_auth.py — mock тесты FSM",
+        "Шаг 2: /start в реальном Telegram → появляется кнопка «Поделиться контактом»",
+        "Шаг 3: нажать кнопку → бот отвечает приветствием",
+        "Шаг 4: повторный /start → нет запроса контакта"
+      ],
+      "dependencies": ["C-01", "D-01"],
+      "status": "pending"
+    },
+    {
+      "id": "C-03",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Receipt Flow FSM: приём фото/документа. WAITING_MORE_PHOTOS (таймаут 3 сек после последнего фото), группировка media group, запуск Celery batch через API. Уведомление «Обрабатываю N файлов...». Callback статуса от воркера через telegram_notifier",
+      "acceptance_criteria": [
+        "WAITING_MORE_PHOTOS: MessageHandler для photo и document (PDF)",
+        "Буферизация media group: хранение в context.user_data, таймаут 3 сек на новое фото",
+        "START_PROCESSING: POST /api/v1/batch с файлами → получить batch_id",
+        "Уведомление: «✅ Принял N файлов. Обрабатываю...»",
+        "Callback от воркера: telegram_notifier отправляет результат по telegram_id",
+        "Принимаются JPEG, PNG, WEBP, PDF (через document)",
+        "Ошибка формата → «Пришли фото чека (JPG/PNG) или PDF»"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_bot/test_receipt_flow.py — mock тесты",
+        "Шаг 2: отправить фото чека в бот → «Принял 1 файл. Обрабатываю...»",
+        "Шаг 3: отправить 3 фото подряд → «Принял 3 файла. Обрабатываю...»",
+        "Шаг 4: отправить PDF → принят как документ",
+        "Шаг 5: после обработки → уведомление с результатом"
+      ],
+      "dependencies": ["C-01", "B-08"],
+      "status": "pending"
+    },
+    {
+      "id": "C-04",
+      "category": "functional",
+      "priority": "high",
+      "description": "Prescription Dialog FSM: WAITING_PRESCRIPTION_ACTION (Загрузить/Ввести/Позже), WAITING_PRESCRIPTION_PHOTO → OCR рецепта, MANUAL_PRESCRIPTION_INPUT (8 состояний: врач/специальность/клиника/дата/препарат/дозировка/срок/подтверждение), CONFIRM_PRESCRIPTION",
+      "acceptance_criteria": [
+        "WAITING_PRESCRIPTION_ACTION: InlineKeyboard с 3 кнопками",
+        "WAITING_PRESCRIPTION_PHOTO: ожидает фото → POST /prescriptions с фото → OCR → предзаполненные поля",
+        "MANUAL_PRESCRIPTION_INPUT: 8 состояний с валидацией. ASK_ISSUE_DATE: regex \\d{2}\\.\\d{2}\\.\\d{4}. ASK_DRUG_NAME: fuzzy ГРЛС → top-3 кнопки + «Другое»",
+        "CONFIRM_PRESCRIPTION: сводка → ✅ Сохранить / ✏️ Изменить / ❌ Отмена",
+        "Состояния specialty, clinic, dosage, expires_at поддерживают /skip",
+        "После сохранения: привязка к receipt_item_id"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_bot/test_prescription_dialog.py",
+        "Шаг 2: реальный сценарий «Ввести вручную» — пройти все 8 состояний",
+        "Шаг 3: /skip на необязательном поле — FSM переходит к следующему",
+        "Шаг 4: «Позже» → чек сохранён с needs_prescription=true",
+        "Шаг 5: выбрать «Изменить» на подтверждении → возврат к первому полю"
+      ],
+      "dependencies": ["C-03", "E-03"],
+      "status": "pending"
+    },
+    {
+      "id": "C-05",
+      "category": "functional",
+      "priority": "medium",
+      "description": "Bot Commands: /summary (сводка по месяцам, % от 150k, вычет 13%), /export (запрос ZIP-пакета → ссылка на скачивание), /help (описание команд). MarkdownV2 форматирование. Inline кнопка открытия Mini App",
+      "acceptance_criteria": [
+        "/summary → GET /receipts/summary → форматированный текст с таблицей по месяцам",
+        "Пример вывода: «📊 *2024 год*\\n01/2024: 3 500 ₽ (2 чека)\\n...\\nИтого: 12 450 ₽\\nВычет: 1 618 ₽ (13%)\\nИспользовано: 8.3% от 150 000 ₽»",
+        "/export → POST /export → статус ожидания → ссылка когда готово",
+        "InlineKeyboardButton для открытия Mini App: url=t.me/botname/app",
+        "Экранирование специальных символов MarkdownV2"
+      ],
+      "test_steps": [
+        "Шаг 1: /summary → ответ с корректно отформатированной сводкой",
+        "Шаг 2: /export → «Готовлю документы...» → через несколько секунд ссылка",
+        "Шаг 3: /help → список команд с описаниями"
+      ],
+      "dependencies": ["C-01", "E-02", "H-01"],
+      "status": "pending"
+    },
+    {
+      "id": "D-01",
+      "category": "security",
+      "priority": "critical",
+      "description": "OTP Service + JWT Service: генерация 6-значного кода, bcrypt хеш в otp_codes, TTL 5 мин, блокировка при 5 попытках. JWT: HS256, access_token TTL 15 мин, refresh_token TTL 30 дней с rotation (инвалидация предыдущего)",
+      "acceptance_criteria": [
+        "app/services/auth/otp_service.py: generate_otp(phone) → code, verify_otp(phone, code) → bool",
+        "otp_codes: code_hash через bcrypt.hashpw, attempts инкрементируется при неверном коде",
+        "Блокировка: при attempts >= 5 → HTTPException 429",
+        "Один активный OTP на номер (новый запрос инвалидирует предыдущий через used=true)",
+        "app/services/auth/jwt_service.py: create_access_token(user_id), create_refresh_token(user_id, family_id)",
+        "Refresh rotation: при использовании refresh → новый refresh, старый инвалидируется (family_id механизм)",
+        "Refresh token family: при обнаружении повторного использования → инвалидировать всю семью"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_auth/test_otp_service.py",
+        "Шаг 2: generate + verify корректного кода → True",
+        "Шаг 3: 5 неверных попыток → 6-я попытка → HTTPException 429",
+        "Шаг 4: verify верного кода → used=True → повторный verify → False",
+        "Шаг 5: pytest tests/test_auth/test_jwt_service.py — access decode, refresh rotation"
+      ],
+      "dependencies": ["A-03", "A-05"],
+      "status": "pending"
+    },
+    {
+      "id": "D-02",
+      "category": "security",
+      "priority": "critical",
+      "description": "Auth Router: POST /auth/otp (отправить 6-значный код через telegram_notifier), POST /auth/verify (проверить → set httpOnly cookies), POST /auth/refresh (rotation), POST /auth/logout, POST /auth/bot-register (для бота)",
+      "acceptance_criteria": [
+        "POST /auth/otp: body {phone: '+7XXXXXXXXXX'} → отправляет OTP через бот → {message: 'Код отправлен'}",
+        "POST /auth/verify: body {phone, code} → при успехе set-cookie access_token + refresh_token (httpOnly, Secure, SameSite=Strict)",
+        "POST /auth/refresh: читает refresh_token из cookie → rotation → новые куки",
+        "POST /auth/logout: clear cookies",
+        "POST /auth/bot-register: body {telegram_id, phone, username} → создаёт/находит user → JWT в ответе (для бота)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_auth/test_auth_router.py",
+        "Шаг 2: POST /auth/verify с верным кодом → response cookies содержат access_token и refresh_token",
+        "Шаг 3: GET /api/v1/receipts без токена → 401",
+        "Шаг 4: GET /api/v1/receipts с access_token cookie → 200",
+        "Шаг 5: POST /auth/refresh → новые куки, старый refresh не работает"
+      ],
+      "dependencies": ["D-01"],
+      "status": "pending"
+    },
+    {
+      "id": "D-03",
+      "category": "security",
+      "priority": "high",
+      "description": "RLS Middleware + get_current_user dependency: middleware устанавливает SET LOCAL app.current_user_id перед каждым запросом. Dependency декодирует JWT из httpOnly cookie, возвращает User или 401",
+      "acceptance_criteria": [
+        "app/middleware/rls.py: RLSMiddleware, устанавливает app.current_user_id через SET LOCAL в каждой транзакции",
+        "app/dependencies.py: get_current_user → декодирует JWT, проверяет exp, возвращает User",
+        "get_current_user_optional → возвращает User | None (для публичных эндпоинтов)",
+        "Middleware пропускает /health и /auth/* эндпоинты (не требуют user_id)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_middleware/test_rls.py",
+        "Шаг 2: запрос к /receipts с токеном user_A → видит только свои записи",
+        "Шаг 3: запрос к /receipts с токеном user_B → видит только свои записи",
+        "Шаг 4: попытка прямого SQL SELECT без user_id → RLS блокирует"
+      ],
+      "dependencies": ["D-01", "A-03"],
+      "status": "pending"
+    },
+    {
+      "id": "D-04",
+      "category": "security",
+      "priority": "high",
+      "description": "Alembic 0004_rls_policies: ENABLE ROW LEVEL SECURITY на receipts, receipt_items, prescriptions, batch_jobs. Политики USING (user_id = current_setting('app.current_user_id')::uuid). Роль medvychet_worker с BYPASS ROW LEVEL SECURITY",
+      "acceptance_criteria": [
+        "RLS включён на 4 таблицах",
+        "SELECT policy для каждой таблицы через USING",
+        "INSERT/UPDATE/DELETE policies аналогично",
+        "receipt_items: USING (EXISTS (SELECT 1 FROM receipts r WHERE r.id = receipt_id AND r.user_id = ...))",
+        "CREATE ROLE medvychet_worker LOGIN; GRANT ... TO medvychet_worker; ALTER ROLE medvychet_worker BYPASSRLS",
+        "В .env.example: DATABASE_URL_WORKER для воркеров"
+      ],
+      "test_steps": [
+        "Шаг 1: alembic upgrade head — миграция применяется",
+        "Шаг 2: psql — SELECT tablename, rowsecurity FROM pg_tables WHERE tablename IN ('receipts', ...)",
+        "Шаг 3: SET app.current_user_id = 'user-a-uuid'; SELECT * FROM receipts — только записи user_a",
+        "Шаг 4: SET app.current_user_id = 'user-b-uuid'; SELECT * FROM receipts — только записи user_b"
+      ],
+      "dependencies": ["A-03", "D-03"],
+      "status": "pending"
+    },
+    {
+      "id": "D-05",
+      "category": "security",
+      "priority": "high",
+      "description": "Mini App Auth: POST /auth/mini-app — парсинг initData из Telegram WebApp, HMAC-SHA256 верификация с bot token, извлечение telegram_id, поиск/создание пользователя, возврат JWT cookies",
+      "acceptance_criteria": [
+        "POST /auth/mini-app: body {init_data: str}",
+        "Верификация: data_check_string = sorted query params без hash, HMAC-SHA256(data_check_string, HMAC-SHA256('WebAppData', bot_token))",
+        "При невалидной подписи → 401",
+        "Извлечение user.id из initData.user JSON",
+        "Найти user по telegram_id или создать нового",
+        "Вернуть access_token + refresh_token cookies"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_auth/test_mini_app_auth.py — с реальной и поддельной подписью",
+        "Шаг 2: поддельная подпись → 401",
+        "Шаг 3: валидный initData → 200 + cookies"
+      ],
+      "dependencies": ["D-01"],
+      "status": "pending"
+    },
+    {
+      "id": "E-01",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Receipts Router + Service: POST /receipts/upload (сохранить в S3, создать receipt PENDING, поставить в Celery), GET /receipts (список с пагинацией и фильтром по году/месяцу), GET /receipts/{id} (detail с presigned URL), PATCH /receipts/{id} (ручная правка)",
+      "acceptance_criteria": [
+        "POST /receipts/upload: принимает file (UploadFile), сохраняет в S3 medvychet-receipts/{user_id}/{uuid}.{ext}, создаёт Receipt(status=PENDING), ставит ocr_task в Celery, возвращает ReceiptUploadResponse",
+        "GET /receipts: возвращает список ReceiptListItem с группировкой по месяцам, фильтр year и month",
+        "GET /receipts/{id}: ReceiptDetail включает image_url (presigned TTL 15 мин), items, confidence, strategy",
+        "PATCH /receipts/{id}: частичное обновление (purchase_date, pharmacy_name, total_amount, items)",
+        "Валидация: только jpg/png/webp/pdf, размер < 20 МБ"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_receipts/test_router.py",
+        "Шаг 2: POST /receipts/upload с тестовым JPEG → 201, receipt_id в ответе",
+        "Шаг 3: GET /receipts — список содержит загруженный чек",
+        "Шаг 4: GET /receipts/{id} — image_url работает (200 при GET)",
+        "Шаг 5: PATCH /receipts/{id} {purchase_date: '2024-01-15'} → 200, дата обновлена"
+      ],
+      "dependencies": ["A-03", "B-01", "B-08", "D-03"],
+      "status": "pending"
+    },
+    {
+      "id": "E-02",
+      "category": "functional",
+      "priority": "high",
+      "description": "Summary Endpoint: GET /receipts/summary?year=2024 — SummaryResponse с MonthSummary[], total_amount, deduction_amount (×13%), limit_used_pct от 150k, флаг has_missing_prescriptions",
+      "acceptance_criteria": [
+        "GET /receipts/summary?year={year}: SummaryResponse",
+        "MonthSummary: month='2024-01', receipts_count=5, total_amount=3500.00, has_missing_prescriptions=true/false",
+        "deduction_amount = total_amount × 0.13, округление до копеек",
+        "limit_used_pct = (total_amount / 150000) × 100, максимум 100%",
+        "Только чеки со статусом DONE или REVIEW включаются в сумму",
+        "По умолчанию year = текущий год"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_receipts/test_summary.py",
+        "Шаг 2: создать 3 чека за январь на суммы 1000, 2000, 500 → summary январь total=3500",
+        "Шаг 3: deduction_amount = 455.00 (3500 × 0.13)",
+        "Шаг 4: чек с needs_prescription=true → has_missing_prescriptions=true для этого месяца"
+      ],
+      "dependencies": ["E-01"],
+      "status": "pending"
+    },
+    {
+      "id": "E-03",
+      "category": "functional",
+      "priority": "high",
+      "description": "Prescriptions Router + Service: POST /prescriptions (создать, 7 doc_types, expires_at default +60 дней), GET /prescriptions (с DocTypeFilter), GET /prescriptions/{id}, DELETE, POST /prescriptions/link (привязать к receipt_item)",
+      "acceptance_criteria": [
+        "POST /prescriptions: PrescriptionCreate schema, если expires_at не задан → issue_date + 60 дней, загрузка фото в S3 medvychet-prescriptions",
+        "POST /prescriptions с doc_type 025/у или 025-1/у → risk_level=DISPUTED в ответе",
+        "GET /prescriptions: фильтр doc_type, status (active/expired), страница",
+        "POST /prescriptions/link: body {prescription_id, receipt_item_id}, проверка user ownership, обновляет receipt_items.prescription_id",
+        "GET /prescriptions/{id}/pdf-blank (из E-05): presigned URL на PDF"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_prescriptions/test_router.py",
+        "Шаг 2: POST /prescriptions {doc_type: 'recipe_107', issue_date: '2024-01-15', drug_name: 'Амоксициллин'} → 201, expires_at = '2024-03-15'",
+        "Шаг 3: GET /prescriptions?doc_type=recipe_107 → только рецепты 107-1/у",
+        "Шаг 4: POST /prescriptions/link → receipt_item.prescription_id обновлён",
+        "Шаг 5: попытка привязать чужой рецепт → 403"
+      ],
+      "dependencies": ["A-03", "D-03"],
+      "status": "pending"
+    },
+    {
+      "id": "E-04",
+      "category": "functional",
+      "priority": "high",
+      "description": "Prescription Search Service (L1-L4): вызывается из ocr_task при is_rx=True для каждого препарата. L1: точный МНН + дата в сроке. L2: МНН совпал, просрочен ≤30 дней. L3: rapidfuzz ≥85. L4: ничего. Возвращает PrescriptionSearchResult",
+      "acceptance_criteria": [
+        "app/services/prescriptions/search_service.py: async функция find_prescription(user_id, drug_inn, drug_name, purchase_date, db) -> PrescriptionSearchResult | None",
+        "L1: SQL WHERE user_id=? AND drug_inn=? AND issue_date<=purchase_date AND expires_at>=purchase_date",
+        "L2: SQL WHERE drug_inn=? AND purchase_date-expires_at <= '30 days'",
+        "L3: загрузить все prescriptions пользователя с похожим drug_name, rapidfuzz WRatio ≥ 85",
+        "L4: вернуть None",
+        "PrescriptionSearchResult: prescription, match_level (L1/L2/L3), days_overdue: int|None, confidence_score: float"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_prescriptions/test_search_service.py",
+        "Шаг 2: рецепт на ибупрофен, покупка в период действия → L1 match",
+        "Шаг 3: рецепт просрочен 15 дней → L2 match",
+        "Шаг 4: рецепт на 'Нурофен', покупка 'НУРОФЕН ЭКСПРЕСС' → L3 match",
+        "Шаг 5: нет подходящего рецепта → None (L4)"
+      ],
+      "dependencies": ["E-03", "B-06"],
+      "status": "pending"
+    },
+    {
+      "id": "E-05",
+      "category": "functional",
+      "priority": "medium",
+      "description": "Prescription PDF Blank: GET /prescriptions/{id}/pdf-blank — генерация PDF бланка формы 107-1/у с заполненными полями через ReportLab. Кириллица через встроенный шрифт. Сохранение в S3, возврат presigned URL",
+      "acceptance_criteria": [
+        "app/services/prescriptions/pdf_blank.py: async функция generate_107_blank(prescription_id, db) -> str (presigned_url)",
+        "PDF А5, поля формы 107-1/у: ФИО пациента (пустое), ФИО врача, специальность, дата, Rp: препарат + дозировка + количество",
+        "Шрифт: DejaVuSans (встроен) или FreeSans для кириллицы",
+        "Сохранение: S3 medvychet-prescriptions/{user_id}/blank_{prescription_id}.pdf",
+        "Если PDF уже существует → вернуть presigned URL без повторной генерации"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_prescriptions/test_pdf_blank.py",
+        "Шаг 2: GET /prescriptions/{id}/pdf-blank → presigned URL",
+        "Шаг 3: скачать PDF по URL → открывается в PDF viewer",
+        "Шаг 4: PDF содержит имя врача и название препарата"
+      ],
+      "dependencies": ["E-03", "B-01"],
+      "status": "pending"
+    },
+    {
+      "id": "F-01",
+      "category": "functional",
+      "priority": "high",
+      "description": "Batch API + Celery Tasks: POST /batch (принять N файлов, создать batch_job, N задач batch_task). batch_task: classify → OCR → autolink (рецепты привязываются к чекам из той же пачки) → publish SSE event в Redis PubSub",
+      "acceptance_criteria": [
+        "POST /api/v1/batch: принимает files: list[UploadFile], создаёт BatchJob, сохраняет каждый файл в S3, ставит N задач batch_task в Celery, возвращает BatchJobResponse",
+        "workers/tasks/batch_task.py: classify → если receipt: process_receipt → если prescription: сохранить как prescription",
+        "Autolink: после обработки всех файлов пачки → поиск рецептов среди других файлов той же пачки",
+        "Redis PubSub publish: после каждого файла → событие в канал batch:{batch_id}",
+        "batch_job.done_count/review_count/failed_count инкрементируются атомарно",
+        "При done_count + review_count + failed_count = total_files → статус completed, completed_at = now()"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_batch/test_batch_api.py",
+        "Шаг 2: POST /batch с 3 файлами → batch_id в ответе, статус processing",
+        "Шаг 3: дождаться обработки → batch статус completed",
+        "Шаг 4: GET /receipts → 3 новых чека связаны с batch_id",
+        "Шаг 5: Redis SUBSCRIBE batch:{id} → события приходят по мере обработки"
+      ],
+      "dependencies": ["A-06", "B-07", "B-09", "E-01", "E-04"],
+      "status": "pending"
+    },
+    {
+      "id": "F-02",
+      "category": "integration",
+      "priority": "high",
+      "description": "SSE Stream: GET /api/v1/batch/{batch_id}/stream — FastAPI StreamingResponse, Redis PubSub subscribe на канал batch:{id}, форматирование event/data/id, heartbeat каждые 15 сек. Закрытие при batch_complete или disconnect",
+      "acceptance_criteria": [
+        "app/routers/batch.py: GET /batch/{batch_id}/stream → StreamingResponse(content_type='text/event-stream')",
+        "Redis PubSub subscribe на batch:{batch_id}",
+        "Heartbeat каждые 15 сек: «event: heartbeat\\ndata: {timestamp}\\n\\n»",
+        "Формат: «event: item_done\\ndata: {json}\\nid: {seq}\\n\\n»",
+        "При получении batch_complete → закрыть поток после отправки события",
+        "Авторизация: только владелец batch_job может подписаться",
+        "workers/sse_publisher.py: функция publish_event(batch_id, event_type, data)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_batch/test_sse.py — mock Redis PubSub",
+        "Шаг 2: curl -N http://localhost:8000/api/v1/batch/{id}/stream — события приходят",
+        "Шаг 3: heartbeat приходит каждые ~15 сек при отсутствии событий",
+        "Шаг 4: batch_complete событие → поток закрывается",
+        "Шаг 5: запрос чужого batch_id → 403"
+      ],
+      "dependencies": ["F-01"],
+      "status": "pending"
+    },
+    {
+      "id": "G-01",
+      "category": "ui",
+      "priority": "high",
+      "description": "Next.js Foundation: layout.tsx с QueryClientProvider + Zustand providers, lib/api.ts (fetch wrapper 401→refresh→retry с httpOnly cookie), lib/store.ts (authStore, batchStore, reviewStore), types/api.ts (TypeScript типы из OpenAPI)",
+      "acceptance_criteria": [
+        "frontend/src/app/layout.tsx: Providers (QueryClient, ThemeProvider)",
+        "lib/api.ts: функция apiRequest(url, options) — при 401 вызывает POST /api/auth/refresh, повторяет оригинальный запрос",
+        "lib/store.ts: authStore {user, isAuthenticated, login(tokens), logout()}, batchStore {activeBatch, items, handleSSEEvent, clearBatch}, reviewStore {queue, currentIdx, loadQueue, approve, skip}",
+        "types/api.ts: интерфейсы Receipt, ReceiptItem, Prescription, BatchJob, Summary — соответствуют backend Pydantic схемам",
+        "next.config.ts: rewrites /api/* → backend:8000/api/*"
+      ],
+      "test_steps": [
+        "Шаг 1: npm run dev — Next.js стартует без ошибок",
+        "Шаг 2: npm run build — сборка без TypeScript ошибок",
+        "Шаг 3: npm run lint — ESLint без ошибок",
+        "Шаг 4: открыть localhost:3000 → страница загружается"
+      ],
+      "dependencies": ["A-01", "D-02"],
+      "status": "pending"
+    },
+    {
+      "id": "G-02",
+      "category": "ui",
+      "priority": "high",
+      "description": "Login Page: /login — PhoneInput (regex +7XXXXXXXXXX, маска), запрос OTP кнопкой, OTPInput (6 цифр с автофокусом между полями), после верификации → redirect /dashboard. Обработка ошибок: 5 попыток, таймер повтора",
+      "acceptance_criteria": [
+        "app/(auth)/login/page.tsx: два шага — ввод телефона и ввод OTP",
+        "PhoneInput: форматирование +7 (XXX) XXX-XX-XX, валидация по blur",
+        "OTPInput: 6 отдельных input[maxLength=1], автофокус при вводе, backspace переходит назад",
+        "При успехе: authStore.login(), router.push('/dashboard')",
+        "При 429: «Слишком много попыток. Подождите X мин»",
+        "Кнопка «Получить код» неактивна 60 сек после отправки (таймер)"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /login → форма ввода телефона",
+        "Шаг 2: ввести +7XXXXXXXXXX → кнопка «Получить код» активна",
+        "Шаг 3: нажать → шаг OTP, таймер 60 сек",
+        "Шаг 4: ввести 6 цифр (mock OTP из dev) → redirect на /dashboard",
+        "Шаг 5: неверный код → сообщение об ошибке, поле очищается"
+      ],
+      "dependencies": ["G-01", "D-02"],
+      "status": "pending"
+    },
+    {
+      "id": "G-03",
+      "category": "ui",
+      "priority": "high",
+      "description": "Dashboard Page: StatCards (итого расходов, вычет 13%, количество чеков, количество с ошибками), YearProgress (прогресс-бар 150k с цветами: зелёный/жёлтый/красный), RecentReceipts (последние 5), DeductionCalc (расчёт вычета)",
+      "acceptance_criteria": [
+        "app/(cabinet)/dashboard/page.tsx",
+        "StatCards: 4 карточки с иконками. Данные из GET /receipts/summary",
+        "YearProgress: ProgressBar с процентом. Зелёный <50%, жёлтый 50-90%, красный >90%",
+        "RecentReceipts: последние 5 чеков с датой, суммой, статусом (ConfidenceBadge)",
+        "DeductionCalc: «При доходе X₽ и НДФЛ Y₽ ваш вычет составит Z₽»",
+        "Loading skeleton пока данные загружаются",
+        "TanStack Query: useSummary hook, stale 60 сек"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /dashboard с mock данными → все компоненты отображаются",
+        "Шаг 2: StatCard «Итого расходов» показывает корректную сумму из API",
+        "Шаг 3: YearProgress > 90% → красный цвет",
+        "Шаг 4: клик на чек в RecentReceipts → переход на /receipts/{id}"
+      ],
+      "dependencies": ["G-01", "E-02"],
+      "status": "pending"
+    },
+    {
+      "id": "G-04",
+      "category": "ui",
+      "priority": "high",
+      "description": "Receipts Page + Upload Zone: ReceiptTable с MonthFilter и сортировкой, UploadZone (drag&drop, JPG/PNG/WEBP/PDF, preview thumbnail до отправки, прогресс каждого файла), BatchProgress (SSE через useBatchSSE hook), ConfidenceBadge",
+      "acceptance_criteria": [
+        "app/(cabinet)/receipts/page.tsx",
+        "ReceiptTable: колонки дата/аптека/сумма/статус/действия, группировка по месяцам с итогами",
+        "MonthFilter: выпадающий список месяцев текущего года",
+        "UploadZone: drag&drop area + кнопка файлового диалога. Accept: .jpg,.jpeg,.png,.webp,.pdf. Max 20МБ каждый",
+        "Preview thumbnail перед загрузкой (URL.createObjectURL)",
+        "BatchProgress: компонент активен пока batchStore.activeBatch != null, показывает ✅/⚠️/❌ для каждого файла в реальном времени через SSE",
+        "ConfidenceBadge: зелёный ≥0.85, жёлтый 0.60-0.84, красный <0.60"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /receipts → список чеков с фильтром по месяцам",
+        "Шаг 2: drag & drop файл → превью появляется",
+        "Шаг 3: подтвердить загрузку → BatchProgress показывается с прогрессом",
+        "Шаг 4: SSE события → статусы обновляются без перезагрузки страницы",
+        "Шаг 5: после batch_complete → таблица обновляется (query invalidation)"
+      ],
+      "dependencies": ["G-01", "E-01", "F-02"],
+      "status": "pending"
+    },
+    {
+      "id": "G-05",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Receipt Detail Page: ReceiptDetail с PresignedImage (авто-рефреш URL каждые 14 мин), ItemsTable с редактируемыми полями, OCREditor (подсветка полей с confidence < 0.7 жёлтым), PrescriptionLinker (поиск и привязка рецепта)",
+      "acceptance_criteria": [
+        "app/(cabinet)/receipts/[id]/page.tsx",
+        "PresignedImage: компонент загружает GET /receipts/{id} каждые 14 мин для обновления image_url",
+        "OCREditor: форма с полями purchase_date, pharmacy_name, total_amount. Поля с confidence < 0.7 подсвечены жёлтым ⚠️",
+        "ItemsTable: название препарата, МНН, количество, цена, is_rx badge, колонка рецепт",
+        "PrescriptionLinker: для is_rx=true — поиск GET /prescriptions/search?drug_inn=X&purchase_date=Y, показ найденных результатов с уровнем (L1/L2/L3), кнопка привязки",
+        "После PATCH /receipts/{id} → query invalidation"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /receipts/{id} → фото чека и поля OCR",
+        "Шаг 2: поле с низкой уверенностью → жёлтый фон",
+        "Шаг 3: исправить дату → сохранить → поле обновилось",
+        "Шаг 4: Rx-препарат без рецепта → PrescriptionLinker показывает варианты",
+        "Шаг 5: привязать рецепт → иконка рецепта появляется в ItemsTable"
+      ],
+      "dependencies": ["G-04", "E-03", "E-04"],
+      "status": "pending"
+    },
+    {
+      "id": "G-06",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Prescriptions Pages: PrescriptionList с DocTypeFilter и статусными бейджами, /prescriptions/new с DocTypeSelector (7 типов) → PrescriptionForm (адаптируется к типу) → PhotoUpload. Предупреждения для 025/у и 025-1/у",
+      "acceptance_criteria": [
+        "app/(cabinet)/prescriptions/page.tsx: список с фильтром по doc_type, статус active/expired badge",
+        "Просроченный рецепт: badge красный + «Просрочен N дней»",
+        "app/(cabinet)/prescriptions/new/page.tsx: 3 шага — DocTypeSelector → PrescriptionForm → PhotoUpload",
+        "DocTypeSelector: карточки для 7 типов документов с описаниями",
+        "PrescriptionForm: для 025/у и 025-1/у — жёлтый banner «⚠️ Этот тип документа ФНС принимает не всегда»",
+        "PhotoUpload: необязательный шаг для manual input",
+        "После создания → redirect на /prescriptions"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /prescriptions → список с фильтрами",
+        "Шаг 2: /prescriptions/new → выбрать тип 107-1/у → форма без предупреждения",
+        "Шаг 3: выбрать 025/у → появляется предупреждение",
+        "Шаг 4: заполнить форму, загрузить фото → POST /prescriptions → redirect",
+        "Шаг 5: созданный рецепт появился в списке"
+      ],
+      "dependencies": ["G-01", "E-03"],
+      "status": "pending"
+    },
+    {
+      "id": "G-07",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Review Queue Page: ReviewQueue список (только REVIEW-статус), ReviewCard с фото + редактируемые поля + ConfidenceBadge, кнопки «Подтвердить» / «Пропустить». Zustand reviewStore. Счётчик оставшихся",
+      "acceptance_criteria": [
+        "app/(cabinet)/review/page.tsx: список чеков со статусом REVIEW",
+        "ReviewCard: фото чека слева, форма справа. Поля с низкой уверенностью подсвечены",
+        "«Подтвердить» → PATCH /receipts/{id} с текущими значениями + смена статуса на DONE",
+        "«Пропустить» → следующий в очереди (reviewStore.skip())",
+        "Счётчик: «X чеков требует проверки»",
+        "Пустая очередь: иллюстрация «Всё проверено! ✅»",
+        "После последнего → redirect на /dashboard"
+      ],
+      "test_steps": [
+        "Шаг 1: создать чек со статусом REVIEW → появился в /review",
+        "Шаг 2: открыть /review → ReviewCard с фото и полями",
+        "Шаг 3: исправить поле → «Подтвердить» → статус DONE, следующий элемент",
+        "Шаг 4: «Пропустить» → следующий элемент, первый остаётся в очереди",
+        "Шаг 5: пустая очередь → сообщение «Всё проверено»"
+      ],
+      "dependencies": ["G-05"],
+      "status": "pending"
+    },
+    {
+      "id": "G-08",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Export Page + Profile Page: /export с YearSelector, ExportPreview (список файлов в ZIP), DownloadButton (polling статуса). /profile с формой ФИО/ИНН/СНИЛС, NotificationSettings, PolicyLinks",
+      "acceptance_criteria": [
+        "app/(cabinet)/export/page.tsx: YearSelector (текущий и 2 предыдущих года), кнопка «Сформировать ZIP»",
+        "ExportPreview: показывает что войдёт в ZIP — N чеков, M рецептов, PDF реестр",
+        "POST /export → статус processing → polling GET /export/{id} каждые 2 сек → DownloadButton активируется",
+        "DownloadButton: скачивает через presigned URL",
+        "app/(cabinet)/profile/page.tsx: форма ФИО/ИНН/СНИЛС с маскировкой СНИЛС, PATCH /profile",
+        "NotificationSettings: toggle уведомлений бота",
+        "PolicyLinks: ссылки на политику ПД и пользовательское соглашение"
+      ],
+      "test_steps": [
+        "Шаг 1: /export → выбрать год → нажать «Сформировать» → статус «Готовлю...»",
+        "Шаг 2: polling → DownloadButton становится активным",
+        "Шаг 3: скачать ZIP → файл содержит PDF реестр + чеки",
+        "Шаг 4: /profile → форма с данными пользователя",
+        "Шаг 5: обновить ФИО → PATCH /profile → данные обновились"
+      ],
+      "dependencies": ["G-01", "H-01"],
+      "status": "pending"
+    },
+    {
+      "id": "H-01",
+      "category": "functional",
+      "priority": "high",
+      "description": "PDF Registry + ZIP Packager: pdf_registry.py (ReportLab A4, 8 колонок, помесячные итоги синим фоном, строки без рецепта красным, QR-код ссылки). zip_packager.py (реестр + чеки из S3 + рецепты). POST /export → Celery задача → S3 medvychet-exports, TTL 7 дней",
+      "acceptance_criteria": [
+        "app/services/export/pdf_registry.py: функция generate_registry(user_id, year, db) -> bytes",
+        "PDF: шапка с ФИО/ИНН/годом, таблица 8 колонок по спецификации A.7, помесячные итоги, итого по году, расчёт вычета",
+        "Строка без prescription_id: красный цвет ячейки № документа, footnote «*»",
+        "QR-код в подписи: qrcode библиотека, ссылка на документ",
+        "app/services/export/zip_packager.py: создаёт ZIP в памяти (io.BytesIO), добавляет PDF реестр + оригиналы файлов из S3",
+        "POST /export: Celery задача, сохраняет в medvychet-exports/{user_id}/{year}_{uuid}.zip",
+        "GET /export/{id}: статус + presigned URL когда ready"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_export/test_pdf_registry.py",
+        "Шаг 2: generate_registry() → PDF bytes, открывается в PDF viewer",
+        "Шаг 3: PDF содержит все чеки, помесячные итоги, финальную сумму",
+        "Шаг 4: POST /export → polling → ZIP скачивается → содержит PDF и файлы чеков",
+        "Шаг 5: строки без рецепта → красная ячейка в PDF"
+      ],
+      "dependencies": ["E-01", "E-03", "B-01"],
+      "status": "pending"
+    },
+    {
+      "id": "H-02",
+      "category": "functional",
+      "priority": "low",
+      "description": "Cover Letter PDF: WeasyPrint генерация сопроводительного письма для ИФНС с ФИО, ИНН, перечнем документов, ссылкой на ст. 219 НК РФ. Добавление в ZIP-пакет",
+      "acceptance_criteria": [
+        "app/services/export/cover_letter.py: функция generate_cover_letter(user, year, summary, db) -> bytes",
+        "HTML шаблон → WeasyPrint → PDF",
+        "Содержит: ФИО, ИНН, налоговый орган (пустое поле), список прилагаемых документов, ссылку на ст. 219 НК РФ",
+        "Включается в ZIP из zip_packager.py как 'cover_letter.pdf'"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_export/test_cover_letter.py",
+        "Шаг 2: generate_cover_letter() → PDF bytes",
+        "Шаг 3: ZIP из POST /export содержит cover_letter.pdf"
+      ],
+      "dependencies": ["H-01"],
+      "status": "pending"
+    },
+    {
+      "id": "I-01",
+      "category": "security",
+      "priority": "high",
+      "description": "AES-256 шифрование ПД: app/services/storage/encryption.py — Fernet шифрование/дешифрование полей ФИО, ИНН, СНИЛС. Ключ из env. SQLAlchemy TypeDecorator EncryptedString. Alembic 0005 миграция существующих колонок",
+      "acceptance_criteria": [
+        "app/services/storage/encryption.py: класс EncryptionService с encrypt(value: str) -> str и decrypt(value: str) -> str",
+        "Fernet (AES-128-CBC с HMAC-SHA256) или AES-256-GCM через cryptography.hazmat",
+        "Ключ: ENCRYPTION_KEY из env, base64-encoded 32 байта",
+        "SQLAlchemy TypeDecorator: EncryptedString — шифрует при записи, дешифрует при чтении",
+        "Alembic 0005: изменить тип колонок users.full_name, users.inn, users.snils на EncryptedString",
+        "Существующие данные мигрируются (батчевое шифрование)"
+      ],
+      "test_steps": [
+        "Шаг 1: pytest tests/test_security/test_encryption.py",
+        "Шаг 2: encrypt('Иванов Иван') → зашифрованная строка, decrypt() → оригинал",
+        "Шаг 3: сохранить User с full_name → в БД зашифровано, через ORM — расшифровано",
+        "Шаг 4: alembic upgrade head (0005) — существующие записи зашифрованы"
+      ],
+      "dependencies": ["A-03", "D-03"],
+      "status": "pending"
+    },
+    {
+      "id": "I-02",
+      "category": "security",
+      "priority": "medium",
+      "description": "Telegram Mini App Frontend Integration: lib/telegram.ts (Telegram WebApp SDK инициализация, тема, getInitData). useAuth hook для Mini App flow. /api/auth/mini-app Next.js route handler. Подхват темы Telegram",
+      "acceptance_criteria": [
+        "frontend/src/lib/telegram.ts: функции isTelegramWebApp(), getTelegramInitData(), applyTelegramTheme()",
+        "hooks/useAuth.ts: при isTelegramWebApp() → POST /api/auth/mini-app с initData → authStore.login()",
+        "app/api/auth/mini-app/route.ts: Next.js route handler, проксирует на backend /auth/mini-app",
+        "applyTelegramTheme(): применяет CSS переменные из window.Telegram.WebApp.themeParams",
+        "Fallback: если не Mini App → обычный /login"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть в браузере (не Mini App) → redirect на /login",
+        "Шаг 2: открыть через t.me/bot/app → автоматический вход без формы",
+        "Шаг 3: тема Telegram (тёмная) → CSS переменные применены"
+      ],
+      "dependencies": ["G-01", "D-05"],
+      "status": "pending"
+    },
+    {
+      "id": "I-03",
+      "category": "security",
+      "priority": "medium",
+      "description": "PD Policy Pages (152-ФЗ): страница /privacy (политика обработки ПД), cookie-баннер при первом посещении (localStorage), чекбокс согласия на обработку медданных при первой загрузке рецепта/медкарты. Ссылки в подвале и /profile",
+      "acceptance_criteria": [
+        "app/(auth)/privacy/page.tsx: страница с политикой обработки ПД (placeholder текст для юриста)",
+        "Cookie banner: компонент CookieBanner, проверяет localStorage 'cookie_consent', показывает при первом визите",
+        "MedicalDataConsent: модальный диалог при первой загрузке рецепта/медкарты — «Согласен на обработку медицинских данных (ст. 10 152-ФЗ)»",
+        "users.medical_consent_at TIMESTAMPTZ — добавить в миграцию 0006 или 0003",
+        "Подвал: ссылки «Политика ПД» и «Пользовательское соглашение» на всех страницах cabinet",
+        "Чекбокс согласия при регистрации (/login)"
+      ],
+      "test_steps": [
+        "Шаг 1: первое посещение → cookie banner появляется",
+        "Шаг 2: принять cookies → banner исчезает, localStorage содержит флаг",
+        "Шаг 3: повторный визит → banner не появляется",
+        "Шаг 4: первая загрузка рецепта → диалог согласия на медданные",
+        "Шаг 5: /privacy → страница открывается"
+      ],
+      "dependencies": ["G-01"],
+      "status": "pending"
+    }
+  ]
+}

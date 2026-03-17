@@ -1,0 +1,32 @@
+# Progress Log — MedВычет
+
+> Лог прогресса агентов. Каждый агент добавляет запись после завершения задачи.
+> Формат: `## TASK-ID | Дата | Статус`
+
+---
+
+<!-- Агенты добавляют записи ниже этой строки -->
+
+## A-01 | 2026-03-17 | DONE
+
+**Задача**: Monorepo scaffold — структура папок, pyproject.toml, package.json, .env.example
+
+**Что создано в корне репо**:
+- `backend/pyproject.toml` — все зависимости: fastapi, uvicorn, sqlalchemy, alembic, celery, redis, boto3, easyocr, pytesseract, opencv-python-headless, pyzbar, rapidfuzz, python-telegram-bot, pydantic-settings, python-jose, passlib, reportlab, weasyprint, cryptography, sentry-sdk
+- `bot/pyproject.toml` — python-telegram-bot, httpx, pydantic-settings
+- `frontend/package.json` — next 15.1.0, react 19, @tanstack/react-query 5, zustand 5, shadcn/ui (radix-ui), tailwindcss, typescript
+- `frontend/tsconfig.json`, `next.config.ts` (rewrite /api/* → backend), `tailwind.config.ts`, `.eslintrc.json`
+- Полная структура директорий согласно CLAUDE.md: backend/app/{middleware,models,schemas,routers,services/{ocr,auth,prescriptions,export,storage},repositories}, workers/tasks, alembic/versions
+- `backend/alembic/env.py` — настроен для async SQLAlchemy
+- `backend/alembic.ini`
+- `backend/data/grls_drugs.json` — 100+ препаратов (МНН + торговые названия + is_rx флаг)
+- `backend/tests/conftest.py`
+- `infra/docker-compose.yml` — 6 сервисов с healthcheck
+- `backend/Dockerfile` (multi-stage, python:3.11-slim), `bot/Dockerfile`, `frontend/Dockerfile` (node:20-alpine multi-stage)
+- `.env.example` — уже был, содержит все необходимые переменные
+
+**Верификация синтаксиса**: alembic/env.py и tests/conftest.py проходят `python -m py_compile` ✅
+**Заметка**: `uv` находится в `c:\Users\russk\AppData\Local\uv\uv.exe`, нужно добавить в PATH перед запуском `uv sync`
+
+**Следующая задача**: A-05 (FastAPI app factory) — critical, зависит только от A-01 ✅ (теперь done)
+  ИЛИ A-02 (Docker Compose) — но там уже есть базовый docker-compose.yml в infra/
