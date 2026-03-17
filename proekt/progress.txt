@@ -177,6 +177,19 @@
 
 **Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_models.py` ✅ 19/19
 
+---
+
+## B-05 ruff-fix | 2026-03-17 | DONE
+
+**Сессия**: Финальные исправления ruff для B-05 test_merger.py
+
+**Что исправлено**:
+- `tests/test_ocr/test_merger.py`: `import pytest` удалён (F401), порядок imports исправлен (I001) через `ruff --fix`
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_ocr/test_merger.py` ✅ 24/24
+
+**Примечание по окружению**: `uv` недоступен в bash PATH — используются бинари Python311 (`ruff.exe`, `pytest.exe`) напрямую. Зависимости (moto, boto3 и т.д.) доступны в системном Python 3.11.
+
 **Ruff fix**: `str, enum.Enum` → `enum.StrEnum` (UP042), imports sorted (I001), `Union[X,None]` → `X | None` (UP007), E402 noqa в alembic/env.py
 
 **Следующие задачи** (все зависимости выполнены):

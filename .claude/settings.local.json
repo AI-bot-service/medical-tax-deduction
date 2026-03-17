@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(uv *)",
+      "Bash(C:/Users/russk/AppData/Local/uv/uv.exe *)",
+      "Bash(/c/Users/russk/AppData/Local/uv/uv.exe *)",
+      "Bash(C:/Users/russk/AppData/Local/Programs/Python/Python311/Scripts/ruff.exe *)",
+      "Bash(C:/Users/russk/AppData/Local/Programs/Python/Python311/Scripts/pytest.exe *)",
+      "Bash(git *)",
+      "Edit",
+      "Write",
+      "Read",
+      "Bash(cd:*)"
+    ]
+  }
+}

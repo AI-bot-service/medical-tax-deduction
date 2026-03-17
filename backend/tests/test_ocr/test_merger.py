@@ -13,11 +13,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-import pytest
-
 from app.services.ocr.ocr_result import OCRResult, QRResult, TextBlock
 from app.services.ocr.result_merger import MergedReceipt, merge
-
 
 # ---------------------------------------------------------------------------
 # Helpers
