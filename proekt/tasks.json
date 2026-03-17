@@ -60,7 +60,9 @@
         "Шаг 3: docker compose up --build — все сервисы стартуют без ошибок сборки",
         "Шаг 4: docker compose down -v — всё останавливается чисто"
       ],
-      "dependencies": ["A-01"],
+      "dependencies": [
+        "A-01"
+      ],
       "status": "done"
     },
     {
@@ -82,7 +84,9 @@
         "Шаг 4: alembic downgrade -1 && alembic upgrade head — rollback/upgrade работает",
         "Шаг 5: pytest tests/test_models.py — базовые CRUD операции через SQLAlchemy"
       ],
-      "dependencies": ["A-02"],
+      "dependencies": [
+        "A-02"
+      ],
       "status": "done"
     },
     {
@@ -101,7 +105,9 @@
         "Шаг 2: psql -c '\\d prescriptions' — индексы видны",
         "Шаг 3: EXPLAIN ANALYZE по L1 запросу — Index Scan (не Seq Scan)"
       ],
-      "dependencies": ["A-03"],
+      "dependencies": [
+        "A-03"
+      ],
       "status": "pending"
     },
     {
@@ -122,7 +128,9 @@
         "Шаг 3: curl http://localhost:8000/docs — Swagger UI открывается",
         "Шаг 4: pytest tests/test_health.py — health check проходит"
       ],
-      "dependencies": ["A-01"],
+      "dependencies": [
+        "A-01"
+      ],
       "status": "done"
     },
     {
@@ -141,7 +149,9 @@
         "Шаг 2: psql — таблицы otp_codes и batch_jobs существуют, FK корректны",
         "Шаг 3: celery -A workers.celery_app beat --loglevel=info — beat стартует, задача в расписании"
       ],
-      "dependencies": ["A-03"],
+      "dependencies": [
+        "A-03"
+      ],
       "status": "pending"
     },
     {
@@ -159,7 +169,9 @@
         "Шаг 2: исправить ошибку — CI проходит",
         "Шаг 3: push в main — deploy workflow запускается"
       ],
-      "dependencies": ["A-02"],
+      "dependencies": [
+        "A-02"
+      ],
       "status": "pending"
     },
     {
@@ -181,7 +193,9 @@
         "Шаг 2: python -c \"from app.services.storage.s3_client import S3Client; print('OK')\" — импорт без ошибок",
         "Шаг 3: при наличии реальных YOS credentials — integration test: upload → presign URL → GET URL → 200"
       ],
-      "dependencies": ["A-01"],
+      "dependencies": [
+        "A-01"
+      ],
       "status": "done"
     },
     {
@@ -203,7 +217,9 @@
         "Шаг 2: python tests/manual/test_preprocess.py sample_receipt.jpg — сохраняет preprocessed.jpg для визуальной проверки",
         "Шаг 3: тест с наклонным изображением — выходное изображение выровнено"
       ],
-      "dependencies": ["A-01"],
+      "dependencies": [
+        "A-01"
+      ],
       "status": "done"
     },
     {
@@ -224,7 +240,9 @@
         "Шаг 3: тест без QR — возвращает None",
         "Шаг 4: тест с некорректным URL в QR — возвращает None (не падает)"
       ],
-      "dependencies": ["B-02"],
+      "dependencies": [
+        "B-02"
+      ],
       "status": "done"
     },
     {
@@ -247,7 +265,9 @@
         "Шаг 3: симуляция таймаута EasyOCR — автоматически используется Tesseract",
         "Шаг 4: python -c \"from app.services.ocr.easyocr_engine import EasyOCREngine; e = EasyOCREngine()\" — инициализация без ошибок"
       ],
-      "dependencies": ["B-02"],
+      "dependencies": [
+        "B-02"
+      ],
       "status": "done"
     },
     {
@@ -271,7 +291,10 @@
         "Шаг 3: тест conflict: QR=1250.00, OCR=890.00 → conflict, confidence≤0.75",
         "Шаг 4: тест both_failed: QR=None, OCR пустой → both_failed, confidence=0.0"
       ],
-      "dependencies": ["B-03", "B-04"],
+      "dependencies": [
+        "B-03",
+        "B-04"
+      ],
       "status": "done"
     },
     {
@@ -293,7 +316,9 @@
         "Шаг 4: normalize('абракадабра123') → None",
         "Шаг 5: 1000 вызовов normalize — время < 1 сек (кэш работает)"
       ],
-      "dependencies": ["A-01"],
+      "dependencies": [
+        "A-01"
+      ],
       "status": "pending"
     },
     {
@@ -316,7 +341,12 @@
         "Шаг 4: pipeline с плохим фото → strategy='both_failed', confidence=0.0",
         "Шаг 5: время обработки нормального чека < 8 сек (p95)"
       ],
-      "dependencies": ["B-03", "B-04", "B-05", "B-06"],
+      "dependencies": [
+        "B-03",
+        "B-04",
+        "B-05",
+        "B-06"
+      ],
       "status": "pending"
     },
     {
@@ -340,7 +370,11 @@
         "Шаг 3: receipt_items созданы в БД с корректными полями",
         "Шаг 4: celery -A workers.celery_app worker --loglevel=info — воркер стартует и обрабатывает задачу"
       ],
-      "dependencies": ["A-03", "B-07", "B-01"],
+      "dependencies": [
+        "A-03",
+        "B-07",
+        "B-01"
+      ],
       "status": "pending"
     },
     {
@@ -365,7 +399,9 @@
         "Шаг 4: тест с рандомным фото → unknown, confidence=0.0",
         "Шаг 5: 100 вызовов classify → среднее время < 0.5 сек"
       ],
-      "dependencies": ["B-04"],
+      "dependencies": [
+        "B-04"
+      ],
       "status": "pending"
     },
     {
@@ -386,7 +422,10 @@
         "Шаг 2: /start в Telegram — бот отвечает (любым сообщением)",
         "Шаг 3: pytest tests/test_bot/test_api_client.py — mock httpx тесты"
       ],
-      "dependencies": ["A-01", "A-05"],
+      "dependencies": [
+        "A-01",
+        "A-05"
+      ],
       "status": "pending"
     },
     {
@@ -408,7 +447,10 @@
         "Шаг 3: нажать кнопку → бот отвечает приветствием",
         "Шаг 4: повторный /start → нет запроса контакта"
       ],
-      "dependencies": ["C-01", "D-01"],
+      "dependencies": [
+        "C-01",
+        "D-01"
+      ],
       "status": "pending"
     },
     {
@@ -432,7 +474,10 @@
         "Шаг 4: отправить PDF → принят как документ",
         "Шаг 5: после обработки → уведомление с результатом"
       ],
-      "dependencies": ["C-01", "B-08"],
+      "dependencies": [
+        "C-01",
+        "B-08"
+      ],
       "status": "pending"
     },
     {
@@ -455,7 +500,10 @@
         "Шаг 4: «Позже» → чек сохранён с needs_prescription=true",
         "Шаг 5: выбрать «Изменить» на подтверждении → возврат к первому полю"
       ],
-      "dependencies": ["C-03", "E-03"],
+      "dependencies": [
+        "C-03",
+        "E-03"
+      ],
       "status": "pending"
     },
     {
@@ -475,7 +523,11 @@
         "Шаг 2: /export → «Готовлю документы...» → через несколько секунд ссылка",
         "Шаг 3: /help → список команд с описаниями"
       ],
-      "dependencies": ["C-01", "E-02", "H-01"],
+      "dependencies": [
+        "C-01",
+        "E-02",
+        "H-01"
+      ],
       "status": "pending"
     },
     {
@@ -499,8 +551,11 @@
         "Шаг 4: verify верного кода → used=True → повторный verify → False",
         "Шаг 5: pytest tests/test_auth/test_jwt_service.py — access decode, refresh rotation"
       ],
-      "dependencies": ["A-03", "A-05"],
-      "status": "pending"
+      "dependencies": [
+        "A-03",
+        "A-05"
+      ],
+      "status": "done"
     },
     {
       "id": "D-02",
@@ -521,7 +576,9 @@
         "Шаг 4: GET /api/v1/receipts с access_token cookie → 200",
         "Шаг 5: POST /auth/refresh → новые куки, старый refresh не работает"
       ],
-      "dependencies": ["D-01"],
+      "dependencies": [
+        "D-01"
+      ],
       "status": "pending"
     },
     {
@@ -541,7 +598,10 @@
         "Шаг 3: запрос к /receipts с токеном user_B → видит только свои записи",
         "Шаг 4: попытка прямого SQL SELECT без user_id → RLS блокирует"
       ],
-      "dependencies": ["D-01", "A-03"],
+      "dependencies": [
+        "D-01",
+        "A-03"
+      ],
       "status": "pending"
     },
     {
@@ -563,7 +623,10 @@
         "Шаг 3: SET app.current_user_id = 'user-a-uuid'; SELECT * FROM receipts — только записи user_a",
         "Шаг 4: SET app.current_user_id = 'user-b-uuid'; SELECT * FROM receipts — только записи user_b"
       ],
-      "dependencies": ["A-03", "D-03"],
+      "dependencies": [
+        "A-03",
+        "D-03"
+      ],
       "status": "pending"
     },
     {
@@ -584,7 +647,9 @@
         "Шаг 2: поддельная подпись → 401",
         "Шаг 3: валидный initData → 200 + cookies"
       ],
-      "dependencies": ["D-01"],
+      "dependencies": [
+        "D-01"
+      ],
       "status": "pending"
     },
     {
@@ -606,7 +671,12 @@
         "Шаг 4: GET /receipts/{id} — image_url работает (200 при GET)",
         "Шаг 5: PATCH /receipts/{id} {purchase_date: '2024-01-15'} → 200, дата обновлена"
       ],
-      "dependencies": ["A-03", "B-01", "B-08", "D-03"],
+      "dependencies": [
+        "A-03",
+        "B-01",
+        "B-08",
+        "D-03"
+      ],
       "status": "pending"
     },
     {
@@ -628,7 +698,9 @@
         "Шаг 3: deduction_amount = 455.00 (3500 × 0.13)",
         "Шаг 4: чек с needs_prescription=true → has_missing_prescriptions=true для этого месяца"
       ],
-      "dependencies": ["E-01"],
+      "dependencies": [
+        "E-01"
+      ],
       "status": "pending"
     },
     {
@@ -650,7 +722,10 @@
         "Шаг 4: POST /prescriptions/link → receipt_item.prescription_id обновлён",
         "Шаг 5: попытка привязать чужой рецепт → 403"
       ],
-      "dependencies": ["A-03", "D-03"],
+      "dependencies": [
+        "A-03",
+        "D-03"
+      ],
       "status": "pending"
     },
     {
@@ -673,7 +748,10 @@
         "Шаг 4: рецепт на 'Нурофен', покупка 'НУРОФЕН ЭКСПРЕСС' → L3 match",
         "Шаг 5: нет подходящего рецепта → None (L4)"
       ],
-      "dependencies": ["E-03", "B-06"],
+      "dependencies": [
+        "E-03",
+        "B-06"
+      ],
       "status": "pending"
     },
     {
@@ -694,7 +772,10 @@
         "Шаг 3: скачать PDF по URL → открывается в PDF viewer",
         "Шаг 4: PDF содержит имя врача и название препарата"
       ],
-      "dependencies": ["E-03", "B-01"],
+      "dependencies": [
+        "E-03",
+        "B-01"
+      ],
       "status": "pending"
     },
     {
@@ -717,7 +798,13 @@
         "Шаг 4: GET /receipts → 3 новых чека связаны с batch_id",
         "Шаг 5: Redis SUBSCRIBE batch:{id} → события приходят по мере обработки"
       ],
-      "dependencies": ["A-06", "B-07", "B-09", "E-01", "E-04"],
+      "dependencies": [
+        "A-06",
+        "B-07",
+        "B-09",
+        "E-01",
+        "E-04"
+      ],
       "status": "pending"
     },
     {
@@ -741,7 +828,9 @@
         "Шаг 4: batch_complete событие → поток закрывается",
         "Шаг 5: запрос чужого batch_id → 403"
       ],
-      "dependencies": ["F-01"],
+      "dependencies": [
+        "F-01"
+      ],
       "status": "pending"
     },
     {
@@ -762,7 +851,10 @@
         "Шаг 3: npm run lint — ESLint без ошибок",
         "Шаг 4: открыть localhost:3000 → страница загружается"
       ],
-      "dependencies": ["A-01", "D-02"],
+      "dependencies": [
+        "A-01",
+        "D-02"
+      ],
       "status": "pending"
     },
     {
@@ -785,7 +877,10 @@
         "Шаг 4: ввести 6 цифр (mock OTP из dev) → redirect на /dashboard",
         "Шаг 5: неверный код → сообщение об ошибке, поле очищается"
       ],
-      "dependencies": ["G-01", "D-02"],
+      "dependencies": [
+        "G-01",
+        "D-02"
+      ],
       "status": "pending"
     },
     {
@@ -808,7 +903,10 @@
         "Шаг 3: YearProgress > 90% → красный цвет",
         "Шаг 4: клик на чек в RecentReceipts → переход на /receipts/{id}"
       ],
-      "dependencies": ["G-01", "E-02"],
+      "dependencies": [
+        "G-01",
+        "E-02"
+      ],
       "status": "pending"
     },
     {
@@ -832,7 +930,11 @@
         "Шаг 4: SSE события → статусы обновляются без перезагрузки страницы",
         "Шаг 5: после batch_complete → таблица обновляется (query invalidation)"
       ],
-      "dependencies": ["G-01", "E-01", "F-02"],
+      "dependencies": [
+        "G-01",
+        "E-01",
+        "F-02"
+      ],
       "status": "pending"
     },
     {
@@ -855,7 +957,11 @@
         "Шаг 4: Rx-препарат без рецепта → PrescriptionLinker показывает варианты",
         "Шаг 5: привязать рецепт → иконка рецепта появляется в ItemsTable"
       ],
-      "dependencies": ["G-04", "E-03", "E-04"],
+      "dependencies": [
+        "G-04",
+        "E-03",
+        "E-04"
+      ],
       "status": "pending"
     },
     {
@@ -879,7 +985,10 @@
         "Шаг 4: заполнить форму, загрузить фото → POST /prescriptions → redirect",
         "Шаг 5: созданный рецепт появился в списке"
       ],
-      "dependencies": ["G-01", "E-03"],
+      "dependencies": [
+        "G-01",
+        "E-03"
+      ],
       "status": "pending"
     },
     {
@@ -903,7 +1012,9 @@
         "Шаг 4: «Пропустить» → следующий элемент, первый остаётся в очереди",
         "Шаг 5: пустая очередь → сообщение «Всё проверено»"
       ],
-      "dependencies": ["G-05"],
+      "dependencies": [
+        "G-05"
+      ],
       "status": "pending"
     },
     {
@@ -927,7 +1038,10 @@
         "Шаг 4: /profile → форма с данными пользователя",
         "Шаг 5: обновить ФИО → PATCH /profile → данные обновились"
       ],
-      "dependencies": ["G-01", "H-01"],
+      "dependencies": [
+        "G-01",
+        "H-01"
+      ],
       "status": "pending"
     },
     {
@@ -951,7 +1065,11 @@
         "Шаг 4: POST /export → polling → ZIP скачивается → содержит PDF и файлы чеков",
         "Шаг 5: строки без рецепта → красная ячейка в PDF"
       ],
-      "dependencies": ["E-01", "E-03", "B-01"],
+      "dependencies": [
+        "E-01",
+        "E-03",
+        "B-01"
+      ],
       "status": "pending"
     },
     {
@@ -970,7 +1088,9 @@
         "Шаг 2: generate_cover_letter() → PDF bytes",
         "Шаг 3: ZIP из POST /export содержит cover_letter.pdf"
       ],
-      "dependencies": ["H-01"],
+      "dependencies": [
+        "H-01"
+      ],
       "status": "pending"
     },
     {
@@ -992,7 +1112,10 @@
         "Шаг 3: сохранить User с full_name → в БД зашифровано, через ORM — расшифровано",
         "Шаг 4: alembic upgrade head (0005) — существующие записи зашифрованы"
       ],
-      "dependencies": ["A-03", "D-03"],
+      "dependencies": [
+        "A-03",
+        "D-03"
+      ],
       "status": "pending"
     },
     {
@@ -1012,7 +1135,10 @@
         "Шаг 2: открыть через t.me/bot/app → автоматический вход без формы",
         "Шаг 3: тема Telegram (тёмная) → CSS переменные применены"
       ],
-      "dependencies": ["G-01", "D-05"],
+      "dependencies": [
+        "G-01",
+        "D-05"
+      ],
       "status": "pending"
     },
     {
@@ -1035,7 +1161,9 @@
         "Шаг 4: первая загрузка рецепта → диалог согласия на медданные",
         "Шаг 5: /privacy → страница открывается"
       ],
-      "dependencies": ["G-01"],
+      "dependencies": [
+        "G-01"
+      ],
       "status": "pending"
     }
   ]

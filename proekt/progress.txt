@@ -252,6 +252,31 @@
 **Следующие задачи** (зависимости выполнены):
 - B-06 (Drug Normalizer, high) — depends on A-01 ✅
 - B-07 (OCR Pipeline Orchestrator, critical) — depends on B-03 ✅, B-04 ✅, B-05 ✅, B-06 (pending)
+
+---
+
+## D-01 | 2026-03-17 | DONE
+
+**Задача**: OTP Service + JWT Service — генерация/верификация одноразовых кодов и JWT-токенов
+
+**Что создано/доработано**:
+- `backend/app/services/auth/otp_service.py` — класс `OTPService`:
+  - `generate_otp(phone_hash, session)` — 6-значный код через `secrets.randbelow`, bcrypt-хеш, TTL 5 мин, инвалидация предыдущих активных OTP
+  - `verify_otp(phone_hash, code, session)` — проверка bcrypt, инкремент `attempts`, блокировка при `attempts >= 5` (6-я попытка → HTTP 429), `used=True` после успеха
+- `backend/app/services/auth/jwt_service.py` — класс `JWTService`:
+  - `create_access_token(user_id, expires_delta)` — HS256, TTL 15 мин, `type=access`
+  - `create_refresh_token(user_id, family_id)` — HS256, TTL 30 дней, уникальный `jti`, `type=refresh`, `family_id` для rotation
+  - `decode_token(token)` — валидация подписи и exp, поднимает `JWTError`
+- `backend/app/models/otp_code.py` — уже существовал, добавлен в `app/models/__init__.py`
+- `backend/tests/test_auth/test_otp_service.py` — 11 TDD тестов
+- `backend/tests/test_auth/test_jwt_service.py` — 12 TDD тестов
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_auth/` ✅ 23/23, полный suite 109/109 ✅
+
+**Следующие задачи** (зависимости теперь выполнены):
+- D-02 (Auth Router, critical) — depends on D-01 ✅
+- C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
+- B-06 (Drug Normalizer, high) — depends on A-01 ✅
 - D-01 (OTP + JWT Service, critical) — depends on A-03 ✅, A-05 ✅
 - C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
 
