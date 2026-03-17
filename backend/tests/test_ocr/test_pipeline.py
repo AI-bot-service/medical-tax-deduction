@@ -5,7 +5,7 @@ Uses mocks for EasyOCR / TesseractEngine / scan_qr to avoid heavy deps.
 from __future__ import annotations
 
 import io
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -14,14 +14,10 @@ from PIL import Image
 
 from app.services.ocr.ocr_result import OCRResult, QRResult, TextBlock
 from app.services.ocr.pipeline import (
-    CONFIDENCE_DONE,
-    CONFIDENCE_REVIEW,
-    NormalizedItem,
     ParsedReceipt,
     _is_receipt_too_old,
     process_image,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,7 +36,7 @@ def _make_qr(
     days_ago: int = 1,
     amount: str = "500.00",
 ) -> QRResult:
-    dt = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    dt = datetime.now(UTC) - timedelta(days=days_ago)
     return QRResult(
         date=dt,
         amount=Decimal(amount),

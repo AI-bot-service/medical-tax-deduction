@@ -348,3 +348,35 @@
 - B-07 (OCR Pipeline Orchestrator, critical) — depends on B-03 ✅, B-04 ✅, B-05 ✅, B-06 ✅
 - D-02 (Auth Router, critical) — depends on D-01 ✅
 - D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
+
+---
+
+## D-02 | 2026-03-17 | DONE
+
+**Задача**: Auth Router — 5 эндпоинтов аутентификации + исправление регрессии в OTPService
+
+**Что создано**:
+- `backend/app/schemas/auth.py` — Pydantic схемы: `OTPRequest` (regex +7XXXXXXXXXX), `VerifyRequest`, `BotRegisterRequest`, `MessageResponse`, `BotTokenResponse`
+- `backend/app/routers/auth.py` — роутер `APIRouter(prefix="/auth")`:
+  - `POST /auth/otp` — hash_phone(SHA-256) → поиск User → generate_otp → {message: 'Код отправлен'} (TODO: telegram_notifier в C-01)
+  - `POST /auth/verify` — проверяет OTP → создаёт access+refresh JWT → httpOnly cookies (SameSite=strict, max_age 15min/30days)
+  - `POST /auth/refresh` — декодирует refresh cookie → rotation → новые cookies
+  - `POST /auth/logout` — delete_cookie access_token + refresh_token
+  - `POST /auth/bot-register` — find_or_create User по telegram_id → JWT в теле ответа
+- `backend/app/main.py` — зарегистрирован auth_router с prefix="/api/v1"
+- `backend/tests/test_auth/test_auth_router.py` — 20 TDD тестов (SQLite StaticPool)
+
+**Исправлено** (регрессия D-01):
+- `backend/app/services/auth/otp_service.py` — убран лишний `raise HTTPException(429)` после инкремента `attempts`, теперь первые 5 попыток возвращают False, 6-я поднимает 429
+
+**Решения**:
+- phone_hash = SHA-256(phone) — детерминированный хеш для поиска в БД
+- JWTService/OTPService инстанцируются как module-level синглтоны в роутере
+- Тесты используют StaticPool для SQLite-in-memory (гарантия shared state между сессиями)
+
+**Верификация**: `ruff check` ✅ 0 ошибок, `pytest tests/test_auth/` ✅ 43/43, полный suite ✅ 141/141
+
+**Следующие задачи** (зависимости выполнены):
+- C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
+- D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
+- B-06 (Drug Normalizer, high) — depends on A-01 ✅

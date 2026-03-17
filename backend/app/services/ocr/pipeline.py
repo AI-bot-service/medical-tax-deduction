@@ -5,13 +5,13 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from app.services.ocr.drug_normalizer import DrugMatch, get_drug_normalizer
 from app.services.ocr.easyocr_engine import EasyOCREngine
 from app.services.ocr.image_preprocessor import preprocess
-from app.services.ocr.ocr_result import OCRResult, QRResult, TextBlock
+from app.services.ocr.ocr_result import OCRResult, QRResult
 from app.services.ocr.qr_scanner import scan_qr
 from app.services.ocr.result_merger import MergedReceipt, merge
 from app.services.ocr.tesseract_engine import TesseractEngine
@@ -69,8 +69,8 @@ class ParsedReceipt:
 
 def _is_receipt_too_old(qr: QRResult) -> bool:
     """True если дата QR-кода старше 12 месяцев."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=_RECEIPT_MAX_AGE_DAYS)
-    qr_dt = qr.date if qr.date.tzinfo else qr.date.replace(tzinfo=timezone.utc)
+    cutoff = datetime.now(UTC) - timedelta(days=_RECEIPT_MAX_AGE_DAYS)
+    qr_dt = qr.date if qr.date.tzinfo else qr.date.replace(tzinfo=UTC)
     return qr_dt < cutoff
 
 

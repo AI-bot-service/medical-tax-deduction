@@ -49,10 +49,9 @@ def create_app() -> FastAPI:
     )
 
     # ── Routers ──────────────────────────────────────────────────────────────
-    # Routers are registered here as they are implemented in later tasks.
-    # from app.routers import auth, receipts, prescriptions, batch, export
-    # app.include_router(auth.router, prefix="/api/v1")
-    # app.include_router(receipts.router, prefix="/api/v1")
+    from app.routers.auth import router as auth_router
+
+    app.include_router(auth_router, prefix="/api/v1")
 
     return app
 
