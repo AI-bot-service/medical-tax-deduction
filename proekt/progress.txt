@@ -813,3 +813,15 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /review страница, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-08: Export Page + Profile Page — DONE (2026-03-18)
+
+**Задача**: /export с YearSelector, ExportPreview, polling; /profile с формой ФИО/ИНН/СНИЛС
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/export/page.tsx` — YearSelector (3 года), ExportPreview (состав ZIP), POST /export → polling GET /export/{id} каждые 2с, DownloadButton через presigned URL, handling processing/done/failed
+- `frontend/src/app/(cabinet)/profile/page.tsx` — форма ФИО/ИНН/СНИЛС (маска XXX-XXX-XXX XX), toggle уведомлений бота, PolicyLinks, PATCH /profile
+
+**Результаты тестов**:
+- `npm run build` — ✓ /export, /profile, 11 страниц, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
