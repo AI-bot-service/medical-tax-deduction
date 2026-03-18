@@ -1,9 +1,10 @@
 services:
   postgres:
     image: postgres:15
+    env_file: ../.env
     environment:
       POSTGRES_USER: medvychet
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: medvychet
     volumes:
       - postgres_data:/var/lib/postgresql/data
