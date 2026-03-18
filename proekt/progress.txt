@@ -660,3 +660,23 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**: 15/15 passed
 
 **Разблокированы**: I-02 (Mini App Frontend) — теперь D-05 done
+
+## F-02 | 2026-03-18 | DONE
+
+**Задача**: SSE Stream тесты — GET /api/v1/batch/{batch_id}/stream
+
+**Что создано**:
+- `backend/tests/test_batch/test_sse.py` — 7 тестов (async fixtures как в test_batch_api.py):
+  - `test_unknown_batch_returns_404` — несуществующий batch → 404
+  - `test_stream_content_type` — Content-Type: text/event-stream
+  - `test_stream_delivers_event_data` — данные из Redis PubSub → "data: ..." строки
+  - `test_stream_closes_on_batch_complete` — completed=true → 2 события в теле
+  - `test_stream_cache_control_header` — Cache-Control: no-cache
+  - `test_stream_subscribe_correct_channel` — subscribe вызван с `batch:{id}`
+  - `test_stream_single_completed_event` — один completed event → 200
+
+**Урок**: TestClient и async pytest fixtures делят одну event loop через pytest-anyio.
+Данные, созданные через API (POST /batch), видны в последующих GET запросах.
+Данные через `asyncio.get_event_loop().run_until_complete()` — нет (разные loops).
+
+**Результаты тестов**: 7/7 passed
