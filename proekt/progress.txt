@@ -757,3 +757,18 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /dashboard страница, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-04: Receipts Page + Upload Zone — DONE (2026-03-18)
+
+**Задача**: Receipts Page + Upload Zone: ReceiptTable с MonthFilter, UploadZone (drag&drop), BatchProgress (SSE), ConfidenceBadge
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/receipts/page.tsx` — ReceiptTable (колонки дата/аптека/сумма/статус/действия, группировка по месяцам, сортировка по 3 полям), MonthFilter (выпадающий список), кнопка "Загрузить чеки", BatchProgress при активном батче
+- `frontend/src/components/ui/UploadZone.tsx` — drag&drop + файловый диалог, preview thumbnail (URL.createObjectURL), max 20МБ, POST /api/v1/batches FormData, startBatch() в store
+- `frontend/src/components/ui/BatchProgress.tsx` — SSE прогресс с иконками ✅/⚠️/❌/⏳, progress bar, счётчики done/review/failed
+- `frontend/src/hooks/useBatchSSE.ts` — EventSource подключение к /api/v1/batches/{id}/stream, invalidate queries при завершении
+- `frontend/src/components/ui/ConfidenceBadge` — зелёный ≥0.85, жёлтый 0.60-0.84, красный <0.60
+
+**Результаты тестов**:
+- `npm run build` — ✓ /receipts страница, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
