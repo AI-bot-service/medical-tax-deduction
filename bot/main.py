@@ -4,6 +4,7 @@ import logging
 from telegram.ext import Application
 
 from config import config
+from handlers.commands import build_command_handlers
 from handlers.conversations import build_otp_auth_handler
 from handlers.errors import error_handler
 from handlers.receipt_flow import build_receipt_flow_handlers
@@ -25,6 +26,10 @@ def create_app() -> Application:
 
     # Register receipt upload flow handlers
     for handler in build_receipt_flow_handlers():
+        app.add_handler(handler)
+
+    # Register utility commands: /help, /summary, /export
+    for handler in build_command_handlers():
         app.add_handler(handler)
 
     # Register global error handler

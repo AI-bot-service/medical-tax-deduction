@@ -862,3 +862,14 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /api/auth/mini-app dynamic route, 13 страниц, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## C-05: Bot Commands /summary /export /help — DONE (2026-03-18)
+
+**Задача**: /summary (сводка по месяцам), /export (ZIP → polling → ссылка), /help, MarkdownV2, Mini App кнопка
+
+**Что сделано**:
+- `bot/handlers/commands.py` — _esc() для MarkdownV2, cmd_help, cmd_summary (GET /receipts/summary → форматированная таблица с ⚠️ для missed prescriptions), cmd_export (POST /export → polling каждые 3с → InlineKeyboard со ссылкой), Mini App inline button t.me/{bot}/app
+- `bot/main.py` — зарегистрированы build_command_handlers()
+- `bot/tests/test_bot/test_commands.py` — 12 тестов
+
+**Результаты тестов**: 12/12 passed (cd bot && python -m pytest tests/test_bot/test_commands.py -v)
