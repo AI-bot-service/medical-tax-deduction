@@ -29,3 +29,15 @@ class ReceiptStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"
     DELETED = "DELETED"
+
+
+class BatchStatus(enum.StrEnum):
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+
+
+class BatchSource(enum.StrEnum):
+    TELEGRAM_BOT = "telegram_bot"
+    WEB = "web"
+    MINI_APP = "mini_app"

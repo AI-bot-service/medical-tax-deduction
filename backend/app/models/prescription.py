@@ -40,6 +40,13 @@ class Prescription(TimestampMixin, Base):
     )
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("batch_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     user: Mapped["User"] = relationship("User", back_populates="prescriptions")  # noqa: F821
     receipt_items: Mapped[list["ReceiptItem"]] = relationship(  # noqa: F821
         "ReceiptItem", back_populates="prescription"

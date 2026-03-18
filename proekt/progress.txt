@@ -542,3 +542,21 @@ list[tuple] для корректной передачи нескольких Se
 **Результат**: цепочка миграций 0001→0002 верифицирована
 
 **Разблокированы**: A-06 был уже готов, теперь A-04 done
+
+## A-06 | 2026-03-18 | DONE
+
+**Задача**: Alembic 0003_otp_batch — таблицы otp_codes, batch_jobs; batch_id FK
+
+**Что создано**:
+- `backend/alembic/versions/0003_otp_batch.py` (0002→0003):
+  - Таблица `otp_codes`: id, phone_hash, code_hash, expires_at, attempts, used, created_at
+  - Таблица `batch_jobs`: id, user_id FK CASCADE, status (batchstatus enum), total/done/review/failed counts, source (batchsource enum), completed_at
+  - `receipts.batch_id` и `prescriptions.batch_id` — nullable FK → batch_jobs с индексами
+- `backend/app/models/batch_job.py` — модель BatchJob
+- `backend/app/models/enums.py` — добавлены BatchStatus, BatchSource
+- `backend/workers/tasks/cleanup_task.py` — delete_expired_otps(session) + Celery beat task
+- `backend/workers/celery_app.py` — beat_schedule каждые 15 минут
+
+**Результаты тестов**: 5/5 passed
+
+**Разблокированы**: F-01 (Batch API — теперь A-06 done + B-09 нужен)

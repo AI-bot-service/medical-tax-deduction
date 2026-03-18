@@ -31,7 +31,17 @@ class Receipt(TimestampMixin, Base):
     ocr_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     merge_strategy: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("batch_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     user: Mapped["User"] = relationship("User", back_populates="receipts")  # noqa: F821
     items: Mapped[list["ReceiptItem"]] = relationship(  # noqa: F821
         "ReceiptItem", back_populates="receipt", cascade="all, delete-orphan"
+    )
+    batch_job: Mapped["BatchJob | None"] = relationship(  # noqa: F821
+        "BatchJob", back_populates="receipts", lazy="noload"
     )
