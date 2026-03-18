@@ -419,3 +419,16 @@ list[tuple] для корректной передачи нескольких Se
 Результат: 12/12 тестов pytest tests/test_bot/test_api_client.py пройдено.
 
 Следующие незаблокированные задачи (все deps=done): A-04, A-06, B-08, B-09, D-03, D-05, G-01, A-07
+
+## 2026-03-18 D-03 RLS Middleware + get_current_user — DONE
+
+Реализованы три компонента:
+- app/middleware/rls.py: RLSMiddleware (BaseHTTPMiddleware), извлекает user_id из
+  access_token cookie, пишет в request.state.current_user_id. Пропускает /api/v1/auth/* и /api/v1/health
+- app/dependencies.py: get_current_user (401 при отсутствии/невалидном токене),
+  get_current_user_optional (None вместо 401), get_db_rls (SET LOCAL app.current_user_id)
+- app/main.py: RLSMiddleware зарегистрирован после CORS
+
+Тесты: 13/13 прошли (py -3.11 -m pytest tests/test_middleware/test_rls.py)
+
+Теперь незаблокированы: D-04 (RLS policies), E-01 (Receipts router), E-03 (Prescriptions router), I-01 (AES encryption)

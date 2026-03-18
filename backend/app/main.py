@@ -48,6 +48,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ── RLS Middleware ────────────────────────────────────────────────────────
+    from app.middleware.rls import RLSMiddleware
+
+    app.add_middleware(RLSMiddleware)
+
     # ── Routers ──────────────────────────────────────────────────────────────
     from app.routers.auth import router as auth_router
 
