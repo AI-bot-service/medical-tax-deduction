@@ -802,3 +802,14 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /prescriptions, /prescriptions/new, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-07: Review Queue Page — DONE (2026-03-18)
+
+**Задача**: ReviewQueue (только REVIEW-статус), ReviewCard, approve/skip с Zustand reviewStore
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/review/page.tsx` — ReviewCard с фото + 3 редактируемых поля, жёлтая подсветка при low confidence, PATCH /receipts/{id} при подтверждении, reviewStore.approve()/skip(), счётчик оставшихся, пустая очередь — banner "Всё проверено ✅", после последнего → redirect /dashboard
+
+**Результаты тестов**:
+- `npm run build` — ✓ /review страница, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
