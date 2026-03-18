@@ -6,6 +6,7 @@ from telegram.ext import Application
 from config import config
 from handlers.conversations import build_otp_auth_handler
 from handlers.errors import error_handler
+from handlers.receipt_flow import build_receipt_flow_handlers
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -21,6 +22,10 @@ def create_app() -> Application:
 
     # Register conversation handlers
     app.add_handler(build_otp_auth_handler())
+
+    # Register receipt upload flow handlers
+    for handler in build_receipt_flow_handlers():
+        app.add_handler(handler)
 
     # Register global error handler
     app.add_error_handler(error_handler)

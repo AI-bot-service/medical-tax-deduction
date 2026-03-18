@@ -486,3 +486,16 @@ list[tuple] для корректной передачи нескольких Se
 - 20/20 тестов
 
 Теперь разблокированы: E-04 (Prescription Search Service), E-05 (PDF Blank), G-06
+
+## 2026-03-18 C-03 Receipt Flow FSM — DONE
+
+- bot/handlers/receipt_flow.py:
+  on_photo(): буферизует фото в user_data, планирует job через job_queue (3 сек)
+  on_document(): PDF/JPEG/PNG/WEBP принимаются, остальные → сообщение об ошибке
+  _process_batch(): job callback — POST /api/v1/batch со всеми файлами → "Принял N файлов"
+  _buffer(), _cancel_pending_job(), _schedule_batch() — вспомогательные
+  build_receipt_flow_handlers() — возвращает список handlers
+- bot/main.py: handlers зарегистрированы
+- 19/19 тестов
+
+Теперь разблокирована: C-04 (Prescription Dialog FSM)
