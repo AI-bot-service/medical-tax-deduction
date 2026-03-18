@@ -745,3 +745,15 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /login статическая страница, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-03: Dashboard Page — DONE (2026-03-18)
+
+**Задача**: Dashboard Page — StatCards, YearProgress, RecentReceipts, DeductionCalc
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/dashboard/page.tsx` — StatCards (4 карточки), YearProgress (зелёный/жёлтый/красный по лимиту 150k), RecentReceipts (последние 5 + клик → /receipts/{id}), DeductionCalc (сумма вычета + возврат 13%), loading skeleton, error state
+- `frontend/src/hooks/useSummary.ts` — TanStack Query, staleTime 60сек, GET /api/v1/receipts/summary
+
+**Результаты тестов**:
+- `npm run build` — ✓ /dashboard страница, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
