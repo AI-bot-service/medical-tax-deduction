@@ -680,3 +680,21 @@ list[tuple] для корректной передачи нескольких Se
 Данные через `asyncio.get_event_loop().run_until_complete()` — нет (разные loops).
 
 **Результаты тестов**: 7/7 passed
+
+## D-04 | 2026-03-18 | DONE
+
+**Задача**: Alembic 0005_rls_policies — RLS политики PostgreSQL
+
+**Что создано**:
+- `backend/alembic/versions/0005_rls_policies.py` (0004 → 0005):
+  - `ENABLE ROW LEVEL SECURITY + FORCE ROW LEVEL SECURITY` на: receipts, receipt_items, prescriptions, batch_jobs
+  - Политики SELECT/INSERT/UPDATE/DELETE с `USING (user_id = current_setting('app.current_user_id')::uuid)`
+  - receipt_items: subquery через receipts.user_id (нет прямого user_id)
+  - Роль `medvychet_worker` с `BYPASSRLS` для Celery-воркеров
+  - `downgrade()`: DROP POLICY + DISABLE RLS + DROP ROLE
+- `backend/tests/test_migrations/test_rls_migration.py` — 13 тестов:
+  - revision/down_revision/file_exists
+  - SQL содержит ENABLE RLS, BYPASSRLS, medvychet_worker, all tables, current_setting(...)
+  - upgrade() и downgrade() вызывают op.execute
+
+**Результаты тестов**: 13/13 passed
