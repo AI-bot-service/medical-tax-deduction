@@ -560,3 +560,21 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**: 5/5 passed
 
 **Разблокированы**: F-01 (Batch API — теперь A-06 done + B-09 нужен)
+
+## B-09 | 2026-03-18 | DONE
+
+**Задача**: Batch Classifier — 5-шаговый алгоритм классификации файлов
+
+**Что создано**:
+- `backend/app/services/ocr/batch_classifier.py` — `classify(image_bytes) -> ClassificationResult`:
+  - Step 1: QR decode (pyzbar) + fn= regex → receipt, confidence=1.0
+  - Step 2: Tesseract PSM-6 keywords (ФН/ФД/АПТЕКА/ИТОГО ≥3) → receipt, confidence=0.85
+  - Step 3: Rp./РЕЦЕПТ/ВРАЧ/МНН ≥2 → prescription, confidence=0.85, doc=recipe_107
+  - Step 4: ВЫПИСКА/МЕДИЦИНСКАЯ/ДИАГНОЗ ≥2 → prescription, confidence=0.80, doc=doc_025
+  - Step 5: unknown, confidence=0.0
+  - Graceful degradation если PIL/pyzbar/pytesseract недоступны
+- `backend/tests/test_ocr/test_classifier.py` — 10 тестов (все шаги + performance)
+
+**Результаты тестов**: 10/10 passed, среднее < 0.001 сек
+
+**Разблокированы**: F-01 (Batch API — теперь A-06 + B-09 done)
