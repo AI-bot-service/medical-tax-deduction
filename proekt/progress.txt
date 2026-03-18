@@ -432,3 +432,15 @@ list[tuple] для корректной передачи нескольких Se
 Тесты: 13/13 прошли (py -3.11 -m pytest tests/test_middleware/test_rls.py)
 
 Теперь незаблокированы: D-04 (RLS policies), E-01 (Receipts router), E-03 (Prescriptions router), I-01 (AES encryption)
+
+## 2026-03-18 B-08 Celery OCR Task — DONE
+
+- workers/tasks/ocr_task.py: process_receipt(receipt_id) Celery задача
+  + _run() async impl: S3 download → pipeline → save receipts+items → prescription search → notify
+  + _ocr_status_from_confidence: >=0.85 DONE, 0.60-0.84 REVIEW, <0.60 FAILED
+  + _try_link_prescriptions: авто-привязка рецептов (non-fatal)
+  + _notify_user: fire-and-forget telegram уведомление
+- workers/celery_app.py: fix REDIS_URL → redis_url (lowercase, matching Settings)
+- 10/10 тестов прошли (SQLite in-memory, mock S3 + mock pipeline)
+
+Теперь незаблокированы: C-03 (Receipt Flow FSM), E-01 (Receipts Router)
