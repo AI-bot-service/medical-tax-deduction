@@ -716,3 +716,19 @@ list[tuple] для корректной передачи нескольких Se
 - `bot/tests/test_bot/test_prescription_dialog.py` — 32 теста
 
 **Результаты тестов**: 32/32 passed (запуск: cd bot && py -3.11 -m pytest tests/test_bot/test_prescription_dialog.py)
+
+## G-01: Next.js Foundation — DONE (2026-03-18)
+
+**Задача**: Next.js Foundation — layout.tsx с QueryClientProvider + Zustand providers, lib/api.ts (fetch wrapper 401→refresh→retry), lib/store.ts (stores), types/api.ts (TypeScript типы)
+
+**Что сделано**:
+- `frontend/src/types/api.ts` — TypeScript интерфейсы: OCRStatus, DocType, RiskLevel, BatchStatus, BatchSource, User, Receipt, ReceiptItem, ReceiptDetail, Prescription, BatchJob, BatchJobDetail, Summary, BatchSSEEvent
+- `frontend/src/lib/api.ts` — `apiRequest<T>()` с 401→POST /api/auth/refresh→retry, очередь параллельных запросов, `ApiError` класс, хелперы `api.get/post/patch/delete`
+- `frontend/src/lib/store.ts` — `useAuthStore` (user, isAuthenticated, login, logout), `useBatchStore` (activeBatch, items, handleSSEEvent, clearBatch), `useReviewStore` (queue, currentIdx, loadQueue, approve, skip)
+- `frontend/src/app/providers.tsx` — Client Component с QueryClientProvider + ReactQueryDevtools
+- `frontend/src/app/layout.tsx` — обновлён: Providers wrapper, импорт globals.css
+- `frontend/src/app/globals.css` — Tailwind directives
+
+**Результаты тестов**:
+- `npm run build` — ✓ Compiled successfully, 4 static pages
+- `npm run tsc` — 0 ошибок TypeScript
