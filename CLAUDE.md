@@ -10,18 +10,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Стек
 
-| Компонент | Технология |
-|---|---|
-| Backend API | Python / FastAPI + Uvicorn |
-| OCR Worker | Celery + EasyOCR / Tesseract |
-| База данных | PostgreSQL 15 с RLS |
-| Очередь | Redis + Celery |
-| Хранилище файлов | Yandex Object Storage (boto3, S3-совместимый) |
-| Telegram-бот | python-telegram-bot 21 |
-| Frontend | Next.js 15 App Router, TypeScript, Tailwind CSS, ShadCN/ui |
-| State | TanStack React Query + Zustand |
-| PDF | ReportLab (реестры) + WeasyPrint (письма) |
-| Мониторинг | Sentry + Prometheus + Grafana |
+| Компонент        | Технология                                                 |
+| ---------------- | ---------------------------------------------------------- |
+| Backend API      | Python / FastAPI + Uvicorn                                 |
+| OCR Worker       | Celery + EasyOCR / Tesseract                               |
+| База данных      | PostgreSQL 15 с RLS                                        |
+| Очередь          | Redis + Celery                                             |
+| Хранилище файлов | Yandex Object Storage (boto3, S3-совместимый)              |
+| Telegram-бот     | python-telegram-bot 21                                     |
+| Frontend         | Next.js 15 App Router, TypeScript, Tailwind CSS, ShadCN/ui |
+| State            | TanStack React Query + Zustand                             |
+| PDF              | ReportLab (реестры) + WeasyPrint (письма)                  |
+| Мониторинг       | Sentry + Prometheus + Grafana                              |
 
 ## Структура monorepo
 
@@ -99,7 +99,9 @@ cd frontend && npm run lint && npm run tsc
 ## Ключевые архитектурные решения
 
 ### OCR-пайплайн (критический путь)
+
 `pipeline.py` запускает параллельно:
+
 1. **QR decode** (sync, < 0.5 сек) через `qr_scanner.py` — pyzbar + OpenCV, 5 стратегий
 2. **EasyOCR** (thread) через `easyocr_engine.py` — fallback на Tesseract если < 5 блоков
 3. **ReceiptAgeEstimator** — если дата чека > 12 мес, QR пропускается
@@ -109,6 +111,7 @@ cd frontend && npm run lint && npm run tsc
 Confidence threshold: ≥0.85 → DONE, 0.60–0.84 → REVIEW, <0.60 → FAILED
 
 ### Безопасность и 152-ФЗ
+
 - **RLS**: каждый запрос → `SET LOCAL app.current_user_id = :uid` через `middleware/rls.py`. Celery-воркеры используют роль `medvychet_worker` с `BYPASS RLS`
 - **S3**: только pre-signed URL с TTL 15 мин, прямых публичных ссылок нет
 - **JWT**: httpOnly cookie, access TTL 15 мин, refresh TTL 30 дней с rotation (family invalidation)
@@ -116,9 +119,11 @@ Confidence threshold: ≥0.85 → DONE, 0.60–0.84 → REVIEW, <0.60 → FAILED
 - Все данные только в РФ (YOS ЦОД)
 
 ### SSE (real-time прогресс batch)
+
 Celery → `sse_publisher.py` публикует в Redis PubSub канал `batch:{id}` → FastAPI `StreamingResponse` читает и отдаёт клиенту. Heartbeat каждые 15 сек. Frontend: `useBatchSSE` hook → `batchStore`.
 
 ### Telegram Mini App
+
 Авторизация через `initData` — HMAC-SHA256 верификация на backend. Тема подхватывается из Telegram SDK. Файлы загружаются через нативный file picker.
 
 ## FNS Open API (будущая интеграция)
@@ -126,6 +131,7 @@ Celery → `sse_publisher.py` публикует в Redis PubSub канал `bat
 Текущая реализация использует только OCR+QR. ФНС Open API — отдельная модернизация (требует юрлица + ЭЦП).
 
 **Когда будет реализовано**: `step1_fns.py` в `services/ocr/`. Аутентификация:
+
 1. Master-token → SOAP запрос к AuthService → Temporary token
 2. HTTP header `FNS-OpenApi-Token: <token>` в каждом запросе
 3. Асинхронный: `SendMessage` → `MessageId` → поллинг `GetMessage` до `COMPLETED`
@@ -133,7 +139,8 @@ Celery → `sse_publisher.py` публикует в Redis PubSub канал `bat
 ## Работа с задачами
 
 Перед началом работы:
+
 1. Прочитать `proekt/tasks.json`
 2. Выбрать одну задачу `status: pending` с наивысшим приоритетом
 3. Убедиться что все `dependencies` имеют `status: done`
-4. После завершения: обновить `status` на `done`, добавить запись в `proekt/progress.md`
+4. После завершения: обновить `status` на `done`, добавить запись в `proekt/progress.txt`

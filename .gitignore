@@ -30,3 +30,13 @@ Thumbs.db
 
 # Logs
 *.log
+
+# TypeScript build cache
+frontend/tsconfig.tsbuildinfo
+
+# Claude Code local files
+.claude/settings.local.json
+.claude/ralph-loop.local.md
+.claude/agent-memory/
+.claude/agents/
+.claude/skills/
