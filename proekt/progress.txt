@@ -884,3 +884,18 @@ list[tuple] для корректной передачи нескольких Se
 - `backend/tests/test_prescriptions/test_pdf_blank.py` — 10 тестов
 
 **Результаты тестов**: 10/10 passed (py -3.11 -m pytest tests/test_prescriptions/test_pdf_blank.py)
+
+## H-02 | 2026-03-18 | DONE
+
+**Задача**: Cover Letter PDF — WeasyPrint/ReportLab генерация сопроводительного письма для ИФНС, добавление в ZIP-пакет
+
+**Что реализовано**:
+- `backend/app/services/export/cover_letter.py` — функция `generate_cover_letter(user, year, summary, db) -> bytes`
+  - HTML-шаблон → WeasyPrint → PDF (fallback: ReportLab)
+  - Содержит: ФИО, ИНН, ссылку на ст. 219 НК РФ, список прилагаемых документов, расчёт НДФЛ 13%
+- `backend/app/services/export/zip_packager.py` — добавлен `cover_letter.pdf` в ZIP-архив
+  - Добавлена функция `_fetch_user` для получения пользователя из БД
+  - summary вычисляется из реальных данных чеков/рецептов
+- `backend/tests/test_export/test_cover_letter.py` — 18 тестов: TestFmtRub (3), TestBuildHtml (10), TestGenerateCoverLetter (4), TestZipContainsCoverLetter (1)
+
+**Тесты**: 18/18 passed

@@ -32,11 +32,15 @@ async def build_zip(user_id: uuid.UUID, year: int, db) -> bytes:
         ZIP as bytes
     """
     from app.services.export import pdf_registry as _pdf_reg
+    from app.services.export.cover_letter import generate_cover_letter
     from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
     generate_registry = _pdf_reg.generate_registry
 
     s3 = S3Client()
     buf = io.BytesIO()
+
+    # Fetch user for cover letter
+    user = await _fetch_user(user_id, db)
 
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         # 1. PDF registry
@@ -47,7 +51,26 @@ async def build_zip(user_id: uuid.UUID, year: int, db) -> bytes:
         except Exception as exc:
             logger.error("Failed to generate PDF registry: %s", exc)
 
-        # 2. Original receipt files
+        # 2. Cover letter PDF
+        try:
+            receipts_for_summary = await _fetch_receipts(user_id, year, db)
+            prescriptions_for_summary = await _fetch_prescriptions(user_id, year, db)
+            from decimal import Decimal
+            total_amount = sum(
+                Decimal(str(r.total_price)) for r in receipts_for_summary if r.total_price
+            )
+            summary = {
+                "total_amount": total_amount,
+                "months": [{"receipts_count": len(receipts_for_summary)}],
+                "prescriptions_count": len(prescriptions_for_summary),
+            }
+            cover_bytes = await generate_cover_letter(user, year, summary, db)
+            zf.writestr("cover_letter.pdf", cover_bytes)
+            logger.debug("Added cover letter (%d bytes)", len(cover_bytes))
+        except Exception as exc:
+            logger.error("Failed to generate cover letter: %s", exc)
+
+        # 4. Original receipt files
         receipts = await _fetch_receipts(user_id, year, db)
         for receipt in receipts:
             try:
@@ -59,7 +82,7 @@ async def build_zip(user_id: uuid.UUID, year: int, db) -> bytes:
             except Exception as exc:
                 logger.warning("Failed to add receipt %s: %s", receipt.id, exc)
 
-        # 3. Prescription photos
+        # 5. Prescription photos
         prescriptions = await _fetch_prescriptions(user_id, year, db)
         for presc in prescriptions:
             if not presc.s3_key:
@@ -105,6 +128,14 @@ async def upload_zip(user_id: uuid.UUID, year: int, zip_bytes: bytes) -> str:
 
 def _safe_date(d: date | None) -> str:
     return d.strftime("%Y-%m-%d") if d else "unknown"
+
+
+async def _fetch_user(user_id: uuid.UUID, db):
+    from sqlalchemy import select
+    from app.models.user import User
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
 
 
 async def _fetch_receipts(user_id: uuid.UUID, year: int, db):
