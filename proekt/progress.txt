@@ -873,3 +873,14 @@ list[tuple] для корректной передачи нескольких Se
 - `bot/tests/test_bot/test_commands.py` — 12 тестов
 
 **Результаты тестов**: 12/12 passed (cd bot && python -m pytest tests/test_bot/test_commands.py -v)
+
+## E-05: Prescription PDF Blank — DONE (2026-03-18)
+
+**Задача**: GET /prescriptions/{id}/pdf-blank — генерация PDF бланка 107-1/у через ReportLab
+
+**Что сделано**:
+- `backend/app/services/prescriptions/pdf_blank.py` — _build_blank_pdf() (A5, ReportLab, DejaVuSans кириллица), generate_107_blank() (async: DB → S3 check → generate → upload → presigned URL)
+- `backend/app/routers/prescriptions.py` — GET /{id}/pdf-blank эндпоинт (owership check, 404/503/502)
+- `backend/tests/test_prescriptions/test_pdf_blank.py` — 10 тестов
+
+**Результаты тестов**: 10/10 passed (py -3.11 -m pytest tests/test_prescriptions/test_pdf_blank.py)

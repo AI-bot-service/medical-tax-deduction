@@ -120,6 +120,48 @@ async def upload_prescription_photo(
 
 
 # ---------------------------------------------------------------------------
+# GET /prescriptions/{id}/pdf-blank  (E-05)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{prescription_id}/pdf-blank")
+async def get_prescription_pdf_blank(
+    prescription_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Generate (or return cached) 107-1/u PDF blank for a prescription.
+
+    Returns {"url": "<presigned_s3_url>", "prescription_id": "<uuid>"}.
+    """
+    from app.services.prescriptions.pdf_blank import generate_107_blank
+
+    # Verify ownership
+    result = await db.execute(
+        select(Prescription).where(
+            Prescription.id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Рецепт не найден")
+
+    try:
+        presigned_url = await generate_107_blank(prescription_id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except RuntimeError as exc:
+        logger.error("PDF blank generation failed for %s: %s", prescription_id, exc)
+        raise HTTPException(status_code=503, detail="Генерация PDF недоступна")
+    except Exception as exc:
+        logger.error("PDF blank error for %s: %s", prescription_id, exc)
+        raise HTTPException(status_code=502, detail="Ошибка генерации PDF")
+
+    return {"url": presigned_url, "prescription_id": str(prescription_id)}
+
+
+# ---------------------------------------------------------------------------
 # GET /prescriptions
 # ---------------------------------------------------------------------------
 
