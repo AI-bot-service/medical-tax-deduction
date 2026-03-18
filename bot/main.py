@@ -1,9 +1,10 @@
-"""MedВычет Telegram bot entry point."""
+"""MedВычет Telegram bot entry point (C-01)."""
 import logging
 
 from telegram.ext import Application
 
 from config import config
+from handlers.errors import error_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -12,10 +13,32 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def create_app() -> Application:
+    """Build and configure the PTB Application."""
+    builder = Application.builder().token(config.BOT_TOKEN)
+    app = builder.build()
+
+    # Register global error handler
+    app.add_error_handler(error_handler)
+
+    return app
+
+
 def main() -> None:
-    app = Application.builder().token(config.BOT_TOKEN).build()
-    logger.info("Starting bot in polling mode")
-    app.run_polling()
+    app = create_app()
+
+    if config.WEBHOOK_URL:
+        logger.info("Starting bot in webhook mode: %s", config.WEBHOOK_URL)
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=8443,
+            url_path=config.BOT_TOKEN,
+            webhook_url=f"{config.WEBHOOK_URL}/{config.BOT_TOKEN}",
+            secret_token=config.WEBHOOK_SECRET or None,
+        )
+    else:
+        logger.info("Starting bot in polling mode")
+        app.run_polling()
 
 
 if __name__ == "__main__":

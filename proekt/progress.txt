@@ -404,3 +404,18 @@
 - D-02 (Auth Router, critical) — depends on D-01 ✅
 - D-03 (RLS Middleware, high) — depends on D-01 ✅, A-03 ✅
 - C-01 (Bot Foundation, critical) — depends on A-01 ✅, A-05 ✅
+
+## 2026-03-18 C-01 Bot Foundation — DONE
+
+Все файлы C-01 уже были реализованы ранее:
+- bot/main.py: Application.builder().token(config.BOT_TOKEN).build(), polling/webhook режим
+- bot/config.py: BOT_TOKEN, BACKEND_URL, WEBHOOK_URL, WEBHOOK_SECRET через pydantic-settings
+- bot/services/api_client.py: BackendClient с httpx, cookie persistence, 401→refresh→retry
+- bot/handlers/errors.py: ErrorHandler с Sentry + reply пользователю
+
+Исправлен тест test_cookies_from_response_are_stored: хелпер _resp() теперь использует
+list[tuple] для корректной передачи нескольких Set-Cookie заголовков вместо одного.
+
+Результат: 12/12 тестов pytest tests/test_bot/test_api_client.py пройдено.
+
+Следующие незаблокированные задачи (все deps=done): A-04, A-06, B-08, B-09, D-03, D-05, G-01, A-07
