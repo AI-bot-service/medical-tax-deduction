@@ -835,3 +835,17 @@ list[tuple] для корректной передачи нескольких Se
 - `.github/workflows/deploy.yml` — push main → SSH deploy → git pull + docker compose pull + up --force-recreate + alembic upgrade
 
 **Результаты тестов**: файлы созданы, YAML синтаксис корректный
+
+## I-03: PD Policy Pages (152-ФЗ) — DONE (2026-03-18)
+
+**Задача**: /privacy страница, CookieBanner (localStorage), MedicalDataConsent диалог
+
+**Что сделано**:
+- `frontend/src/app/(auth)/privacy/page.tsx` — страница политики ПД (placeholder для юриста), 7 разделов: общие положения, оператор, категории данных, цели, безопасность (AES-256/RLS/TLS), права субъектов, согласие на медданные
+- `frontend/src/components/ui/CookieBanner.tsx` — фиксированный баннер снизу, localStorage cookie_consent, автоскрытие
+- `frontend/src/components/ui/MedicalDataConsent.tsx` — модальный диалог ст. 10 152-ФЗ, POST /api/v1/profile/medical-consent, localStorage medical_consent_given
+- `frontend/src/app/layout.tsx` — добавлен CookieBanner в корневой layout
+
+**Результаты тестов**:
+- `npm run build` — ✓ /privacy + 12 страниц, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
