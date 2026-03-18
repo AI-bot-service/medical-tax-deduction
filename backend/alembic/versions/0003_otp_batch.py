@@ -69,7 +69,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum("processing", "completed", "partial", name="batchstatus", create_type=False),
+            postgresql.ENUM("processing", "completed", "partial", name="batchstatus", create_type=False),
             nullable=False,
             server_default="processing",
         ),
@@ -79,7 +79,7 @@ def upgrade() -> None:
         sa.Column("failed_count", sa.SmallInteger(), nullable=False, server_default="0"),
         sa.Column(
             "source",
-            sa.Enum("telegram_bot", "web", "mini_app", name="batchsource", create_type=False),
+            postgresql.ENUM("telegram_bot", "web", "mini_app", name="batchsource", create_type=False),
             nullable=False,
         ),
         sa.Column(
