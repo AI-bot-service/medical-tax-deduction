@@ -470,3 +470,19 @@ list[tuple] для корректной передачи нескольких Se
 - 11/11 тестов (mock PTB Update/Context + httpx транспорт)
 
 Теперь разблокирована C-04 (при условии C-03 тоже done)
+
+## 2026-03-18 E-03 Prescriptions Router — DONE
+
+- app/schemas/prescription.py: PrescriptionCreate (expires_at default +60 дней),
+  PrescriptionResponse, LinkPrescriptionRequest, PrescriptionListResponse
+- app/routers/prescriptions.py: 5 эндпоинтов:
+  POST /prescriptions — создать, doc_025/doc_025_1 → DISPUTED
+  POST /prescriptions/{id}/photo — загрузить фото в S3
+  GET /prescriptions?doc_type&status — список с фильтрами (active/expired/deleted)
+  GET /prescriptions/{id} — detail
+  DELETE /prescriptions/{id} — soft-delete (status=deleted)
+  POST /prescriptions/link — привязка к receipt_item с проверкой ownership (403)
+- app/main.py: роутер зарегистрирован
+- 20/20 тестов
+
+Теперь разблокированы: E-04 (Prescription Search Service), E-05 (PDF Blank), G-06
