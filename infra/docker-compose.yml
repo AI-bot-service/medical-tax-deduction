@@ -30,6 +30,8 @@ services:
       context: ../backend
       dockerfile: Dockerfile
     env_file: ../.env
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,21 +68,10 @@ services:
     env_file: ../.env
     environment:
       BACKEND_URL: http://backend:8000
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./certs:/etc/ssl/medvychet:ro
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
-      - frontend
     restart: unless-stopped
 
 volumes:
