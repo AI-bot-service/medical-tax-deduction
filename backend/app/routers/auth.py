@@ -1,4 +1,4 @@
-"""Auth Router (D-02).
+"""Auth Router (D-02, D-05).
 
 Endpoints:
   POST /auth/otp          — generate OTP for a registered user, send via telegram
@@ -6,6 +6,7 @@ Endpoints:
   POST /auth/refresh      — rotate refresh token, issue new cookies
   POST /auth/logout       — clear auth cookies
   POST /auth/bot-register — register/find user from bot, return JWT in body
+  POST /auth/mini-app     — verify Telegram WebApp initData, issue JWT cookies
 """
 import hashlib
 import logging
@@ -15,16 +16,19 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.dependencies import get_db
 from app.models.user import User
 from app.schemas.auth import (
     BotRegisterRequest,
     BotTokenResponse,
     MessageResponse,
+    MiniAppAuthRequest,
     OTPRequest,
     VerifyRequest,
 )
 from app.services.auth.jwt_service import JWTService
+from app.services.auth.mini_app_service import MiniAppService, MiniAppVerificationError
 from app.services.auth.otp_service import OTPService
 
 logger = logging.getLogger(__name__)
@@ -33,6 +37,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _otp_service = OTPService()
 _jwt_service = JWTService()
+
+
+def _get_mini_app_service() -> MiniAppService:
+    """Lazy-init MiniAppService with bot token from settings."""
+    return MiniAppService(bot_token=settings.telegram_bot_token)
 
 
 # ---------------------------------------------------------------------------
@@ -207,3 +216,46 @@ async def bot_register(
         access_token=access_token,
         refresh_token=refresh_token,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/mini-app (D-05)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mini-app", response_model=MessageResponse)
+async def mini_app_auth(
+    body: MiniAppAuthRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Authenticate via Telegram WebApp initData (Mini App).
+
+    Verifies HMAC-SHA256 signature, extracts telegram_id,
+    creates or finds the user, and sets httpOnly JWT cookies.
+    """
+    svc = _get_mini_app_service()
+
+    try:
+        fields = svc.verify(body.init_data)
+        telegram_id = svc.extract_user_id(fields)
+    except MiniAppVerificationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    # find_or_create user
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(telegram_id=telegram_id)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    user_id = str(user.id)
+    family_id = str(uuid.uuid4())
+    access_token = _jwt_service.create_access_token(user_id)
+    refresh_token = _jwt_service.create_refresh_token(user_id, family_id)
+
+    _set_auth_cookies(response, access_token, refresh_token)
+    return MessageResponse(message="Авторизация через Mini App успешна")

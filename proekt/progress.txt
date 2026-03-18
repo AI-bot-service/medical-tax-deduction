@@ -639,3 +639,24 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**: 14/14 passed
 
 **Разблокированы**: I-02 (Mini App Frontend), I-03 (PD Policy Pages)
+
+## D-05 | 2026-03-18 | DONE
+
+**Задача**: Mini App Auth — POST /auth/mini-app, HMAC-SHA256 верификация Telegram WebApp initData
+
+**Что создано**:
+- `backend/app/services/auth/mini_app_service.py` — `MiniAppService`:
+  - `verify(init_data)` — парсинг URL-encoded строки, HMAC-SHA256 с WebAppData-derived ключом, проверка auth_date (< 24ч)
+  - `extract_user_id(fields)` — извлечение telegram_id из поля user (JSON) или id
+  - `MiniAppVerificationError` при невалидной подписи/истёкшем токене
+- `backend/app/routers/auth.py` — добавлен `POST /auth/mini-app`:
+  - find_or_create User по telegram_id
+  - httpOnly JWT cookies (как в /verify)
+- `backend/app/schemas/auth.py` — `MiniAppAuthRequest`
+- `backend/tests/test_auth/test_mini_app_auth.py` — 15 тестов:
+  - 7 unit-тестов MiniAppService (valid, extract_id, bad hash, wrong token, no hash, expired, recent)
+  - 8 integration-тестов endpoint (200+cookies, 401 bad hash, 401 wrong token, create user, existing user, empty)
+
+**Результаты тестов**: 15/15 passed
+
+**Разблокированы**: I-02 (Mini App Frontend) — теперь D-05 done

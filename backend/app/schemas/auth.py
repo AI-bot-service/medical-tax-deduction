@@ -36,3 +36,7 @@ class BotTokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class MiniAppAuthRequest(BaseModel):
+    init_data: str
