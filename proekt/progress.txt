@@ -772,3 +772,18 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /receipts страница, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-05: Receipt Detail Page — DONE (2026-03-18)
+
+**Задача**: Receipt Detail Page — PresignedImage, OCREditor, ItemsTable, PrescriptionLinker
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/receipts/[id]/page.tsx` — динамическая страница
+- `PresignedImage` — setInterval 14 мин, GET /receipts/{id} → обновление image_url
+- `OCREditor` — поля purchase_date/pharmacy_name/total_amount, подсветка жёлтым при confidence < 0.7, PATCH /receipts/{id}
+- `ItemsTable` — колонки название/МНН/кол-во/цена/сумма/Rx/Рецепт, PrescriptionLinker для is_rx=true
+- `PrescriptionLinker` — поиск GET /prescriptions по drug_inn, привязка POST /prescriptions/link
+
+**Результаты тестов**:
+- `npm run build` — ✓ /receipts/[id] dynamic route, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
