@@ -499,3 +499,13 @@ list[tuple] для корректной передачи нескольких Se
 - 19/19 тестов
 
 Теперь разблокирована: C-04 (Prescription Dialog FSM)
+
+## 2026-03-18 E-02 Summary Endpoint — DONE
+
+- schemas/receipt.py: MonthSummary, SummaryResponse добавлены
+- routers/receipts.py: GET /receipts/summary?year=N
+  Только DONE+REVIEW чеки считаются. deduction = total * 0.13.
+  limit_used_pct = total/150000*100 (cap 100%). has_missing_prescriptions по месяцам.
+- 12/12 тестов
+
+Теперь разблокированы: G-03 (Dashboard Page), C-05 (Bot Commands)

@@ -104,6 +104,27 @@ class ReceiptItemPatch(BaseModel):
     is_rx: bool | None = None
 
 
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+
+
+class MonthSummary(BaseModel):
+    month: str  # "2024-01"
+    receipts_count: int
+    total_amount: Decimal
+    deduction_amount: Decimal
+    has_missing_prescriptions: bool
+
+
+class SummaryResponse(BaseModel):
+    year: int
+    months: list[MonthSummary]
+    total_amount: Decimal
+    deduction_amount: Decimal
+    limit_used_pct: float  # capped at 100.0
+
+
 class ReceiptPatch(BaseModel):
     purchase_date: date | None = None
     pharmacy_name: str | None = None

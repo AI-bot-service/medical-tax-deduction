@@ -24,6 +24,8 @@ from app.models.enums import OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.schemas.receipt import (
+    MonthGroup,
+    MonthSummary,
     ReceiptDetail,
     ReceiptItemPatch,
     ReceiptItemSchema,
@@ -31,7 +33,7 @@ from app.schemas.receipt import (
     ReceiptListResponse,
     ReceiptPatch,
     ReceiptUploadResponse,
-    MonthGroup,
+    SummaryResponse,
 )
 from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
 
@@ -124,6 +126,78 @@ async def upload_receipt(
         logger.warning("Failed to enqueue OCR task for receipt %s: %s", receipt.id, exc)
 
     return ReceiptUploadResponse(receipt_id=receipt.id, status=receipt.ocr_status)
+
+
+# ---------------------------------------------------------------------------
+# GET /receipts/summary
+# ---------------------------------------------------------------------------
+
+_DEDUCTION_RATE = Decimal("0.13")
+_DEDUCTION_LIMIT = Decimal("150000")
+_COUNTED_STATUSES = {OCRStatus.DONE, OCRStatus.REVIEW}
+
+
+@router.get("/summary", response_model=SummaryResponse)
+async def get_summary(
+    year: int | None = Query(default=None, description="Год (по умолчанию текущий)"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> SummaryResponse:
+    """Return yearly summary: monthly breakdown, deduction amount, limit usage."""
+    from datetime import datetime
+
+    if year is None:
+        year = datetime.now().year
+
+    stmt = (
+        select(Receipt)
+        .where(
+            Receipt.user_id == current_user.id,
+            extract("year", Receipt.created_at) == year,
+            Receipt.ocr_status.in_([OCRStatus.DONE, OCRStatus.REVIEW]),
+        )
+        .order_by(Receipt.created_at)
+    )
+    result = await db.execute(stmt)
+    receipts = result.scalars().all()
+
+    # Group by month
+    from collections import defaultdict
+
+    groups: dict[str, list[Receipt]] = defaultdict(list)
+    for r in receipts:
+        month_key = r.created_at.strftime("%Y-%m")
+        groups[month_key].append(r)
+
+    months: list[MonthSummary] = []
+    for month_key in sorted(groups.keys()):
+        group = groups[month_key]
+        month_total = sum(
+            Decimal(str(r.total_amount)) for r in group if r.total_amount is not None
+        )
+        month_deduction = (month_total * _DEDUCTION_RATE).quantize(Decimal("0.01"))
+        has_missing = any(r.needs_prescription for r in group)
+        months.append(
+            MonthSummary(
+                month=month_key,
+                receipts_count=len(group),
+                total_amount=month_total,
+                deduction_amount=month_deduction,
+                has_missing_prescriptions=has_missing,
+            )
+        )
+
+    total = sum(m.total_amount for m in months)
+    deduction = (total * _DEDUCTION_RATE).quantize(Decimal("0.01"))
+    limit_pct = min(float(total / _DEDUCTION_LIMIT * 100), 100.0)
+
+    return SummaryResponse(
+        year=year,
+        months=months,
+        total_amount=total,
+        deduction_amount=deduction,
+        limit_used_pct=round(limit_pct, 2),
+    )
 
 
 # ---------------------------------------------------------------------------
