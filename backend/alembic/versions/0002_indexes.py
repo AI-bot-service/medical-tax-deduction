@@ -7,7 +7,6 @@ Create Date: 2026-03-18
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0002"
@@ -18,10 +17,9 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # L1/L2: поиск рецептов по INN + период действия
-    op.create_index(
-        "ix_prescriptions_search",
-        "prescriptions",
-        ["user_id", "drug_inn", "issue_date", "expires_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_prescriptions_search "
+        "ON prescriptions (user_id, drug_inn, issue_date, expires_at)"
     )
 
     # L3: fuzzy поиск по drug_name (GIN trigram index)
@@ -40,32 +38,28 @@ def upgrade() -> None:
     )
 
     # Поиск по дате покупки чека
-    op.create_index(
-        "ix_receipts_purchase_date",
-        "receipts",
-        ["user_id", sa.text("purchase_date DESC")],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_receipts_purchase_date "
+        "ON receipts (user_id, purchase_date DESC)"
     )
 
     # Items: фильтр по drug_inn и is_rx
-    op.create_index(
-        "ix_receipt_items_drug",
-        "receipt_items",
-        ["drug_inn", "is_rx"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_receipt_items_drug "
+        "ON receipt_items (drug_inn, is_rx)"
     )
 
     # Дополнительные индексы для production-запросов
     # Receipts: фильтр по статусу и дате создания
-    op.create_index(
-        "ix_receipts_user_status",
-        "receipts",
-        ["user_id", "ocr_status", "created_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_receipts_user_status "
+        "ON receipts (user_id, ocr_status, created_at)"
     )
 
     # Prescriptions: фильтр по статусу (active/expired)
-    op.create_index(
-        "ix_prescriptions_user_status",
-        "prescriptions",
-        ["user_id", "status"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_prescriptions_user_status "
+        "ON prescriptions (user_id, status)"
     )
 
 
