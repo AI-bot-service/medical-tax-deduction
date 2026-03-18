@@ -20,7 +20,7 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (user: AuthUser) => void;
+  login: (user: AuthUser | null) => void;
   logout: () => void;
 }
 

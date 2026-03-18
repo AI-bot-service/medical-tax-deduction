@@ -732,3 +732,16 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ Compiled successfully, 4 static pages
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-02: Login Page — DONE (2026-03-18)
+
+**Задача**: Login Page /login — PhoneInput, OTPInput, 60-сек таймер, 429 обработка
+
+**Что сделано**:
+- `frontend/src/app/(auth)/login/page.tsx` — двухшаговый логин: шаг 1 (ввод телефона), шаг 2 (OTP). Auto-submit при вводе 6 цифр, кнопка «Получить код» неактивна 60 сек, 429→сообщение, 404→"не найден", authStore.login(null) + router.push('/dashboard')
+- `frontend/src/components/ui/PhoneInput.tsx` — форматирование +7 (XXX) XXX-XX-XX, валидация по blur
+- `frontend/src/components/ui/OTPInput.tsx` — 6 отдельных input[maxLength=1], автофокус, backspace-nav, paste support
+
+**Результаты тестов**:
+- `npm run build` — ✓ /login статическая страница, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
