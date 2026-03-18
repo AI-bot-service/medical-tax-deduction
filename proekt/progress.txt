@@ -825,3 +825,13 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /export, /profile, 11 страниц, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## A-07: CI/CD GitHub Actions — DONE (2026-03-18)
+
+**Задача**: GitHub Actions ci.yml (ruff+mypy+pytest, eslint+tsc) и deploy.yml
+
+**Что сделано**:
+- `.github/workflows/ci.yml` — 3 jobs: backend-lint (ruff+mypy), backend-test (pytest с postgres:15 + redis:7, alembic upgrade head), frontend-lint (eslint+tsc+build)
+- `.github/workflows/deploy.yml` — push main → SSH deploy → git pull + docker compose pull + up --force-recreate + alembic upgrade
+
+**Результаты тестов**: файлы созданы, YAML синтаксис корректный
