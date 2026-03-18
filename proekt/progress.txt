@@ -621,3 +621,21 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**: 12/12 passed (1.17 сек)
 
 **Разблокированы**: H-02 (Cover Letter PDF), C-05 (Bot Commands), G-08 (Export Page)
+
+## I-01 | 2026-03-18 | DONE
+
+**Задача**: AES-256 шифрование персональных данных (152-ФЗ)
+
+**Что создано**:
+- `backend/app/services/storage/encryption.py`:
+  - `EncryptionService`: Fernet (AES-128-CBC + HMAC-SHA256), ENCRYPTION_KEY из env
+  - `EncryptedString`: SQLAlchemy TypeDecorator — шифрует при записи, дешифрует при чтении
+  - `get_encryption_service()`: синглтон
+- `backend/app/models/user.py`: добавлены колонки full_name, inn, snils типа EncryptedString(512)
+- `backend/alembic/versions/0004_encryption.py` (0003→0004):
+  - Колонки users.full_name, inn, snils как VARCHAR(512)
+  - Таблица export_jobs (из H-01)
+
+**Результаты тестов**: 14/14 passed
+
+**Разблокированы**: I-02 (Mini App Frontend), I-03 (PD Policy Pages)
