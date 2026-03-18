@@ -509,3 +509,19 @@ list[tuple] для корректной передачи нескольких Se
 - 12/12 тестов
 
 Теперь разблокированы: G-03 (Dashboard Page), C-05 (Bot Commands)
+
+## E-04 | 2026-03-18 | DONE
+
+**Задача**: Prescription Search Service L1-L4
+
+**Что создано**:
+- `backend/app/services/prescriptions/search_service.py` — async `find_prescription()` с 4 уровнями:
+  - L1: точный INN + дата покупки внутри периода действия рецепта → confidence 1.0
+  - L2: точный INN + рецепт просрочен ≤30 дней до покупки → confidence 0.85
+  - L3: rapidfuzz WRatio≥85 по drug_name среди всех рецептов пользователя → confidence WRatio/100
+  - L4: нет совпадения → None
+- `backend/tests/test_prescriptions/test_search_service.py` — 14 тестов (L1×5, L2×3, L3×3, L4×3)
+
+**Результаты тестов**: 14/14 passed
+
+**Разблокированы**: E-05 (Prescription PDF Blank)
