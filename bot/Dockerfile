@@ -2,11 +2,13 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-RUN pip install uv
+
+RUN pip install --no-cache-dir uv
+
 COPY pyproject.toml .
-RUN uv sync --no-dev --no-install-project
+RUN mkdir -p handlers services && touch handlers/__init__.py services/__init__.py
+RUN uv pip install --system --no-cache-dir .
 
 COPY . .
-ENV PATH="/app/.venv/bin:$PATH"
 
 CMD ["python", "main.py"]
