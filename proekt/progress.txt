@@ -444,3 +444,16 @@ list[tuple] для корректной передачи нескольких Se
 - 10/10 тестов прошли (SQLite in-memory, mock S3 + mock pipeline)
 
 Теперь незаблокированы: C-03 (Receipt Flow FSM), E-01 (Receipts Router)
+
+## 2026-03-18 E-01 Receipts Router + Service — DONE
+
+- app/schemas/receipt.py: ReceiptUploadResponse, ReceiptListItem, MonthGroup, ReceiptListResponse, ReceiptDetail, ReceiptPatch, ReceiptItemPatch
+- app/routers/receipts.py: 4 эндпоинта:
+  POST /receipts/upload — валидация jpg/png/webp/pdf < 20MB, S3 upload, Receipt PENDING, Celery enqueue
+  GET /receipts?year&month — список с группировкой по месяцам
+  GET /receipts/{id} — detail + presigned URL (TTL 15 мин) + items
+  PATCH /receipts/{id} — частичное обновление receipt + items
+- app/main.py: роутер зарегистрирован
+- 15/15 тестов (SQLite in-memory, mock S3+Celery)
+
+Теперь разблокированы: E-02 (Summary), H-01 (PDF Registry)

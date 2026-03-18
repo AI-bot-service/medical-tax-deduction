@@ -55,8 +55,10 @@ def create_app() -> FastAPI:
 
     # ── Routers ──────────────────────────────────────────────────────────────
     from app.routers.auth import router as auth_router
+    from app.routers.receipts import router as receipts_router
 
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(receipts_router, prefix="/api/v1")
 
     return app
 
