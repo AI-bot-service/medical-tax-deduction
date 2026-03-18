@@ -787,3 +787,18 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**:
 - `npm run build` — ✓ /receipts/[id] dynamic route, 0 ошибок
 - `npm run tsc` — 0 ошибок TypeScript
+
+## G-06: Prescriptions Pages — DONE (2026-03-18)
+
+**Задача**: PrescriptionList с DocTypeFilter и статусными бейджами, /prescriptions/new — 3 шага
+
+**Что сделано**:
+- `frontend/src/app/(cabinet)/prescriptions/page.tsx` — список с DocTypeFilter (pill buttons), StatusBadge (активен/просрочен/истекает скоро), RiskBadge (DISPUTED/HIGH)
+- `frontend/src/app/(cabinet)/prescriptions/new/page.tsx` — 3 шага с прогресс-индикатором:
+  1. DocTypeSelector: 7 карточек, спорные типы помечены ⚠️
+  2. PrescriptionForm: адаптивная форма, banner для 025/у и 025-1/у
+  3. PhotoUpload: необязательный, кнопка "Пропустить"
+
+**Результаты тестов**:
+- `npm run build` — ✓ /prescriptions, /prescriptions/new, 0 ошибок
+- `npm run tsc` — 0 ошибок TypeScript
