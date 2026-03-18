@@ -525,3 +525,20 @@ list[tuple] для корректной передачи нескольких Se
 **Результаты тестов**: 14/14 passed
 
 **Разблокированы**: E-05 (Prescription PDF Blank)
+
+## A-04 | 2026-03-18 | DONE
+
+**Задача**: Alembic 0002_indexes — индексы для L1-L4 поиска рецептов
+
+**Что создано**:
+- `backend/alembic/versions/0002_indexes.py` (0001 → 0002):
+  - `ix_prescriptions_search`: (user_id, drug_inn, issue_date, expires_at) — L1/L2 запросы
+  - `ix_prescriptions_drug_name_gin`: GIN trigram index для fuzzy L3 поиска (pg_trgm)
+  - `ix_receipts_needs_prescription`: partial index WHERE needs_prescription = true
+  - `ix_receipts_purchase_date`: (user_id, purchase_date DESC)
+  - `ix_receipt_items_drug`: (drug_inn, is_rx)
+  - `ix_receipts_user_status`, `ix_prescriptions_user_status`: для фильтрации по статусу
+
+**Результат**: цепочка миграций 0001→0002 верифицирована
+
+**Разблокированы**: A-06 был уже готов, теперь A-04 done
