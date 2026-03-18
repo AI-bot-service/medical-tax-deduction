@@ -698,3 +698,21 @@ list[tuple] для корректной передачи нескольких Se
   - upgrade() и downgrade() вызывают op.execute
 
 **Результаты тестов**: 13/13 passed
+
+## C-04 | 2026-03-18 | DONE
+
+**Задача**: Prescription Dialog FSM — 8-state bot FSM
+
+**Что создано**:
+- `bot/handlers/prescription_dialog.py` — ConversationHandler с 10 состояниями:
+  - WAITING_PRESCRIPTION_ACTION: InlineKeyboard [📷 Загрузить | ✍️ Ввести | ⏭ Позже]
+  - WAITING_PRESCRIPTION_PHOTO: фото → POST /api/v1/prescriptions с файлом
+  - ASK_DOCTOR/SPECIALTY/CLINIC/ISSUE_DATE/DRUG_NAME/DOSAGE/EXPIRES_AT: 8 состояний manual input
+  - CONFIRM_PRESCRIPTION: [✅ Сохранить | ✏️ Изменить | ❌ Отмена]
+  - Валидация ASK_ISSUE_DATE/ASK_EXPIRES_AT: regex \d{2}\.\d{2}\.\d{4}
+  - /skip на: specialty, clinic, dosage, expires_at
+  - /cancel в любом состоянии
+  - `_parse_date()`: DD.MM.YYYY → YYYY-MM-DD для API
+- `bot/tests/test_bot/test_prescription_dialog.py` — 32 теста
+
+**Результаты тестов**: 32/32 passed (запуск: cd bot && py -3.11 -m pytest tests/test_bot/test_prescription_dialog.py)
