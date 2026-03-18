@@ -34,6 +34,9 @@ Thumbs.db
 # TypeScript build cache
 frontend/tsconfig.tsbuildinfo
 
+# SSL certificates (managed by acme.sh on server)
+infra/certs/
+
 # Claude Code local files
 .claude/settings.local.json
 .claude/ralph-loop.local.md
