@@ -457,3 +457,16 @@ list[tuple] для корректной передачи нескольких Se
 - 15/15 тестов (SQLite in-memory, mock S3+Celery)
 
 Теперь разблокированы: E-02 (Summary), H-01 (PDF Registry)
+
+## 2026-03-18 C-02 OTP Auth FSM — DONE
+
+- bot/handlers/conversations.py: ConversationHandler OTP_AUTH
+  start(): новый пользователь → кнопка "Поделиться контактом" → WAITING_CONTACT
+           авторизованный пользователь → приветствие → END
+  receive_contact(): проверяет contact.user_id == user.id (безопасность),
+                     POST /auth/bot-register, сохраняет JWT, убирает клавиатуру
+  cancel(), build_otp_auth_handler()
+- bot/main.py: обработчик зарегистрирован
+- 11/11 тестов (mock PTB Update/Context + httpx транспорт)
+
+Теперь разблокирована C-04 (при условии C-03 тоже done)

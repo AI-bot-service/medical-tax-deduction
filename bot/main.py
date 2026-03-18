@@ -4,6 +4,7 @@ import logging
 from telegram.ext import Application
 
 from config import config
+from handlers.conversations import build_otp_auth_handler
 from handlers.errors import error_handler
 
 logging.basicConfig(
@@ -17,6 +18,9 @@ def create_app() -> Application:
     """Build and configure the PTB Application."""
     builder = Application.builder().token(config.BOT_TOKEN)
     app = builder.build()
+
+    # Register conversation handlers
+    app.add_handler(build_otp_auth_handler())
 
     # Register global error handler
     app.add_error_handler(error_handler)
