@@ -121,6 +121,7 @@ async def _run(
             batch.status = BatchStatus.COMPLETED if batch.failed_count == 0 else BatchStatus.PARTIAL
             batch.completed_at = datetime.now(timezone.utc)
             await db.commit()
+            await _notify_telegram(batch, user_id)
 
     return {"status": file_status, "batch_id": batch_id}
 
@@ -309,3 +310,51 @@ async def _get_batch(db: AsyncSession, batch_id: str) -> BatchJob | None:
         select(BatchJob).where(BatchJob.id == uuid.UUID(batch_id))
     )
     return result.scalar_one_or_none()
+
+
+async def _notify_telegram(batch: BatchJob, user_id: str) -> None:
+    """Send batch completion notification to user via Telegram Bot API."""
+    token = settings.telegram_bot_token
+    if not token:
+        return
+
+    try:
+        from app.models.user import User
+        import httpx
+
+        async with _WorkerSession() as db:
+            result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+            user = result.scalar_one_or_none()
+            if user is None:
+                return
+            chat_id = user.telegram_id
+
+        total = batch.total_files
+        done = batch.done_count
+        review = batch.review_count
+        failed = batch.failed_count
+
+        if batch.status == BatchStatus.COMPLETED:
+            header = f"✅ Обработка завершена — {total} {'чек' if total == 1 else 'чека' if 2 <= total <= 4 else 'чеков'}"
+        else:
+            header = f"⚠️ Обработка завершена с ошибками ({failed} из {total} не распознано)"
+
+        lines = [header]
+        if done:
+            lines.append(f"✔️ Распознано: {done}")
+        if review:
+            lines.append(f"🔍 Требуют проверки: {review}")
+        if failed:
+            lines.append(f"❌ Не распознано: {failed}")
+        if review or failed:
+            lines.append("\nОткройте личный кабинет для проверки.")
+
+        text = "\n".join(lines)
+
+        async with httpx.AsyncClient(timeout=10) as http:
+            await http.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text},
+            )
+    except Exception as exc:
+        logger.warning("Failed to send Telegram notification for batch %s: %s", batch.id, exc)
