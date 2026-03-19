@@ -12,12 +12,11 @@ from __future__ import annotations
 import boto3
 import botocore.exceptions  # noqa: F401 — re-exported for callers
 
-BUCKET_RECEIPTS = "medvychet-receipts"
-BUCKET_PRESCRIPTIONS = "medvychet-prescriptions"
-BUCKET_EXPORTS = "medvychet-exports"
+from app.config import settings
 
-_YOS_ENDPOINT = "https://storage.yandexcloud.net"
-_YOS_REGION = "ru-central1"
+BUCKET_RECEIPTS = settings.yos_bucket_receipts
+BUCKET_PRESCRIPTIONS = settings.yos_bucket_prescriptions
+BUCKET_EXPORTS = settings.yos_bucket_exports
 
 
 class S3Client:
@@ -25,17 +24,17 @@ class S3Client:
 
     def __init__(
         self,
-        endpoint_url: str | None = _YOS_ENDPOINT,
+        endpoint_url: str | None = None,
         access_key: str | None = None,
         secret_key: str | None = None,
-        region: str = _YOS_REGION,
+        region: str | None = None,
     ) -> None:
         self._boto_client = boto3.client(
             "s3",
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            region_name=region,
+            endpoint_url=endpoint_url or settings.yos_endpoint,
+            aws_access_key_id=access_key or settings.yos_access_key,
+            aws_secret_access_key=secret_key or settings.yos_secret_key,
+            region_name=region or settings.yos_region,
         )
 
     def upload_file(
