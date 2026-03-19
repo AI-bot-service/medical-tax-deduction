@@ -1,7 +1,7 @@
 """EasyOCR engine wrapper with singleton model and timeout support.
 
 Loads the EasyOCR reader once at first use (singleton pattern).
-Runs recognition in a ThreadPoolExecutor with an 8-second timeout.
+Runs recognition in a ThreadPoolExecutor with a 120-second timeout (CPU).
 Returns OCRResult with TextBlocks in unified format.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_EASYOCR_TIMEOUT_SEC = 8
+_EASYOCR_TIMEOUT_SEC = 120  # CPU inference takes 30-90s without GPU
 _EASYOCR_LANGUAGES = ["ru", "en"]
 _MIN_BLOCKS_THRESHOLD = 5
 
@@ -88,7 +88,7 @@ class EasyOCREngine:
     def recognize(self, image_bytes: bytes) -> OCRResult:
         """Recognise text in *image_bytes* using EasyOCR.
 
-        Times out after 8 seconds. Raises RuntimeError on timeout or failure.
+        Times out after 120 seconds. Raises RuntimeError on timeout or failure.
         """
         future = _executor.submit(_run_easyocr, image_bytes)
         try:
