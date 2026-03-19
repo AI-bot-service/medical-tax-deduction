@@ -8,7 +8,7 @@ celery_app = Celery(
     "medvychet",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["workers.tasks.ocr_task", "workers.tasks.cleanup_task"],
+    include=["workers.tasks.ocr_task", "workers.tasks.cleanup_task", "workers.tasks.batch_task"],
 )
 
 celery_app.conf.update(
