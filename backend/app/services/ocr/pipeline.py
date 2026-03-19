@@ -23,7 +23,7 @@ _OCR_MIN_BLOCKS = 5  # если EasyOCR вернул < 5 блоков — исп
 
 # Thresholds для итогового статуса
 CONFIDENCE_DONE = 0.85
-CONFIDENCE_REVIEW = 0.60
+CONFIDENCE_REVIEW = 0.20  # lowered: EasyOCR on CPU returns ~0.20-0.30 on real receipts
 
 
 @dataclass
