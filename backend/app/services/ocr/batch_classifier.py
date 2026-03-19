@@ -9,8 +9,8 @@ Steps:
   2b. Same keywords ≥1 → receipt, 0.60 (goes to REVIEW)
   3. Tesseract keywords: Rp./Рецепт/107-1у/МНН/Дозировка/Врач ≥2 → prescription, 0.85
   4. Tesseract keywords: ВЫПИСКА/МЕДИЦИНСКАЯ КАРТА/003у/025у/ДИАГНОЗ ≥2 → prescription, 0.80
-  5. OCR returned empty text → receipt, 0.50 (let pipeline decide)
-  6. unknown, confidence=0.0
+  5. default → receipt, 0.50 (let EasyOCR pipeline decide; Tesseract PSM-6 often
+     produces garbage on low-quality pharmacy receipt photos)
 """
 from __future__ import annotations
 
@@ -144,20 +144,14 @@ def classify(image_bytes: bytes) -> ClassificationResult:
             recommended_doc_type="doc_025",
         )
 
-    # Step 5: if OCR returned no text at all, assume receipt (let pipeline decide)
-    if not text_upper.strip():
-        logger.debug("B-09: OCR returned empty text — defaulting to receipt for pipeline processing")
-        return ClassificationResult(
-            classified_as="receipt",
-            confidence=0.50,
-            keywords_found=[],
-        )
-
-    # Step 6: unknown
+    # Step 5: default to receipt — let the full OCR pipeline (EasyOCR) decide.
+    # Classifier uses cheap Tesseract PSM-6; poor image quality often produces
+    # garbage text with no keywords even on valid pharmacy receipts.
+    logger.debug("B-09: no keywords matched — defaulting to receipt for pipeline processing")
     return ClassificationResult(
-        classified_as="unknown",
-        confidence=0.0,
-        keywords_found=found_receipt + found_rx_a + found_rx_b,
+        classified_as="receipt",
+        confidence=0.50,
+        keywords_found=[],
     )
 
 
