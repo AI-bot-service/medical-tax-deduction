@@ -50,7 +50,6 @@ class S3Client:
             Key=key,
             Body=data,
             ContentType=content_type,
-            ServerSideEncryption="AES256",
         )
 
     def generate_presigned_url(
