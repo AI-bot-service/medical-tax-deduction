@@ -18,7 +18,7 @@ let refreshQueue: Array<(ok: boolean) => void> = [];
 
 async function doRefresh(): Promise<boolean> {
   try {
-    const res = await fetch("/api/auth/refresh", {
+    const res = await fetch("/api/v1/auth/refresh", {
       method: "POST",
       credentials: "include",
     });
@@ -33,7 +33,7 @@ async function doRefresh(): Promise<boolean> {
  * so the browser attaches the httpOnly cookie automatically.
  *
  * On 401:
- *   1. First request triggers POST /api/auth/refresh
+ *   1. First request triggers POST /api/v1/auth/refresh
  *   2. Concurrent requests queue and wait for refresh result
  *   3. On success — original request is retried once
  *   4. On failure — ApiError(401) is thrown (caller should redirect to /login)

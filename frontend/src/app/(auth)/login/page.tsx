@@ -58,7 +58,7 @@ export default function LoginPage() {
     setPhoneError("");
     setLoading(true);
     try {
-      await api.post<MessageResponse>("/api/auth/otp", {
+      await api.post<MessageResponse>("/api/v1/auth/otp", {
         phone: `+7${phone}`,
       });
       setStep("otp");
@@ -85,7 +85,7 @@ export default function LoginPage() {
     setOtpError("");
     setLoading(true);
     try {
-      await api.post<MessageResponse>("/api/auth/verify", {
+      await api.post<MessageResponse>("/api/v1/auth/verify", {
         phone: `+7${phone}`,
         code: otp,
       });
@@ -122,7 +122,7 @@ export default function LoginPage() {
     setOtpError("");
     setLoading(true);
     try {
-      await api.post<MessageResponse>("/api/auth/otp", {
+      await api.post<MessageResponse>("/api/v1/auth/otp", {
         phone: `+7${phone}`,
       });
       startTimer();
