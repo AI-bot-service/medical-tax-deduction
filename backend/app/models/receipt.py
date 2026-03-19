@@ -22,7 +22,7 @@ class Receipt(TimestampMixin, Base):
     )
     s3_key: Mapped[str] = mapped_column(String, nullable=False)
     ocr_status: Mapped[OCRStatus] = mapped_column(
-        Enum(OCRStatus, name="ocrstatus"), default=OCRStatus.PENDING, nullable=False
+        Enum(OCRStatus, name="ocrstatus", values_callable=lambda x: [e.value for e in x]), default=OCRStatus.PENDING, nullable=False
     )
     needs_prescription: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     purchase_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)

@@ -24,7 +24,7 @@ class BatchJob(TimestampMixin, Base):
         index=True,
     )
     status: Mapped[BatchStatus] = mapped_column(
-        Enum(BatchStatus, name="batchstatus"),
+        Enum(BatchStatus, name="batchstatus", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=BatchStatus.PROCESSING,
     )
@@ -33,7 +33,7 @@ class BatchJob(TimestampMixin, Base):
     review_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     failed_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     source: Mapped[BatchSource] = mapped_column(
-        Enum(BatchSource, name="batchsource"),
+        Enum(BatchSource, name="batchsource", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)

@@ -24,7 +24,7 @@ class Prescription(TimestampMixin, Base):
         index=True,
     )
     doc_type: Mapped[DocType] = mapped_column(
-        Enum(DocType, name="doctype"), nullable=False
+        Enum(DocType, name="doctype", values_callable=lambda x: [e.value for e in x]), nullable=False
     )
     doctor_name: Mapped[str] = mapped_column(String, nullable=False)
     doctor_specialty: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -36,7 +36,7 @@ class Prescription(TimestampMixin, Base):
     dosage: Mapped[str | None] = mapped_column(String, nullable=True)
     s3_key: Mapped[str | None] = mapped_column(String, nullable=True)
     risk_level: Mapped[RiskLevel] = mapped_column(
-        Enum(RiskLevel, name="risklevel"), default=RiskLevel.STANDARD, nullable=False
+        Enum(RiskLevel, name="risklevel", values_callable=lambda x: [e.value for e in x]), default=RiskLevel.STANDARD, nullable=False
     )
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
