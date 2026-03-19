@@ -32,12 +32,19 @@ from workers.sse_publisher import publish_batch_event
 
 logger = logging.getLogger(__name__)
 
-_worker_engine = create_async_engine(
-    settings.database_url_worker,
-    pool_pre_ping=True,
-    echo=False,
-)
-_WorkerSession = async_sessionmaker(_worker_engine, expire_on_commit=False)
+_WorkerSession = None  # set per-task in _run()
+
+
+def _make_session() -> tuple:
+    """Create a fresh engine + session factory bound to the current event loop."""
+    engine = create_async_engine(
+        settings.database_url_worker,
+        pool_pre_ping=True,
+        pool_size=1,
+        max_overflow=0,
+        echo=False,
+    )
+    return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
 @celery_app.task(name="workers.tasks.batch_task.process_batch_file", bind=True, max_retries=2)
@@ -49,12 +56,16 @@ def process_batch_file(
     user_id: str,
 ) -> dict:
     """Celery task: classify and process a single file in a batch."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        result = asyncio.run(_run(batch_id, file_index, s3_key, user_id))
+        result = loop.run_until_complete(_run(batch_id, file_index, s3_key, user_id))
         return result
     except Exception as exc:
         logger.error("batch_task failed [%s #%d]: %s", batch_id, file_index, exc)
         raise self.retry(exc=exc, countdown=30)
+    finally:
+        loop.close()
 
 
 async def _run(
@@ -63,6 +74,8 @@ async def _run(
     s3_key: str,
     user_id: str,
 ) -> dict:
+    global _WorkerSession
+    _engine, _WorkerSession = _make_session()
     s3 = S3Client()
 
     # Download from S3
