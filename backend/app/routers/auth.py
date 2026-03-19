@@ -49,9 +49,18 @@ def _get_mini_app_service() -> MiniAppService:
 # ---------------------------------------------------------------------------
 
 
+def _normalize_phone(phone: str) -> str:
+    """Strip all non-digit characters and ensure leading +7 for RU numbers."""
+    digits = "".join(c for c in phone if c.isdigit())
+    # Handle 8-prefixed Russian numbers: 89XXXXXXXXX → +79XXXXXXXXX
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = "7" + digits[1:]
+    return "+" + digits
+
+
 def _hash_phone(phone: str) -> str:
-    """Deterministic SHA-256 hash of phone number for DB lookups."""
-    return hashlib.sha256(phone.encode()).hexdigest()
+    """Deterministic SHA-256 hash of normalised phone number for DB lookups."""
+    return hashlib.sha256(_normalize_phone(phone).encode()).hexdigest()
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -91,9 +100,24 @@ async def request_otp(
 
     code = await _otp_service.generate_otp(phone_hash, db)
 
-    # TODO: send via telegram_notifier (implemented in C-01)
-    logger.info("OTP generated for telegram_id=%s (not sent yet)", user.telegram_id)
-    _ = code  # will be passed to notifier once C-01 is done
+    # Send OTP via Telegram Bot API
+    if settings.telegram_bot_token and user.telegram_id:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as http:
+                await http.post(
+                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+                    json={
+                        "chat_id": user.telegram_id,
+                        "text": f"🔐 Ваш код входа в МедВычет: *{code}*\n\nКод действителен 5 минут.",
+                        "parse_mode": "Markdown",
+                    },
+                )
+            logger.info("OTP sent to telegram_id=%s", user.telegram_id)
+        except Exception as exc:
+            logger.error("Failed to send OTP via Telegram: %s", exc)
+    else:
+        logger.warning("OTP generated but not sent (no token or telegram_id): %s", code)
 
     return MessageResponse(message="Код отправлен")
 
