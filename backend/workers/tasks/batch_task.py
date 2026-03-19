@@ -118,7 +118,7 @@ async def _run(
 
         if completed:
             batch.status = BatchStatus.COMPLETED if batch.failed_count == 0 else BatchStatus.PARTIAL
-            batch.completed_at = datetime.now(timezone.utc)
+            batch.completed_at = datetime.utcnow()
             await db.commit()
             await _notify_telegram(batch, user_id)
 
@@ -210,8 +210,8 @@ async def _process_prescription_file(
             batch_id=uuid.UUID(batch_id),
             doc_type=DocType.RECIPE_107,
             doctor_name="Не определён",
-            issue_date=datetime.now(timezone.utc).date(),
-            expires_at=datetime.now(timezone.utc).date(),
+            issue_date=datetime.utcnow().date(),
+            expires_at=datetime.utcnow().date(),
             drug_name="Не распознано",
             drug_inn=None,
             risk_level=RiskLevel.STANDARD,
@@ -300,7 +300,7 @@ async def _maybe_complete_batch(batch_id: str) -> None:
         processed = batch.done_count + batch.review_count + batch.failed_count
         if processed >= batch.total_files:
             batch.status = BatchStatus.COMPLETED if batch.failed_count == 0 else BatchStatus.PARTIAL
-            batch.completed_at = datetime.now(timezone.utc)
+            batch.completed_at = datetime.utcnow()
             await db.commit()
 
 
