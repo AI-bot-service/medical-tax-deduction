@@ -6,9 +6,11 @@ Uses only Tesseract PSM-6 on first 10 lines (~0.3 sec).
 Steps:
   1. QR decode → fn/i/fp params → receipt, confidence=1.0
   2. Tesseract keywords: ФИСКАЛЬНЫЙ/ФН/ФД/ФП/АПТЕКА/ИТОГО ≥3 → receipt, 0.85
+  2b. Same keywords ≥1 → receipt, 0.60 (goes to REVIEW)
   3. Tesseract keywords: Rp./Рецепт/107-1у/МНН/Дозировка/Врач ≥2 → prescription, 0.85
   4. Tesseract keywords: ВЫПИСКА/МЕДИЦИНСКАЯ КАРТА/003у/025у/ДИАГНОЗ ≥2 → prescription, 0.80
-  5. unknown, confidence=0.0
+  5. OCR returned empty text → receipt, 0.50 (let pipeline decide)
+  6. unknown, confidence=0.0
 """
 from __future__ import annotations
 
@@ -100,15 +102,23 @@ def classify(image_bytes: bytes) -> ClassificationResult:
         logger.debug("B-09 Step 1 error: %s", exc)
 
     # ── Steps 2-4: Tesseract OCR on first lines ───────────────────────────────
-    text_upper = _ocr_first_lines(image_bytes, n_lines=10)
+    text_upper = _ocr_first_lines(image_bytes, n_lines=20)
     tokens = set(re.findall(r"[А-ЯA-Z0-9][А-ЯA-Z0-9\-/]*", text_upper))
 
-    # Step 2: receipt keywords (≥3 matches)
+    # Step 2: receipt keywords (≥3 matches → high confidence)
     found_receipt = [kw for kw in _RECEIPT_KEYWORDS if kw in tokens]
     if len(found_receipt) >= 3:
         return ClassificationResult(
             classified_as="receipt",
             confidence=0.85,
+            keywords_found=found_receipt,
+        )
+
+    # Step 2b: receipt keywords (≥1 match → low confidence, goes to REVIEW)
+    if len(found_receipt) >= 1:
+        return ClassificationResult(
+            classified_as="receipt",
+            confidence=0.60,
             keywords_found=found_receipt,
         )
 
@@ -132,7 +142,16 @@ def classify(image_bytes: bytes) -> ClassificationResult:
             recommended_doc_type="doc_025",
         )
 
-    # Step 5: unknown
+    # Step 5: if OCR returned no text at all, assume receipt (let pipeline decide)
+    if not text_upper.strip():
+        logger.debug("B-09: OCR returned empty text — defaulting to receipt for pipeline processing")
+        return ClassificationResult(
+            classified_as="receipt",
+            confidence=0.50,
+            keywords_found=[],
+        )
+
+    # Step 6: unknown
     return ClassificationResult(
         classified_as="unknown",
         confidence=0.0,
