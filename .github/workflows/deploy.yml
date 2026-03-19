@@ -23,7 +23,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '/opt/medvychet' }}
             git pull origin main
             cd infra
-            docker compose pull
+            docker compose build
             docker compose up -d --force-recreate --remove-orphans
             docker compose exec -T backend alembic upgrade head
             echo "Deploy completed at $(date)"
