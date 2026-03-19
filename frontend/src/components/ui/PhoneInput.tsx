@@ -16,7 +16,6 @@ interface PhoneInputProps {
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
   function PhoneInput({ value, onChange, onBlur, error, disabled }, ref) {
     function formatDisplay(digits: string): string {
-      // digits: raw 10-digit string (after +7)
       const d = digits.replace(/\D/g, "").slice(0, 10);
       if (d.length === 0) return "";
       let formatted = "+7";
@@ -30,11 +29,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
 
     function handleChange(e: ChangeEvent<HTMLInputElement>) {
       const raw = e.target.value.replace(/\D/g, "");
-      // strip leading 7 or 8 if user types full number
       let digits = raw;
-      if (digits.startsWith("7") || digits.startsWith("8")) {
-        digits = digits.slice(1);
-      }
+      if (digits.startsWith("7") || digits.startsWith("8")) digits = digits.slice(1);
       digits = digits.slice(0, 10);
       onChange(digits);
     }
@@ -47,8 +43,16 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
     const display = value ? formatDisplay(value) : "";
 
     return (
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700" htmlFor="phone">
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <label
+          htmlFor="phone"
+          style={{
+            fontSize: "11px", fontWeight: 600,
+            color: "var(--text-secondary)",
+            letterSpacing: ".04em", textTransform: "uppercase",
+            fontFamily: "inherit",
+          }}
+        >
           Номер телефона
         </label>
         <input
@@ -62,16 +66,35 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
           onBlur={handleBlur}
           disabled={disabled}
           autoComplete="tel"
-          className={[
-            "w-full rounded-lg border px-4 py-3 text-base outline-none transition-colors",
-            "focus:border-blue-500 focus:ring-2 focus:ring-blue-200",
-            error
-              ? "border-red-400 bg-red-50"
-              : "border-gray-300 bg-white",
-            disabled ? "cursor-not-allowed opacity-50" : "",
-          ].join(" ")}
+          style={{
+            width: "100%",
+            borderRadius: "var(--r-sm)",
+            border: `1.5px solid ${error ? "var(--red)" : "var(--border)"}`,
+            background: error ? "var(--red-bg)" : "var(--surface)",
+            padding: "11px 16px",
+            fontSize: "15px",
+            fontWeight: 500,
+            color: "var(--text-primary)",
+            fontFamily: "inherit",
+            outline: "none",
+            transition: "border-color .15s, box-shadow .15s",
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? "not-allowed" : "text",
+          }}
+          onFocus={(e) => {
+            if (!error) e.currentTarget.style.borderColor = "var(--accent)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-light)";
+          }}
+          onBlurCapture={(e) => {
+            e.currentTarget.style.borderColor = error ? "var(--red)" : "var(--border)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <p style={{ fontSize: "12px", color: "var(--red-text)", fontFamily: "inherit" }}>
+            {error}
+          </p>
+        )}
       </div>
     );
   },
