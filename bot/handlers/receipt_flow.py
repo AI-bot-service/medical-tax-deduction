@@ -93,10 +93,16 @@ async def _process_batch(context: ContextTypes.DEFAULT_TYPE) -> None:
     n = len(buf)
     logger.info("Processing batch of %d files for chat_id=%s", n, chat_id)
 
-    # Get BackendClient for this user
+    # Get BackendClient for this user (restores tokens from Redis if needed)
+    from handlers.conversations import _get_client
     from services.api_client import BackendClient
 
-    client: BackendClient = user_data.get("api_client") or BackendClient()
+    # Reconstruct a minimal context-like object to reuse _get_client
+    class _FakeContext:
+        user_data = user_data
+        job_queue = None
+
+    client: BackendClient = _get_client(_FakeContext(), telegram_id=chat_id)  # type: ignore[arg-type]
 
     try:
         files = [

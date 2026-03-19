@@ -24,6 +24,7 @@ from telegram.ext import (
 )
 
 from services.api_client import BackendClient
+from services.token_storage import delete_tokens, load_tokens, save_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,21 @@ WAITING_CONTACT = 1
 _CLIENT_KEY = "api_client"
 
 
-def _get_client(context: ContextTypes.DEFAULT_TYPE) -> BackendClient:
-    """Return or create a per-user BackendClient stored in user_data."""
+def _get_client(context: ContextTypes.DEFAULT_TYPE, telegram_id: int | None = None) -> BackendClient:
+    """Return or create a per-user BackendClient stored in user_data.
+
+    If the client is not authenticated and telegram_id is provided,
+    tries to restore tokens from Redis (survives bot restarts).
+    """
     if _CLIENT_KEY not in context.user_data:  # type: ignore[operator]
         context.user_data[_CLIENT_KEY] = BackendClient()  # type: ignore[index]
-    return context.user_data[_CLIENT_KEY]  # type: ignore[index]
+    client: BackendClient = context.user_data[_CLIENT_KEY]  # type: ignore[index]
+    if not client.is_authenticated and telegram_id is not None:
+        tokens = load_tokens(telegram_id)
+        if tokens:
+            client.set_tokens(*tokens)
+            logger.debug("Restored tokens from Redis for telegram_id=%s", telegram_id)
+    return client
 
 
 # ── Handler functions ─────────────────────────────────────────────────────────
@@ -50,8 +61,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     - Returning authenticated user → welcome without asking for contact.
     - New / unauthenticated user → show contact-share button.
     """
-    client = _get_client(context)
     user = update.effective_user
+    client = _get_client(context, telegram_id=user.id if user else None)
 
     if client.is_authenticated:
         name = user.first_name if user else "друг"
@@ -94,7 +105,7 @@ async def receive_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not phone.startswith("+"):
         phone = "+" + phone
 
-    client = _get_client(context)
+    client = _get_client(context, telegram_id=user.id if user else None)
 
     try:
         resp = await client.post(
@@ -116,6 +127,8 @@ async def receive_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if resp.status_code == 200:
         data = resp.json()
         client.set_tokens(data["access_token"], data["refresh_token"])
+        if user:
+            save_tokens(user.id, data["access_token"], data["refresh_token"])
 
         name = user.first_name or "друг"
         await update.message.reply_text(  # type: ignore[union-attr]

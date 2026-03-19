@@ -10,6 +10,7 @@ class BotConfig(BaseSettings):
     BACKEND_URL: str = "http://backend:8000"
     WEBHOOK_URL: str = ""
     WEBHOOK_SECRET: str = Field("", alias="TELEGRAM_WEBHOOK_SECRET")
+    REDIS_URL: str = "redis://redis:6379/0"
 
 
 config = BotConfig()
