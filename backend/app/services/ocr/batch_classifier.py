@@ -104,6 +104,8 @@ def classify(image_bytes: bytes) -> ClassificationResult:
     # ── Steps 2-4: Tesseract OCR on first lines ───────────────────────────────
     text_upper = _ocr_first_lines(image_bytes, n_lines=20)
     tokens = set(re.findall(r"[А-ЯA-Z0-9][А-ЯA-Z0-9\-/]*", text_upper))
+    logger.info("B-09 OCR text (first 200 chars): %r", text_upper[:200])
+    logger.info("B-09 tokens: %s", sorted(tokens)[:30])
 
     # Step 2: receipt keywords (≥3 matches → high confidence)
     found_receipt = [kw for kw in _RECEIPT_KEYWORDS if kw in tokens]
