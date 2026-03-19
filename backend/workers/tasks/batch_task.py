@@ -67,8 +67,7 @@ async def _run(
 
     # Download from S3
     try:
-        obj = s3.get_object(BUCKET_RECEIPTS, s3_key)
-        image_bytes: bytes = obj["Body"].read()
+        image_bytes: bytes = s3.get_object(BUCKET_RECEIPTS, s3_key)
     except Exception as exc:
         logger.error("S3 download failed [%s #%d]: %s", batch_id, file_index, exc)
         await _increment_counter(batch_id, "failed")
