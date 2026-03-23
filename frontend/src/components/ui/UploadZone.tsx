@@ -94,7 +94,7 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
       const form = new FormData();
       previews.forEach((p) => form.append("files", p.file));
 
-      const res = await fetch("/api/v1/batches", {
+      const res = await fetch("/api/v1/batch", {
         method: "POST",
         credentials: "include",
         body: form,

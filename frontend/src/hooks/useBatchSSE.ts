@@ -18,7 +18,7 @@ export function useBatchSSE(batchId: string | null) {
   useEffect(() => {
     if (!batchId) return;
 
-    const es = new EventSource(`/api/v1/batches/${batchId}/stream`);
+    const es = new EventSource(`/api/v1/batch/${batchId}/stream`);
     esRef.current = es;
 
     es.onmessage = (e) => {
