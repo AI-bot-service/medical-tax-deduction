@@ -400,9 +400,22 @@ export default function ReceiptsPage() {
     else { setSortField(field); setSortDir("desc"); }
   }
 
-  const allMonths     = data?.months.map(m => m.month) ?? [];
-  const visibleMonths = data
-    ? selectedMonth === "all" ? data.months : data.months.filter(m => m.month === selectedMonth)
+  // Only show DONE receipts — REVIEW goes to /review page, FAILED/PENDING are not shown
+  const doneData: ReceiptListResponse | undefined = data
+    ? {
+        total_count: data.months.reduce(
+          (sum, m) => sum + m.receipts.filter(r => r.ocr_status === "DONE").length,
+          0,
+        ),
+        months: data.months
+          .map(m => ({ ...m, receipts: m.receipts.filter(r => r.ocr_status === "DONE") }))
+          .filter(m => m.receipts.length > 0),
+      }
+    : undefined;
+
+  const allMonths     = doneData?.months.map(m => m.month) ?? [];
+  const visibleMonths = doneData
+    ? selectedMonth === "all" ? doneData.months : doneData.months.filter(m => m.month === selectedMonth)
     : [];
 
   return (
@@ -413,9 +426,9 @@ export default function ReceiptsPage() {
           <h1 style={{ fontSize: "clamp(1.25rem,2.5vw,1.5rem)", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em" }}>
             Мои чеки
           </h1>
-          {data && (
+          {doneData && (
             <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: 2 }}>
-              {data.total_count} чек{data.total_count === 1 ? "" : "а"} за всё время
+              {doneData.total_count} чек{doneData.total_count === 1 ? "" : "а"} за всё время
             </p>
           )}
         </div>
@@ -475,14 +488,14 @@ export default function ReceiptsPage() {
       )}
 
       {/* ── Content ── */}
-      {data && data.total_count === 0 && (
+      {doneData && doneData.total_count === 0 && (
         <EmptyState onUpload={() => setShowUpload(true)} />
       )}
 
-      {data && data.total_count > 0 && (
+      {doneData && doneData.total_count > 0 && (
         <>
           {/* Summary strip */}
-          <SummaryStrip data={data} filter={selectedMonth} />
+          <SummaryStrip data={doneData} filter={selectedMonth} />
 
           {/* Month filter pills */}
           <div style={{ marginBottom: 16 }}>
