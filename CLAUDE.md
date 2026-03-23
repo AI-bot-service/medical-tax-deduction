@@ -68,6 +68,145 @@ medical-tax-deduction/
     └── progress.md                    # Лог прогресса
 ```
 
+## Backend — HTTP-маршруты (`/api/v1`)
+
+### Auth (`/api/v1/auth`)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/auth/otp` | Отправить OTP-код в Telegram пользователя |
+| `POST` | `/auth/verify` | Верифицировать OTP, выдать JWT cookies |
+| `POST` | `/auth/refresh` | Ротация refresh-token (family invalidation) |
+| `POST` | `/auth/logout` | Очистить auth cookies |
+| `POST` | `/auth/bot-register` | Регистрация/поиск пользователя из бота, JWT в body |
+| `POST` | `/auth/mini-app` | Авторизация через Telegram Mini App (HMAC-SHA256) |
+
+### Receipts (`/api/v1/receipts`)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/receipts/upload` | Загрузить чек в S3, создать Receipt, поставить в очередь OCR |
+| `GET` | `/receipts/summary` | Годовая статистика: расходы по месяцам, вычет 13%, процент лимита |
+| `GET` | `/receipts` | Список чеков с группировкой по месяцам (фильтры: year, month) |
+| `GET` | `/receipts/{id}` | Детали чека: позиции, presigned URL изображения |
+| `PATCH` | `/receipts/{id}` | Частичное обновление (дата, аптека, сумма, позиции) |
+
+### Batch (`/api/v1/batch`)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/batch` | Загрузить N файлов, создать BatchJob, поставить в очередь |
+| `GET` | `/batch/{id}` | Статус batch job (счётчики done/review/failed) |
+| `GET` | `/batch/{id}/stream` | SSE-поток real-time прогресса (heartbeat 15 сек) |
+
+### Prescriptions (`/api/v1/prescriptions`)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/prescriptions` | Создать рецепт (тип, врач, клиника, препарат) |
+| `POST` | `/prescriptions/{id}/photo` | Загрузить фото рецепта в S3 |
+| `GET` | `/prescriptions/{id}/pdf-blank` | Получить/сгенерировать PDF бланк 107-1/у |
+| `GET` | `/prescriptions` | Список рецептов (фильтры: doc_type, статус) |
+| `GET` | `/prescriptions/{id}` | Детали рецепта |
+| `DELETE` | `/prescriptions/{id}` | Soft-delete (статус → deleted) |
+| `POST` | `/prescriptions/link` | Связать рецепт с позицией чека |
+
+### Export (`/api/v1/export`)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/export?year=<int>` | Инициировать экспорт ZIP (реестр + письмо + чеки) для года |
+| `GET` | `/export/{id}` | Статус ExportJob + presigned URL для скачивания ZIP |
+
+### Health
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/health` | Статус сервиса (DB, Redis) |
+
+---
+
+## Backend — Структура `app/`
+
+```
+backend/app/
+├── main.py                         # FastAPI app factory, регистрация роутеров
+├── config.py                       # Settings (Pydantic BaseSettings)
+├── dependencies.py                 # DI: get_session, get_current_user, get_redis
+├── middleware/
+│   └── rls.py                     # SET LOCAL app.current_user_id = :uid
+├── models/                         # SQLAlchemy ORM (UUID pk, created_at, updated_at)
+│   ├── user.py                    # telegram_id, phone_hash, telegram_username
+│   ├── receipt.py                 # s3_key, ocr_status, purchase_date, pharmacy_name,
+│   │                              #   total_amount, ocr_confidence, merge_strategy,
+│   │                              #   needs_prescription, batch_id
+│   ├── receipt_item.py            # drug_name, drug_inn, quantity, unit_price,
+│   │                              #   total_price, is_rx, prescription_id
+│   ├── prescription.py            # doc_type, doctor_name, clinic_name, issue_date,
+│   │                              #   expires_at, drug_inn, risk_level, status, s3_key
+│   ├── batch_job.py               # status, total_files, done/review/failed counts, source
+│   ├── export_job.py              # year, status, s3_key, error
+│   ├── otp_code.py                # phone_hash, code, expires_at, used
+│   └── enums.py                   # OCRStatus, BatchStatus, DocType, RiskLevel, ExportStatus
+├── schemas/                        # Pydantic v2 request/response
+│   ├── auth.py                    # OTPRequest, VerifyRequest, MiniAppAuthRequest…
+│   ├── receipt.py                 # ReceiptUploadResponse, ReceiptDetail, Summary…
+│   ├── batch.py                   # BatchJobResponse, BatchJobDetail
+│   ├── prescription.py            # PrescriptionCreate, PrescriptionResponse…
+│   └── export.py                  # ExportCreateResponse, ExportStatusResponse
+├── routers/                        # Thin controllers (валидация → сервис → ответ)
+│   ├── auth.py
+│   ├── receipts.py
+│   ├── batch.py
+│   ├── prescriptions.py
+│   └── export.py
+├── services/
+│   ├── auth/
+│   │   ├── jwt_service.py         # create/decode access (15 мин) + refresh (30 дн),
+│   │   │                          #   family_id для ротации
+│   │   ├── otp_service.py         # generate_otp, verify_otp (6 цифр, TTL 5 мин)
+│   │   └── mini_app_service.py    # HMAC-SHA256 верификация Telegram initData
+│   ├── ocr/
+│   │   ├── pipeline.py            # Оркестратор: QR ‖ EasyOCR → merge → normalize
+│   │   ├── qr_scanner.py          # pyzbar + OpenCV, 5 стратегий декодирования
+│   │   ├── easyocr_engine.py      # таймаут 120 сек, fallback на Tesseract < 5 блоков
+│   │   ├── tesseract_engine.py    # fallback OCR
+│   │   ├── image_preprocessor.py  # поворот, деноизирование
+│   │   ├── batch_classifier.py    # receipt / prescription / unknown
+│   │   ├── result_merger.py       # 6 стратегий: merged / fns_only / ocr_only / conflict…
+│   │   ├── drug_normalizer.py     # rapidfuzz против GRLS JSON, is_rx
+│   │   └── ocr_result.py          # OCRResult, QRResult, ParsedItem dataclasses
+│   ├── prescriptions/
+│   │   ├── search_service.py      # 4-уровневый поиск (L1 exact INN → L4 нет)
+│   │   └── pdf_blank.py           # ReportLab PDF бланк 107-1/у
+│   ├── export/
+│   │   ├── pdf_registry.py        # ReportLab A4 реестр чеков (8 колонок, итоги)
+│   │   ├── cover_letter.py        # WeasyPrint письмо в ИФНС
+│   │   └── zip_packager.py        # build_zip + upload в S3
+│   └── storage/
+│       ├── s3_client.py           # boto3 wrapper YOS (SSE-S3, presigned TTL 15 мин)
+│       └── encryption.py          # AES-256 EncryptedString (ФИО, ИНН, СНИЛС)
+└── repositories/                   # SQLAlchemy async CRUD
+
+backend/workers/
+├── celery_app.py                   # broker=Redis, beat_schedule (cleanup каждые 15 мин)
+├── sse_publisher.py                # Redis PubSub publish в канал batch:{id}
+└── tasks/
+    ├── ocr_task.py                 # process_receipt(receipt_id)
+    │                               #   → S3 download → OCR pipeline → save → notify TG
+    │                               #   retry: 3×, countdown 60 сек
+    ├── batch_task.py               # process_batch_file(batch_id, file_index, s3_key, user_id)
+    │                               #   → classify → OCR/save → update counters → SSE publish
+    │                               #   → если все файлы done: batch COMPLETED + TG notify
+    │                               #   retry: 2×, countdown 30 сек
+    ├── export_task.py              # generate_export(export_job_id, user_id, year)
+    │                               #   → собрать чеки → PDF реестр → письмо → ZIP → S3
+    │                               #   retry: 2×, countdown 60 сек
+    └── cleanup_task.py             # cleanup_expired_otps() — Celery Beat, каждые 15 мин
+```
+
+---
+
 ## Команды разработки
 
 ```bash
