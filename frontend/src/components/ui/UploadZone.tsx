@@ -17,7 +17,7 @@ const MAX_SIZE_MB = 20;
 
 interface FilePreview {
   file: File;
-  objectUrl: string | null; // null for PDF
+  objectUrl: string | null;
 }
 
 interface UploadZoneProps {
@@ -108,7 +108,6 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
       const batch = (await res.json()) as BatchJob;
       startBatch(batch.batch_id, batch.total_files);
 
-      // Clean up previews
       previews.forEach((p) => {
         if (p.objectUrl) URL.revokeObjectURL(p.objectUrl);
       });
@@ -124,25 +123,32 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
   }, [previews, startBatch, queryClient, onUploaded]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Drop zone */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
-        className={[
-          "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors",
-          dragging
-            ? "border-blue-400 bg-blue-50"
-            : "border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50",
-        ].join(" ")}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          borderRadius: "var(--r-md)",
+          border: "2px dashed " + (dragging ? "var(--accent)" : "var(--border-strong)"),
+          padding: "32px 24px",
+          cursor: "pointer",
+          transition: "border-color 0.2s, background 0.2s",
+          background: dragging ? "var(--accent-light)" : "var(--surface-subtle)",
+        }}
       >
-        <span className="text-3xl">📁</span>
-        <p className="text-sm font-medium text-gray-700">
+        <span style={{ fontSize: 32 }}>📁</span>
+        <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
           Перетащите чеки сюда или нажмите для выбора
         </p>
-        <p className="text-xs text-gray-400">
+        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
           JPG, PNG, WEBP, PDF · до {MAX_SIZE_MB} МБ каждый
         </p>
         <input
@@ -150,38 +156,90 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
           type="file"
           accept={ACCEPT}
           multiple
-          className="hidden"
+          style={{ display: "none" }}
           onChange={handleInputChange}
         />
       </div>
 
       {/* Previews */}
       {previews.length > 0 && (
-        <div className="flex flex-wrap gap-3">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           {previews.map((p, idx) => (
-            <div key={idx} className="relative group">
+            <div
+              key={idx}
+              style={{ position: "relative" }}
+              onMouseEnter={(e) => {
+                const btn = e.currentTarget.querySelector<HTMLButtonElement>(".remove-btn");
+                if (btn) btn.style.display = "flex";
+              }}
+              onMouseLeave={(e) => {
+                const btn = e.currentTarget.querySelector<HTMLButtonElement>(".remove-btn");
+                if (btn) btn.style.display = "none";
+              }}
+            >
               {p.objectUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={p.objectUrl}
                   alt={p.file.name}
-                  className="h-20 w-20 rounded-lg object-cover border border-gray-200"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: "var(--r-sm)",
+                    objectFit: "cover",
+                    border: "1px solid var(--border)",
+                    display: "block",
+                  }}
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-gray-200 bg-gray-100">
-                  <span className="text-2xl">📄</span>
+                <div style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: "var(--r-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 28,
+                }}>
+                  📄
                 </div>
               )}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeFile(idx);
+                className="remove-btn"
+                onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                style={{
+                  display: "none",
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  width: 20,
+                  height: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  background: "var(--red)",
+                  color: "#fff",
+                  fontSize: 12,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  lineHeight: 1,
                 }}
-                className="absolute -top-2 -right-2 hidden group-hover:flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs"
               >
                 ×
               </button>
-              <p className="mt-1 max-w-[5rem] truncate text-xs text-gray-500">
+              <p style={{
+                marginTop: 4,
+                maxWidth: 80,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: "11px",
+                color: "var(--text-muted)",
+                margin: "4px 0 0",
+              }}>
                 {p.file.name}
               </p>
             </div>
@@ -189,23 +247,34 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && (
+        <p style={{ fontSize: "12px", color: "var(--red-text)", margin: 0 }}>
+          {error}
+        </p>
+      )}
 
       {previews.length > 0 && (
-        <button
-          onClick={handleUpload}
-          disabled={uploading}
-          className={[
-            "rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors",
-            uploading
-              ? "cursor-not-allowed bg-gray-300"
-              : "bg-blue-600 hover:bg-blue-700",
-          ].join(" ")}
-        >
-          {uploading
-            ? "Загрузка..."
-            : `Загрузить ${previews.length} ${previews.length === 1 ? "файл" : "файлов"}`}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={handleUpload}
+            disabled={uploading}
+            className="btn btn-primary"
+            style={uploading ? { opacity: 0.55, cursor: "not-allowed" } : {}}
+          >
+            {uploading
+              ? "Загрузка..."
+              : `↑ Загрузить ${previews.length} ${previews.length === 1 ? "файл" : "файлов"}`}
+          </button>
+          <button
+            onClick={() => {
+              previews.forEach((p) => { if (p.objectUrl) URL.revokeObjectURL(p.objectUrl); });
+              setPreviews([]);
+            }}
+            className="btn btn-secondary btn-sm"
+          >
+            Отмена
+          </button>
+        </div>
       )}
     </div>
   );

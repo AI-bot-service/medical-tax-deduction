@@ -44,6 +44,7 @@ interface PresignedImageProps {
 function PresignedImage({ receiptId }: PresignedImageProps) {
   const REFRESH_MS = 14 * 60 * 1000;
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function fetchUrl() {
@@ -66,20 +67,101 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
 
   if (!imageUrl) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
-        Фото недоступно
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 200,
+        borderRadius: "var(--r-md)",
+        background: "var(--bg)",
+        color: "var(--text-muted)",
+        gap: 8,
+        border: "1px solid var(--border)",
+      }}>
+        <span style={{ fontSize: 32 }}>🧾</span>
+        <span style={{ fontSize: "13px" }}>Фото недоступно</span>
       </div>
     );
   }
+
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={imageUrl}
-      alt="Фото чека"
-      className="max-h-80 w-full rounded-xl object-contain border border-gray-200 bg-gray-50"
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        onClick={() => setZoom((v) => !v)}
+        style={{
+          borderRadius: "var(--r-md)",
+          border: "1px solid var(--border)",
+          background: "var(--bg)",
+          overflow: "auto",
+          cursor: zoom ? "zoom-out" : "zoom-in",
+          maxHeight: zoom ? "70vh" : "55vh",
+          transition: "max-height 0.3s ease",
+          position: "relative",
+        }}
+        title={zoom ? "Нажмите чтобы уменьшить" : "Нажмите чтобы увеличить"}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt="Фото чека"
+          style={{
+            display: "block",
+            width: zoom ? "auto" : "100%",
+            maxWidth: zoom ? "none" : "100%",
+            height: zoom ? "auto" : "auto",
+            maxHeight: zoom ? "none" : "100%",
+            objectFit: zoom ? "none" : "contain",
+          }}
+        />
+      </div>
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
+        {zoom ? "🔍 Нажмите чтобы уменьшить" : "🔍 Нажмите чтобы увеличить"}
+      </p>
+    </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Field — unified input field styled with HEITKAMP tokens
+// ---------------------------------------------------------------------------
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{
+        fontSize: "11px",
+        fontWeight: 600,
+        color: "var(--text-secondary)",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+      }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = (highlight: boolean): React.CSSProperties => ({
+  width: "100%",
+  borderRadius: "var(--r-sm)",
+  border: `1px solid ${highlight ? "var(--yellow)" : "var(--border)"}`,
+  background: highlight ? "var(--yellow-bg)" : "var(--surface)",
+  padding: "9px 12px",
+  fontSize: "13px",
+  color: "var(--text-primary)",
+  outline: "none",
+  fontFamily: "Urbanist, sans-serif",
+  transition: "border-color 0.15s",
+  boxSizing: "border-box",
+});
 
 // ---------------------------------------------------------------------------
 // OCREditor
@@ -102,10 +184,6 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const fieldCls = hasLowConf
-    ? "border-yellow-300 bg-yellow-50 focus:border-yellow-500"
-    : "border-gray-200 bg-white focus:border-blue-400";
-
   async function handleSave() {
     setSaving(true);
     try {
@@ -125,55 +203,98 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   }
 
   return (
-    <div className="rounded-xl bg-white border border-gray-100 p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-700">Данные чека</h2>
+    <div className="card" style={{ padding: "20px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+          Данные чека
+        </h2>
         {hasLowConf && (
-          <span className="flex items-center gap-1 text-xs text-yellow-600">
-            ⚠️ Низкая уверенность OCR ({Math.round((receipt.ocr_confidence ?? 0) * 100)}%)
+          <span style={{
+            display: "flex", alignItems: "center", gap: 5,
+            fontSize: "11px", color: "var(--yellow-text)",
+            background: "var(--yellow-bg)",
+            padding: "3px 10px", borderRadius: "var(--r-pill)",
+            fontWeight: 600,
+          }}>
+            ⚠ Низкая точность OCR ({Math.round((receipt.ocr_confidence ?? 0) * 100)}%)
           </span>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">Дата покупки</label>
+
+      {/* Fields */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label="Дата покупки">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldCls}`}
+            style={inputStyle(hasLowConf)}
+            onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">Аптека</label>
+        </Field>
+
+        <Field label="Аптека">
           <input
             type="text"
             value={pharmacy}
             onChange={(e) => setPharmacy(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldCls}`}
+            placeholder="Название аптеки"
+            style={inputStyle(hasLowConf)}
+            onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">Сумма</label>
+        </Field>
+
+        <Field label="Сумма (₽)">
           <input
             type="number"
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldCls}`}
+            placeholder="0.00"
+            style={inputStyle(hasLowConf)}
+            onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
           />
-        </div>
+        </Field>
       </div>
-      <div className="mt-4 flex items-center gap-3">
+
+      {/* Actions */}
+      <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10 }}>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300 transition-colors"
+          className="btn btn-primary btn-sm"
+          style={saving ? { opacity: 0.55, cursor: "not-allowed" } : {}}
         >
           {saving ? "Сохранение..." : "Сохранить"}
         </button>
-        {saved && <span className="text-sm text-green-600">✓ Сохранено</span>}
+        {saved && (
+          <span style={{ fontSize: "12px", color: "var(--green-text)", fontWeight: 600 }}>
+            ✓ Сохранено
+          </span>
+        )}
       </div>
+
+      {/* OCR confidence bar */}
+      {receipt.ocr_confidence != null && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border-light)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Точность распознавания</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)" }}>
+              {Math.round(receipt.ocr_confidence * 100)}%
+            </span>
+          </div>
+          <div className="progress-wrap">
+            <div
+              className="progress-fill"
+              style={{ width: `${Math.round(receipt.ocr_confidence * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -218,45 +339,72 @@ function PrescriptionLinker({ item, receiptId, onLinked }: PrescriptionLinkerPro
   }
 
   if (item.prescription_id) {
-    return <span className="text-xs text-green-600">✓ Рецепт</span>;
+    return <span style={{ fontSize: "11px", color: "var(--green-text)", fontWeight: 600 }}>✓ Рецепт</span>;
   }
 
   return (
-    <div className="relative">
+    <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="text-xs text-blue-500 hover:underline"
+        style={{
+          fontSize: "11px",
+          color: "var(--accent)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          fontFamily: "Urbanist, sans-serif",
+          fontWeight: 600,
+        }}
       >
         Привязать рецепт
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 w-72 rounded-xl bg-white border border-gray-200 shadow-lg p-3">
-          <p className="text-xs font-semibold text-gray-700 mb-2">
+        <div style={{
+          position: "absolute",
+          zIndex: 10,
+          marginTop: 4,
+          right: 0,
+          width: 280,
+          borderRadius: "var(--r-md)",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          boxShadow: "var(--shadow-lg)",
+          padding: 12,
+        }}>
+          <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 8px" }}>
             Рецепты для: {item.drug_inn ?? item.drug_name}
           </p>
-          {!data && <p className="text-xs text-gray-400">Загрузка...</p>}
+          {!data && <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>Загрузка...</p>}
           {data?.items.length === 0 && (
-            <p className="text-xs text-gray-400">Рецепты не найдены</p>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>Рецепты не найдены</p>
           )}
           {data?.items.map((p: Prescription) => (
             <div
               key={p.id}
-              className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 0",
+                borderBottom: "1px solid var(--border-light)",
+              }}
             >
               <div>
-                <p className="text-xs font-medium text-gray-800">{p.drug_name}</p>
-                <p className="text-xs text-gray-400">
+                <p style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
+                  {p.drug_name}
+                </p>
+                <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "2px 0 0" }}>
                   {DOC_TYPE_LABELS[p.doc_type] ?? p.doc_type} ·{" "}
                   {new Date(p.issue_date).toLocaleDateString("ru-RU")}
                 </p>
                 {p.risk_level !== "STANDARD" && (
-                  <span className="text-xs text-yellow-600">⚠️ {p.risk_level}</span>
+                  <span style={{ fontSize: "11px", color: "var(--yellow-text)" }}>⚠ {p.risk_level}</span>
                 )}
               </div>
               <button
                 onClick={() => handleLink(p.id)}
                 disabled={linking}
-                className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                className="btn btn-primary btn-sm"
+                style={linking ? { opacity: 0.5 } : {}}
               >
                 Привязать
               </button>
@@ -264,7 +412,12 @@ function PrescriptionLinker({ item, receiptId, onLinked }: PrescriptionLinkerPro
           ))}
           <button
             onClick={() => setOpen(false)}
-            className="mt-2 w-full text-xs text-gray-400 hover:text-gray-700"
+            style={{
+              marginTop: 8, width: "100%",
+              fontSize: "11px", color: "var(--text-muted)",
+              background: "none", border: "none",
+              cursor: "pointer", fontFamily: "Urbanist, sans-serif",
+            }}
           >
             Закрыть
           </button>
@@ -286,66 +439,90 @@ interface ItemsTableProps {
 function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
   if (!items.length) {
     return (
-      <div className="text-sm text-gray-400 text-center py-4">Позиции не найдены</div>
+      <div className="card" style={{ padding: "16px 20px", textAlign: "center" }}>
+        <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Позиции не найдены</span>
+      </div>
     );
   }
   return (
-    <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-      <div className="bg-gray-50 px-4 py-2 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-700">Препараты</p>
+    <div className="card" style={{ overflow: "hidden" }}>
+      <div className="card-header">
+        <span className="card-title">Препараты</span>
+        <span style={{
+          fontSize: "11px", fontWeight: 600, color: "var(--text-muted)",
+          background: "var(--bg)", padding: "2px 8px", borderRadius: "var(--r-pill)",
+        }}>
+          {items.length} поз.
+        </span>
       </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-gray-400 border-b border-gray-50">
-            <th className="px-4 py-2 text-left">Название</th>
-            <th className="px-4 py-2 text-left">МНН</th>
-            <th className="px-4 py-2 text-center">Кол-во</th>
-            <th className="px-4 py-2 text-right">Цена</th>
-            <th className="px-4 py-2 text-right">Сумма</th>
-            <th className="px-4 py-2 text-center">Rх</th>
-            <th className="px-4 py-2 text-center">Рецепт</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {items.map((item) => (
-            <tr key={item.id} className="hover:bg-gray-50">
-              <td className="px-4 py-2.5 font-medium text-gray-800 max-w-[160px] truncate">
-                {item.drug_name}
-              </td>
-              <td className="px-4 py-2.5 text-gray-500 text-xs">
-                {item.drug_inn ?? "—"}
-              </td>
-              <td className="px-4 py-2.5 text-center text-gray-700">{item.quantity}</td>
-              <td className="px-4 py-2.5 text-right text-gray-700">
-                {formatRub(item.unit_price)}
-              </td>
-              <td className="px-4 py-2.5 text-right font-medium text-gray-800">
-                {formatRub(item.total_price)}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.is_rx ? (
-                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                    Rx
-                  </span>
-                ) : (
-                  <span className="text-gray-300">—</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.is_rx ? (
-                  <PrescriptionLinker
-                    item={item}
-                    receiptId={receiptId}
-                    onLinked={onLinked}
-                  />
-                ) : (
-                  <span className="text-gray-300">—</span>
-                )}
-              </td>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "var(--bg)" }}>
+              {["Название", "МНН", "Кол-во", "Цена", "Сумма", "Rx", "Рецепт"].map((h, i) => (
+                <th key={h} style={{
+                  padding: "10px 14px",
+                  fontSize: "10px", fontWeight: 700,
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  textAlign: i >= 2 ? "center" : "left",
+                  whiteSpace: "nowrap",
+                }}>
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item, i) => (
+              <tr
+                key={item.id}
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                  background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+                }}
+              >
+                <td style={{ padding: "11px 14px", fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.drug_name}
+                </td>
+                <td style={{ padding: "11px 14px", fontSize: "11px", color: "var(--text-muted)" }}>
+                  {item.drug_inn ?? "—"}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "center", fontSize: "13px", color: "var(--text-primary)" }}>
+                  {item.quantity}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", color: "var(--text-secondary)" }}>
+                  {formatRub(item.unit_price)}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+                  {formatRub(item.total_price)}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "center" }}>
+                  {item.is_rx ? (
+                    <span style={{
+                      fontSize: "10px", fontWeight: 700,
+                      padding: "2px 8px", borderRadius: "var(--r-pill)",
+                      background: "var(--purple-bg)", color: "var(--purple-text)",
+                    }}>
+                      Rx
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--text-disabled)" }}>—</span>
+                  )}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "center" }}>
+                  {item.is_rx ? (
+                    <PrescriptionLinker item={item} receiptId={receiptId} onLinked={onLinked} />
+                  ) : (
+                    <span style={{ color: "var(--text-disabled)" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -353,6 +530,13 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  DONE:    { label: "Готов",     bg: "var(--green-bg)",  color: "var(--green-text)" },
+  REVIEW:  { label: "Проверка",  bg: "var(--yellow-bg)", color: "var(--yellow-text)" },
+  PENDING: { label: "Обработка", bg: "var(--purple-bg)", color: "var(--purple-text)" },
+  FAILED:  { label: "Ошибка",    bg: "var(--red-bg)",    color: "var(--red-text)" },
+};
 
 export default function ReceiptDetailPage() {
   const params = useParams();
@@ -371,58 +555,77 @@ export default function ReceiptDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
   }
 
-  const statusLabels: Record<string, string> = {
-    DONE: "Готов",
-    REVIEW: "Проверка",
-    PENDING: "Обработка",
-    FAILED: "Ошибка",
-  };
+  const statusCfg = receipt ? (STATUS_CONFIG[receipt.ocr_status] ?? STATUS_CONFIG.PENDING) : null;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-3">
+    <main style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 16px 48px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <button
           onClick={() => router.push("/receipts")}
-          className="text-sm text-blue-500 hover:underline"
+          className="btn btn-secondary btn-sm"
         >
           ← Назад
         </button>
-        <h1 className="text-xl font-bold text-gray-900">Чек</h1>
-        {receipt && (
-          <span className="rounded-full bg-gray-100 px-3 py-0.5 text-xs font-medium text-gray-600">
-            {statusLabels[receipt.ocr_status] ?? receipt.ocr_status}
+        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>
+          Чек
+        </h1>
+        {statusCfg && (
+          <span style={{
+            fontSize: "11px", fontWeight: 700,
+            padding: "3px 12px", borderRadius: "var(--r-pill)",
+            background: statusCfg.bg, color: statusCfg.color,
+          }}>
+            {statusCfg.label}
           </span>
         )}
       </div>
 
+      {/* Loading */}
       {isLoading && (
-        <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="animate-pulse h-32 rounded-xl bg-gray-100" />
+            <div key={i} style={{
+              height: i === 0 ? 400 : 120,
+              borderRadius: "var(--r-md)",
+              background: "var(--bg)",
+              animation: "pulse 1.5s ease-in-out infinite",
+            }} />
           ))}
         </div>
       )}
 
+      {/* Error */}
       {isError && (
-        <div className="rounded-xl bg-red-50 p-6 text-center text-sm text-red-700">
-          Не удалось загрузить чек.
+        <div style={{
+          padding: "20px 24px",
+          borderRadius: "var(--r-md)",
+          background: "var(--red-bg)",
+          color: "var(--red-text)",
+          fontSize: "13px", fontWeight: 500,
+        }}>
+          ⚠ Не удалось загрузить чек.
         </div>
       )}
 
+      {/* 2-column layout */}
       {receipt && (
-        <div className="space-y-5">
-          {/* Photo */}
-          <PresignedImage receiptId={id} />
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 420px) 1fr",
+          gap: 20,
+          alignItems: "start",
+        }}>
+          {/* Left: Photo */}
+          <div style={{ position: "sticky", top: 80 }}>
+            <PresignedImage receiptId={id} />
+          </div>
 
-          {/* OCR Editor */}
-          <OCREditor receipt={receipt} onSaved={invalidate} />
-
-          {/* Items Table */}
-          <ItemsTable
-            items={receipt.items}
-            receiptId={id}
-            onLinked={invalidate}
-          />
+          {/* Right: Editor + Table */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <OCREditor receipt={receipt} onSaved={invalidate} />
+            <ItemsTable items={receipt.items} receiptId={id} onLinked={invalidate} />
+          </div>
         </div>
       )}
     </main>
