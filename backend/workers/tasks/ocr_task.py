@@ -17,7 +17,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: F401
 
 from app.config import settings
 from app.models.enums import OCRStatus
@@ -38,12 +38,26 @@ _worker_engine = create_async_engine(
 _WorkerSession = async_sessionmaker(_worker_engine, expire_on_commit=False)
 
 
-def _ocr_status_from_confidence(confidence: float) -> OCRStatus:
+def _ocr_status_from_confidence(confidence: float) -> OCRStatus | None:
+    """Return DONE/REVIEW, or None if confidence is too low (receipt should be deleted)."""
     if confidence >= CONFIDENCE_DONE:
         return OCRStatus.DONE
     if confidence >= CONFIDENCE_REVIEW:
         return OCRStatus.REVIEW
-    return OCRStatus.FAILED
+    return None  # FAILED — do not persist
+
+
+async def _delete_failed_receipt(
+    db: AsyncSession, receipt: Receipt, s3: S3Client, reason: str
+) -> None:
+    """Delete receipt from DB and its S3 file. FAILED receipts are not stored."""
+    logger.warning("Deleting failed receipt %s (%s)", receipt.id, reason)
+    try:
+        s3.delete_object(BUCKET_RECEIPTS, receipt.s3_key)
+    except Exception as exc:
+        logger.error("S3 delete failed for %s: %s", receipt.s3_key, exc)
+    await db.delete(receipt)
+    await db.commit()
 
 
 async def _run(receipt_id: str) -> None:
@@ -66,8 +80,7 @@ async def _run(receipt_id: str) -> None:
             image_bytes: bytes = obj["Body"].read()
         except Exception as exc:
             logger.error("S3 download failed for receipt %s: %s", receipt_id, exc)
-            receipt.ocr_status = OCRStatus.FAILED
-            await db.commit()
+            await _delete_failed_receipt(db, receipt, s3, f"s3_download_error: {exc}")
             return
 
         # 3. Run OCR pipeline
@@ -75,17 +88,25 @@ async def _run(receipt_id: str) -> None:
             parsed: ParsedReceipt = await process_image(image_bytes)
         except Exception as exc:
             logger.error("OCR pipeline failed for receipt %s: %s", receipt_id, exc)
-            receipt.ocr_status = OCRStatus.FAILED
-            await db.commit()
+            await _delete_failed_receipt(db, receipt, s3, f"ocr_pipeline_error: {exc}")
             return
 
-        # 4. Update receipt fields
+        # 4. Determine status — delete if confidence too low (no FAILED in DB)
+        ocr_status = _ocr_status_from_confidence(parsed.confidence)
+        if ocr_status is None:
+            await _delete_failed_receipt(
+                db, receipt, s3,
+                f"low_confidence={parsed.confidence:.2f} strategy={parsed.strategy}",
+            )
+            return
+
+        # 5. Update receipt fields
         receipt.purchase_date = parsed.purchase_date
         receipt.pharmacy_name = parsed.pharmacy_name
         receipt.total_amount = float(parsed.total_amount) if parsed.total_amount is not None else None
         receipt.ocr_confidence = parsed.confidence
         receipt.merge_strategy = parsed.strategy
-        receipt.ocr_status = _ocr_status_from_confidence(parsed.confidence)
+        receipt.ocr_status = ocr_status
 
         # 5. Determine if any rx items need prescription
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx is True)

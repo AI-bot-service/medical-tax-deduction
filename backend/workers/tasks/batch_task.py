@@ -138,6 +138,19 @@ async def _run(
     return {"status": file_status, "batch_id": batch_id}
 
 
+async def _delete_receipt_and_s3(
+    db: AsyncSession, receipt: Receipt, s3_key: str, reason: str
+) -> None:
+    """Delete receipt record from DB and its S3 file. FAILED receipts are not stored."""
+    logger.warning("Deleting failed receipt %s (%s)", receipt.id, reason)
+    try:
+        S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
+    except Exception as exc:
+        logger.error("S3 delete failed for %s: %s", s3_key, exc)
+    await db.delete(receipt)
+    await db.commit()
+
+
 async def _process_receipt_file(
     batch_id: str,
     file_index: int,
@@ -145,7 +158,9 @@ async def _process_receipt_file(
     user_id: str,
     image_bytes: bytes,
 ) -> str:
-    """Run OCR pipeline on receipt image, save Receipt + items. Returns 'done'/'review'/'failed'."""
+    """Run OCR pipeline on receipt image, save Receipt + items. Returns 'done'/'review'/'failed'.
+    On failure: deletes the Receipt record and S3 file — FAILED receipts are not persisted.
+    """
     async with _WorkerSession() as db:
         receipt = Receipt(
             id=uuid.uuid4(),
@@ -162,11 +177,10 @@ async def _process_receipt_file(
             parsed = await process_image(image_bytes)
         except Exception as exc:
             logger.error("OCR failed [%s #%d]: %s", batch_id, file_index, exc)
-            receipt.ocr_status = OCRStatus.FAILED
-            await db.commit()
+            await _delete_receipt_and_s3(db, receipt, s3_key, f"ocr_exception: {exc}")
             return "failed"
 
-        # Determine OCR status
+        # Determine OCR status — low confidence → delete, not FAILED in DB
         if parsed.confidence >= CONFIDENCE_DONE:
             ocr_status = OCRStatus.DONE
             file_status = "done"
@@ -174,8 +188,11 @@ async def _process_receipt_file(
             ocr_status = OCRStatus.REVIEW
             file_status = "review"
         else:
-            ocr_status = OCRStatus.FAILED
-            file_status = "failed"
+            await _delete_receipt_and_s3(
+                db, receipt, s3_key,
+                f"low_confidence={parsed.confidence:.2f} strategy={parsed.strategy}",
+            )
+            return "failed"
 
         receipt.ocr_status = ocr_status
         receipt.purchase_date = parsed.purchase_date
@@ -201,8 +218,7 @@ async def _process_receipt_file(
 
         await db.commit()
 
-        # Autolink prescriptions
-        if has_rx and ocr_status != OCRStatus.FAILED:
+        if has_rx:
             await _autolink_prescriptions(db, receipt, uuid.UUID(batch_id), parsed)
 
         return file_status
@@ -237,17 +253,12 @@ async def _process_prescription_file(
 
 
 async def _save_unknown_receipt(batch_id: str, s3_key: str, user_id: str) -> str:
-    """Save unknown file as a FAILED receipt."""
-    async with _WorkerSession() as db:
-        receipt = Receipt(
-            id=uuid.uuid4(),
-            user_id=uuid.UUID(user_id),
-            s3_key=s3_key,
-            ocr_status=OCRStatus.FAILED,
-            batch_id=uuid.UUID(batch_id),
-        )
-        db.add(receipt)
-        await db.commit()
+    """Unknown file: delete from S3, do NOT create a DB record."""
+    try:
+        S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
+        logger.info("Deleted unclassified file from S3: %s", s3_key)
+    except Exception as exc:
+        logger.error("S3 delete failed for unclassified file %s: %s", s3_key, exc)
     return "failed"
 
 
