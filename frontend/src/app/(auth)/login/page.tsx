@@ -20,7 +20,7 @@ function BrandPanel() {
   return (
     <div
       style={{
-        background: "var(--sidebar-bg)",
+        background: "#1A1A2E",
         flex: "0 0 420px",
         display: "flex",
         flexDirection: "column",

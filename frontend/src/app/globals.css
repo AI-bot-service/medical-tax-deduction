@@ -34,11 +34,12 @@
   --border-light:    #F3F4F6;
   --border-strong:   #D1D5DB;
 
-  /* Sidebar */
-  --sidebar-bg:      #1A1A2E;
-  --sidebar-hover:   #252543;
-  --sidebar-text:    #A0A8C0;
-  --sidebar-w:       232px;
+  /* Sidebar — HEITKAMP white style */
+  --sidebar-bg:         #FFFFFF;
+  --sidebar-active-bg:  #1A1A2E;
+  --sidebar-hover:      rgba(26,26,46,.05);
+  --sidebar-text:       #6B7280;
+  --sidebar-w:          240px;
 
   /* Status: Success */
   --green:           #22C55E;
@@ -153,19 +154,26 @@ body {
   width: var(--sidebar-w);
   min-height: 100vh;
   background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
-  padding-bottom: 24px;
+  padding-bottom: 20px;
   transition: transform .3s var(--ease-spring);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
 .sidebar-logo {
   display: flex; align-items: center; gap: 10px;
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  margin-bottom: 8px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 4px;
   flex-shrink: 0;
 }
 .logo-icon {
@@ -176,55 +184,77 @@ body {
   font-size: 18px; flex-shrink: 0;
   box-shadow: var(--shadow-accent);
 }
-.logo-name    { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -.3px; line-height: 1.2; }
-.logo-tagline { font-size: 10px; font-weight: 400; color: var(--sidebar-text); margin-top: 1px; }
+.logo-name    { font-size: 14px; font-weight: 800; color: var(--text-primary); letter-spacing: -.4px; line-height: 1.2; }
+.logo-tagline { font-size: 10px; font-weight: 400; color: var(--text-muted); margin-top: 1px; }
 
 .sidebar-section-label {
-  font-size: 10px; font-weight: 600;
-  color: rgba(160,168,192,.5);
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 16px 20px 6px; display: block;
+  font-size: 10px; font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .07em; text-transform: uppercase;
+  padding: 16px 18px 5px; display: flex; align-items: center;
 }
 
+/* Nav items wrap — adds horizontal padding for pill effect */
+.nav-items-group { padding: 0 8px; }
+
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 20px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
   color: var(--sidebar-text);
   font-size: 13px; font-weight: 500;
   transition: background var(--t-fast), color var(--t-fast);
   position: relative; cursor: pointer; text-decoration: none;
   font-family: 'Urbanist', sans-serif;
+  width: 100%;
 }
-.nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+.nav-item:hover {
+  background: var(--sidebar-hover);
+  color: var(--text-primary);
+}
 .nav-item.active {
-  background: rgba(123,111,212,.18);
-  color: var(--accent-mid);
+  background: var(--sidebar-active-bg);
+  color: #ffffff;
 }
-.nav-item.active::before {
-  content: '';
-  position: absolute; left: 0; top: 4px; bottom: 4px;
-  width: 3px; background: var(--accent);
-  border-radius: 0 3px 3px 0;
-}
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-item.active::before   { display: none; }
+
 .nav-icon {
-  width: 18px; height: 18px;
+  width: 20px; height: 20px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; flex-shrink: 0;
+  font-size: 15px; flex-shrink: 0; opacity: .75;
 }
+.nav-item.active .nav-icon { opacity: 1; filter: brightness(1.4); }
+
 .nav-badge {
   margin-left: auto;
   background: var(--accent); color: #fff;
   font-size: 10px; font-weight: 700;
-  padding: 2px 7px; border-radius: var(--r-pill);
-  line-height: 1.4;
+  padding: 1px 6px; border-radius: var(--r-pill);
+  line-height: 1.5; flex-shrink: 0;
 }
-.nav-badge.yellow { background: var(--yellow); color: #fff; }
+.nav-badge.yellow { background: var(--yellow); }
+.nav-item.active .nav-badge { background: rgba(255,255,255,.25); color: #fff; }
 
 .sidebar-bottom {
   margin-top: auto;
-  border-top: 1px solid rgba(255,255,255,.06);
-  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 8px;
+  padding-bottom: 4px;
 }
+
+/* Sidebar collapse toggle */
+.sidebar-collapse-btn {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; cursor: pointer; margin-left: auto; flex-shrink: 0;
+  color: var(--text-muted);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.sidebar-collapse-btn:hover { background: var(--border); color: var(--text-primary); }
 
 /* ── Topbar ── */
 .topbar {
