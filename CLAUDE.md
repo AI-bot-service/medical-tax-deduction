@@ -72,56 +72,56 @@ medical-tax-deduction/
 
 ### Auth (`/api/v1/auth`)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `POST` | `/auth/otp` | Отправить OTP-код в Telegram пользователя |
-| `POST` | `/auth/verify` | Верифицировать OTP, выдать JWT cookies |
-| `POST` | `/auth/refresh` | Ротация refresh-token (family invalidation) |
-| `POST` | `/auth/logout` | Очистить auth cookies |
+| Метод  | Путь                 | Описание                                           |
+| ------ | -------------------- | -------------------------------------------------- |
+| `POST` | `/auth/otp`          | Отправить OTP-код в Telegram пользователя          |
+| `POST` | `/auth/verify`       | Верифицировать OTP, выдать JWT cookies             |
+| `POST` | `/auth/refresh`      | Ротация refresh-token (family invalidation)        |
+| `POST` | `/auth/logout`       | Очистить auth cookies                              |
 | `POST` | `/auth/bot-register` | Регистрация/поиск пользователя из бота, JWT в body |
-| `POST` | `/auth/mini-app` | Авторизация через Telegram Mini App (HMAC-SHA256) |
+| `POST` | `/auth/mini-app`     | Авторизация через Telegram Mini App (HMAC-SHA256)  |
 
 ### Receipts (`/api/v1/receipts`)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `POST` | `/receipts/upload` | Загрузить чек в S3, создать Receipt, поставить в очередь OCR |
-| `GET` | `/receipts/summary` | Годовая статистика: расходы по месяцам, вычет 13%, процент лимита |
-| `GET` | `/receipts` | Список чеков с группировкой по месяцам (фильтры: year, month) |
-| `GET` | `/receipts/{id}` | Детали чека: позиции, presigned URL изображения |
-| `PATCH` | `/receipts/{id}` | Частичное обновление (дата, аптека, сумма, позиции) |
+| Метод   | Путь                | Описание                                                          |
+| ------- | ------------------- | ----------------------------------------------------------------- |
+| `POST`  | `/receipts/upload`  | Загрузить чек в S3, создать Receipt, поставить в очередь OCR      |
+| `GET`   | `/receipts/summary` | Годовая статистика: расходы по месяцам, вычет 13%, процент лимита |
+| `GET`   | `/receipts`         | Список чеков с группировкой по месяцам (фильтры: year, month)     |
+| `GET`   | `/receipts/{id}`    | Детали чека: позиции, presigned URL изображения                   |
+| `PATCH` | `/receipts/{id}`    | Частичное обновление (дата, аптека, сумма, позиции)               |
 
 ### Batch (`/api/v1/batch`)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `POST` | `/batch` | Загрузить N файлов, создать BatchJob, поставить в очередь |
-| `GET` | `/batch/{id}` | Статус batch job (счётчики done/review/failed) |
-| `GET` | `/batch/{id}/stream` | SSE-поток real-time прогресса (heartbeat 15 сек) |
+| Метод  | Путь                 | Описание                                                  |
+| ------ | -------------------- | --------------------------------------------------------- |
+| `POST` | `/batch`             | Загрузить N файлов, создать BatchJob, поставить в очередь |
+| `GET`  | `/batch/{id}`        | Статус batch job (счётчики done/review/failed)            |
+| `GET`  | `/batch/{id}/stream` | SSE-поток real-time прогресса (heartbeat 15 сек)          |
 
 ### Prescriptions (`/api/v1/prescriptions`)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `POST` | `/prescriptions` | Создать рецепт (тип, врач, клиника, препарат) |
-| `POST` | `/prescriptions/{id}/photo` | Загрузить фото рецепта в S3 |
-| `GET` | `/prescriptions/{id}/pdf-blank` | Получить/сгенерировать PDF бланк 107-1/у |
-| `GET` | `/prescriptions` | Список рецептов (фильтры: doc_type, статус) |
-| `GET` | `/prescriptions/{id}` | Детали рецепта |
-| `DELETE` | `/prescriptions/{id}` | Soft-delete (статус → deleted) |
-| `POST` | `/prescriptions/link` | Связать рецепт с позицией чека |
+| Метод    | Путь                            | Описание                                      |
+| -------- | ------------------------------- | --------------------------------------------- |
+| `POST`   | `/prescriptions`                | Создать рецепт (тип, врач, клиника, препарат) |
+| `POST`   | `/prescriptions/{id}/photo`     | Загрузить фото рецепта в S3                   |
+| `GET`    | `/prescriptions/{id}/pdf-blank` | Получить/сгенерировать PDF бланк 107-1/у      |
+| `GET`    | `/prescriptions`                | Список рецептов (фильтры: doc_type, статус)   |
+| `GET`    | `/prescriptions/{id}`           | Детали рецепта                                |
+| `DELETE` | `/prescriptions/{id}`           | Soft-delete (статус → deleted)                |
+| `POST`   | `/prescriptions/link`           | Связать рецепт с позицией чека                |
 
 ### Export (`/api/v1/export`)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
+| Метод  | Путь                 | Описание                                                   |
+| ------ | -------------------- | ---------------------------------------------------------- |
 | `POST` | `/export?year=<int>` | Инициировать экспорт ZIP (реестр + письмо + чеки) для года |
-| `GET` | `/export/{id}` | Статус ExportJob + presigned URL для скачивания ZIP |
+| `GET`  | `/export/{id}`       | Статус ExportJob + presigned URL для скачивания ZIP        |
 
 ### Health
 
-| Метод | Путь | Описание |
-|-------|------|----------|
+| Метод | Путь      | Описание                   |
+| ----- | --------- | -------------------------- |
 | `GET` | `/health` | Статус сервиса (DB, Redis) |
 
 ---
@@ -288,6 +288,22 @@ Celery → `sse_publisher.py` публикует в Redis PubSub канал `bat
 1. Master-token → SOAP запрос к AuthService → Temporary token
 2. HTTP header `FNS-OpenApi-Token: <token>` в каждом запросе
 3. Асинхронный: `SendMessage` → `MessageId` → поллинг `GetMessage` до `COMPLETED`
+
+## Дизайн-система Frontend
+
+**HEITKAMP Design System** — обязательная дизайн-система для всех страниц и компонентов фронтенда этого проекта.
+
+Файлы дизайн-системы:
+- `proekt/design/heitkamp/heitkamp-ds.css` — готовые CSS-классы и переменные
+- `proekt/design/heitkamp/design-tokens-heitkamp.json` — все токены (цвета, типографика, отступы, тени)
+
+**При создании любой страницы или компонента**:
+1. Использовать шрифт **Urbanist** (Google Fonts, weights 300–800)
+2. Применять CSS-переменные из heitkamp-ds.css (`--accent`, `--bg`, `--surface`, `--sidebar-bg` и др.)
+3. Использовать готовые классы: `.card`, `.btn-primary`, `.badge-*`, `.kpi-card`, `.sidebar`, `.nav-item`, `.topbar` и т.д.
+4. Не переопределять токены HEITKAMP своими цветами
+5. Основной акцентный цвет: `#7B6FD4` (лавандово-фиолетовый)
+6. Фон страницы: `#F2F2F7`, фон карточек: `#FFFFFF`, тёмный sidebar: `#1A1A2E`
 
 ## Работа с задачами
 

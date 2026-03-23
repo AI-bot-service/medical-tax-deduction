@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { UploadZone } from "@/components/ui/UploadZone";
 import { BatchProgress } from "@/components/ui/BatchProgress";
 import { useBatchStore } from "@/lib/store";
-import type { ReceiptListResponse, ReceiptListItem, OCRStatus } from "@/types/api";
+import type { ReceiptListResponse, ReceiptListItem, MonthGroup, OCRStatus } from "@/types/api";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,236 +16,364 @@ import type { ReceiptListResponse, ReceiptListItem, OCRStatus } from "@/types/ap
 function formatRub(amount: string | null | undefined): string {
   if (!amount) return "—";
   const n = parseFloat(amount);
-  return n.toLocaleString("ru-RU", {
-    style: "currency",
-    currency: "RUB",
-    maximumFractionDigits: 0,
-  });
+  return n.toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
 }
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("ru-RU");
+  return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function formatMonthLabel(ym: string): string {
+  return new Date(ym + "-01").toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
 }
 
 // ---------------------------------------------------------------------------
-// ConfidenceBadge
+// OCR Status Badge  (HEITKAMP .badge-*)
 // ---------------------------------------------------------------------------
 
-interface ConfidenceBadgeProps {
-  status: OCRStatus;
-  confidence?: number | null;
-}
-function ConfidenceBadge({ status, confidence }: ConfidenceBadgeProps) {
-  let cls: string;
-  let label: string;
+const STATUS_CONFIG: Record<OCRStatus, { cls: string; dot: string; label: string }> = {
+  DONE:    { cls: "badge badge-done",    dot: "#22C55E", label: "Готов" },
+  REVIEW:  { cls: "badge badge-review",  dot: "#F59E0B", label: "Проверка" },
+  FAILED:  { cls: "badge badge-failed",  dot: "#EF4444", label: "Ошибка" },
+  PENDING: { cls: "badge badge-pending", dot: "#7B6FD4", label: "Обработка" },
+};
 
-  if (status === "DONE") {
-    if (confidence !== undefined && confidence !== null) {
-      if (confidence >= 0.85) {
-        cls = "bg-green-100 text-green-700";
-        label = `✓ ${Math.round(confidence * 100)}%`;
-      } else if (confidence >= 0.6) {
-        cls = "bg-yellow-100 text-yellow-700";
-        label = `⚠ ${Math.round(confidence * 100)}%`;
-      } else {
-        cls = "bg-red-100 text-red-700";
-        label = `✗ ${Math.round(confidence * 100)}%`;
-      }
-    } else {
-      cls = "bg-green-100 text-green-700";
-      label = "Готов";
-    }
-  } else if (status === "REVIEW") {
-    cls = "bg-yellow-100 text-yellow-700";
-    label = "Проверка";
-  } else if (status === "FAILED") {
-    cls = "bg-red-100 text-red-700";
-    label = "Ошибка";
-  } else {
-    cls = "bg-gray-100 text-gray-600";
-    label = "Обработка";
-  }
-
+function StatusBadge({ status, confidence }: { status: OCRStatus; confidence?: number | null }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
+  const pct = confidence != null ? ` ${Math.round(confidence * 100)}%` : "";
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {label}
+    <span className={cfg.cls}>
+      <span className="badge-dot" style={{ background: cfg.dot }} />
+      {cfg.label}{pct}
     </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// ReceiptTable
+// Sort controls
 // ---------------------------------------------------------------------------
 
-interface ReceiptTableProps {
-  data: ReceiptListResponse;
-  selectedMonth: string;
+type SortField = "purchase_date" | "total_amount" | "pharmacy_name";
+type SortDir   = "asc" | "desc";
+
+function sortReceipts(receipts: ReceiptListItem[], field: SortField, dir: SortDir): ReceiptListItem[] {
+  return [...receipts].sort((a, b) => {
+    let cmp = 0;
+    if (field === "purchase_date")  cmp = (a.purchase_date ?? "").localeCompare(b.purchase_date ?? "");
+    else if (field === "total_amount") cmp = parseFloat(a.total_amount ?? "0") - parseFloat(b.total_amount ?? "0");
+    else                            cmp = (a.pharmacy_name ?? "").localeCompare(b.pharmacy_name ?? "");
+    return dir === "asc" ? cmp : -cmp;
+  });
 }
 
-type SortField = "purchase_date" | "total_amount" | "pharmacy_name";
-type SortDir = "asc" | "desc";
+// ---------------------------------------------------------------------------
+// SortTh — sortable table header cell
+// ---------------------------------------------------------------------------
 
-function ReceiptTable({ data, selectedMonth }: ReceiptTableProps) {
-  const router = useRouter();
-  const [sortField, setSortField] = useState<SortField>("purchase_date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  const months = data.months.filter(
-    (m) => selectedMonth === "all" || m.month === selectedMonth,
+function SortTh({
+  field, active, dir, onSort, align = "left", children,
+}: {
+  field: SortField; active: SortField; dir: SortDir;
+  onSort: (f: SortField) => void; align?: "left" | "right" | "center";
+  children: React.ReactNode;
+}) {
+  const isActive = active === field;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      style={{
+        padding: "10px 16px",
+        textAlign: align,
+        fontSize: "11px", fontWeight: 600,
+        color: isActive ? "var(--accent)" : "var(--text-secondary)",
+        letterSpacing: "0.04em", textTransform: "uppercase",
+        cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
+        background: "var(--bg)",
+        transition: "color 0.15s",
+      }}
+    >
+      {children}
+      <span style={{ marginLeft: 4, opacity: isActive ? 1 : 0.3 }}>
+        {isActive ? (dir === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </th>
   );
+}
 
-  function toggleSort(field: SortField) {
-    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortField(field);
-      setSortDir("desc");
-    }
-  }
+// ---------------------------------------------------------------------------
+// MonthAccordion — one collapsible month group
+// ---------------------------------------------------------------------------
 
-  function sortReceipts(receipts: ReceiptListItem[]): ReceiptListItem[] {
-    return [...receipts].sort((a, b) => {
-      let cmp = 0;
-      if (sortField === "purchase_date") {
-        cmp = (a.purchase_date ?? "").localeCompare(b.purchase_date ?? "");
-      } else if (sortField === "total_amount") {
-        cmp = parseFloat(a.total_amount ?? "0") - parseFloat(b.total_amount ?? "0");
-      } else {
-        cmp = (a.pharmacy_name ?? "").localeCompare(b.pharmacy_name ?? "");
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }
+function MonthAccordion({
+  group, sortField, sortDir, onSort, defaultOpen,
+}: {
+  group: MonthGroup;
+  sortField: SortField; sortDir: SortDir;
+  onSort: (f: SortField) => void;
+  defaultOpen: boolean;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(defaultOpen);
 
-  const sortIcon = (field: SortField) =>
-    sortField === field ? (sortDir === "asc" ? " ↑" : " ↓") : "";
-
-  if (months.length === 0) {
-    return (
-      <div className="rounded-xl bg-white border border-gray-100 p-8 text-center text-sm text-gray-400">
-        Нет чеков за выбранный период
-      </div>
-    );
-  }
+  const sorted   = sortReceipts(group.receipts, sortField, sortDir);
+  const rxCount  = group.receipts.filter(r => r.needs_prescription).length;
+  const doneCount  = group.receipts.filter(r => r.ocr_status === "DONE").length;
+  const reviewCount = group.receipts.filter(r => r.ocr_status === "REVIEW").length;
 
   return (
-    <div className="flex flex-col gap-4">
-      {months.map((month) => {
-        const sorted = sortReceipts(month.receipts);
-        return (
-          <div
-            key={month.month}
-            className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden"
-          >
-            {/* Month header */}
-            <div className="flex items-center justify-between bg-gray-50 px-4 py-2 border-b border-gray-100">
-              <span className="text-sm font-semibold text-gray-700">
-                {new Date(month.month + "-01").toLocaleDateString("ru-RU", {
-                  month: "long",
-                  year: "numeric",
-                })}
-              </span>
-              <span className="text-sm font-medium text-gray-500">
-                Итого: {formatRub(month.total_amount)}
-              </span>
-            </div>
+    <div
+      className="card"
+      style={{ overflow: "hidden", transition: "box-shadow 0.2s" }}
+    >
+      {/* ── Month header (clickable) ── */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center",
+          padding: "16px 20px", gap: 12,
+          background: "none", border: "none", cursor: "pointer",
+          borderBottom: open ? "1px solid var(--border-light)" : "none",
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-subtle)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "none")}
+      >
+        {/* Chevron */}
+        <span style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 24, height: 24, borderRadius: "var(--r-sm)",
+          background: open ? "var(--accent-light)" : "var(--bg)",
+          color: open ? "var(--accent)" : "var(--text-muted)",
+          transition: "all 0.2s", flexShrink: 0,
+          fontSize: 12, fontWeight: 700,
+        }}>
+          {open ? "▲" : "▼"}
+        </span>
 
-            {/* Table */}
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-gray-400 border-b border-gray-50">
-                  <th
-                    className="px-4 py-2 text-left cursor-pointer hover:text-gray-700"
-                    onClick={() => toggleSort("purchase_date")}
-                  >
-                    Дата{sortIcon("purchase_date")}
-                  </th>
-                  <th
-                    className="px-4 py-2 text-left cursor-pointer hover:text-gray-700"
-                    onClick={() => toggleSort("pharmacy_name")}
-                  >
-                    Аптека{sortIcon("pharmacy_name")}
-                  </th>
-                  <th
-                    className="px-4 py-2 text-right cursor-pointer hover:text-gray-700"
-                    onClick={() => toggleSort("total_amount")}
-                  >
-                    Сумма{sortIcon("total_amount")}
-                  </th>
-                  <th className="px-4 py-2 text-center">Статус</th>
-                  <th className="px-4 py-2 text-center">Действия</th>
+        {/* Month name */}
+        <span style={{
+          fontSize: "14px", fontWeight: 700,
+          color: "var(--text-primary)", textTransform: "capitalize",
+          flex: 1, textAlign: "left",
+        }}>
+          {formatMonthLabel(group.month)}
+        </span>
+
+        {/* Stats pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            fontSize: "11px", color: "var(--text-muted)",
+            padding: "2px 8px", background: "var(--bg)",
+            borderRadius: "var(--r-pill)", border: "1px solid var(--border)",
+          }}>
+            {group.receipts.length} чек{group.receipts.length === 1 ? "" : "а"}
+          </span>
+          {doneCount > 0 && (
+            <span className="badge badge-done" style={{ fontSize: "10px" }}>
+              <span className="badge-dot" style={{ background: "#22C55E" }} />
+              {doneCount}
+            </span>
+          )}
+          {reviewCount > 0 && (
+            <span className="badge badge-review" style={{ fontSize: "10px" }}>
+              <span className="badge-dot" style={{ background: "#F59E0B" }} />
+              {reviewCount}
+            </span>
+          )}
+          {rxCount > 0 && (
+            <span style={{
+              fontSize: "10px", fontWeight: 600,
+              padding: "2px 8px", borderRadius: "var(--r-pill)",
+              background: "var(--purple-bg)", color: "var(--purple-text)",
+            }}>
+              💊 Rx: {rxCount}
+            </span>
+          )}
+        </div>
+
+        {/* Total */}
+        <span style={{
+          fontSize: "15px", fontWeight: 800,
+          color: "var(--text-primary)", letterSpacing: "-0.03em",
+          marginLeft: 8, flexShrink: 0,
+        }}>
+          {formatRub(group.total_amount)}
+        </span>
+      </button>
+
+      {/* ── Receipts table ── */}
+      {open && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <SortTh field="purchase_date" active={sortField} dir={sortDir} onSort={onSort}>
+                  Дата
+                </SortTh>
+                <SortTh field="pharmacy_name" active={sortField} dir={sortDir} onSort={onSort}>
+                  Аптека
+                </SortTh>
+                <SortTh field="total_amount" active={sortField} dir={sortDir} onSort={onSort} align="right">
+                  Сумма
+                </SortTh>
+                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center", background: "var(--bg)" }}>
+                  Статус
+                </th>
+                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center", background: "var(--bg)", width: 40 }}>
+                  Rx
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr
+                  key={r.id}
+                  onClick={() => router.push(`/receipts/${r.id}`)}
+                  style={{
+                    borderTop: "1px solid var(--border-light)",
+                    cursor: "pointer",
+                    transition: "background 0.12s",
+                    background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(123,111,212,0.04)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)")}
+                >
+                  <td style={{ padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                    {formatDate(r.purchase_date)}
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.pharmacy_name ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                    {formatRub(r.total_amount)}
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    <StatusBadge status={r.ocr_status} confidence={r.ocr_confidence} />
+                  </td>
+                  <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                    {r.needs_prescription && (
+                      <span title="Требуется рецепт" style={{ fontSize: "14px" }}>💊</span>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {sorted.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/receipts/${r.id}`)}
-                  >
-                    <td className="px-4 py-2.5 text-gray-700">
-                      {formatDate(r.purchase_date)}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-700 max-w-[180px] truncate">
-                      {r.pharmacy_name ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-gray-800">
-                      {formatRub(r.total_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <ConfidenceBadge
-                        status={r.ocr_status}
-                        confidence={r.ocr_confidence}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/receipts/${r.id}`);
-                        }}
-                        className="text-blue-500 hover:underline text-xs"
-                      >
-                        Открыть
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// MonthFilter
+// MonthFilterPills
 // ---------------------------------------------------------------------------
 
-interface MonthFilterProps {
-  months: string[];
-  value: string;
-  onChange: (v: string) => void;
-}
-function MonthFilter({ months, value, onChange }: MonthFilterProps) {
+function MonthFilterPills({
+  months, value, onChange,
+}: {
+  months: string[]; value: string; onChange: (v: string) => void;
+}) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400"
-    >
-      <option value="all">Все месяцы</option>
-      {months.map((m) => (
-        <option key={m} value={m}>
-          {new Date(m + "-01").toLocaleDateString("ru-RU", {
-            month: "long",
-            year: "numeric",
-          })}
-        </option>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <button
+        className={`filter-pill ${value === "all" ? "active" : ""}`}
+        onClick={() => onChange("all")}
+      >
+        Все месяцы
+      </button>
+      {months.map(m => (
+        <button
+          key={m}
+          className={`filter-pill ${value === m ? "active" : ""}`}
+          onClick={() => onChange(m)}
+        >
+          {formatMonthLabel(m)}
+        </button>
       ))}
-    </select>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Summary strip
+// ---------------------------------------------------------------------------
+
+function SummaryStrip({ data, filter }: { data: ReceiptListResponse; filter: string }) {
+  const months = filter === "all" ? data.months : data.months.filter(m => m.month === filter);
+  const total  = months.reduce((s, m) => s + parseFloat(m.total_amount || "0"), 0);
+  const count  = months.reduce((s, m) => s + m.receipts.length, 0);
+  const deduction = (total * 0.13).toFixed(0);
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+      {[
+        { label: "Чеков", value: String(count), color: "var(--text-primary)" },
+        {
+          label: "Сумма расходов",
+          value: parseFloat(String(total)).toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }),
+          color: "var(--text-primary)",
+        },
+        {
+          label: "Вычет 13%",
+          value: parseFloat(deduction).toLocaleString("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }),
+          color: "var(--accent)",
+        },
+      ].map(item => (
+        <div key={item.label} className="kpi-card">
+          <div className="kpi-label">{item.label}</div>
+          <div className="kpi-value" style={{ color: item.color, fontSize: "22px" }}>
+            {item.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+function EmptyState({ onUpload }: { onUpload: () => void }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: "56px 24px", gap: 16,
+      background: "var(--surface)", borderRadius: "var(--r-md)",
+      border: "1px dashed var(--border-strong)",
+    }}>
+      <div style={{ fontSize: 40 }}>🧾</div>
+      <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)" }}>
+        Чеки ещё не загружены
+      </div>
+      <div style={{ fontSize: "13px", color: "var(--text-secondary)", maxWidth: 320, textAlign: "center" }}>
+        Загрузите фото чека из аптеки — система распознает препараты автоматически
+      </div>
+      <button className="btn btn-primary" onClick={onUpload} style={{ marginTop: 4 }}>
+        + Загрузить первый чек
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton loader
+// ---------------------------------------------------------------------------
+
+function SkeletonList() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="card" style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", background: "var(--bg)" }} />
+          <div style={{ flex: 1, height: 16, borderRadius: 4, background: "var(--bg)", maxWidth: 160 }} />
+          <div style={{ height: 14, borderRadius: 4, background: "var(--bg)", width: 80 }} />
+          <div style={{ height: 18, borderRadius: 4, background: "var(--bg)", width: 100 }} />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -254,79 +382,139 @@ function MonthFilter({ months, value, onChange }: MonthFilterProps) {
 // ---------------------------------------------------------------------------
 
 export default function ReceiptsPage() {
+  const router      = useRouter();
   const [selectedMonth, setSelectedMonth] = useState("all");
-  const [showUpload, setShowUpload] = useState(false);
-  const activeBatch = useBatchStore((s) => s.activeBatch);
+  const [showUpload, setShowUpload]       = useState(false);
+  const [sortField, setSortField]         = useState<SortField>("purchase_date");
+  const [sortDir, setSortDir]             = useState<SortDir>("desc");
+  const activeBatch = useBatchStore(s => s.activeBatch);
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
     queryKey: ["receipts-list"],
-    queryFn: () => api.get<ReceiptListResponse>("/api/v1/receipts"),
+    queryFn:  () => api.get<ReceiptListResponse>("/api/v1/receipts"),
     staleTime: 30_000,
   });
 
-  const allMonths = data?.months.map((m) => m.month) ?? [];
+  function handleSort(field: SortField) {
+    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("desc"); }
+  }
+
+  const allMonths     = data?.months.map(m => m.month) ?? [];
+  const visibleMonths = data
+    ? selectedMonth === "all" ? data.months : data.months.filter(m => m.month === selectedMonth)
+    : [];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Мои чеки</h1>
+    <>
+      {/* ── Page header ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: "clamp(1.25rem,2.5vw,1.5rem)", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em" }}>
+            Мои чеки
+          </h1>
+          {data && (
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: 2 }}>
+              {data.total_count} чек{data.total_count === 1 ? "" : "а"} за всё время
+            </p>
+          )}
+        </div>
         <button
-          onClick={() => setShowUpload((v) => !v)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+          className="btn btn-primary"
+          onClick={() => setShowUpload(v => !v)}
         >
-          {showUpload ? "Скрыть" : "+ Загрузить чеки"}
+          <span style={{ fontSize: 15 }}>+</span>
+          {showUpload ? "Скрыть" : "Загрузить чеки"}
         </button>
       </div>
 
+      {/* ── Upload zone ── */}
       {showUpload && (
-        <div className="mb-6 rounded-xl bg-white border border-gray-100 p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">Загрузка чеков</h2>
-          <UploadZone
-            onUploaded={() => {
-              setShowUpload(false);
-              void refetch();
-            }}
-          />
+        <div className="card" style={{ padding: "20px", marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>
+              Загрузка чеков
+            </span>
+            <button
+              onClick={() => setShowUpload(false)}
+              style={{ fontSize: 18, color: "var(--text-muted)", lineHeight: 1, background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}
+            >
+              ×
+            </button>
+          </div>
+          <UploadZone onUploaded={() => { setShowUpload(false); void refetch(); }} />
         </div>
       )}
 
+      {/* ── Batch progress ── */}
       {activeBatch && (
-        <div className="mb-6">
+        <div style={{ marginBottom: 20 }}>
           <BatchProgress />
         </div>
       )}
 
-      {/* Filter bar */}
-      {!isLoading && data && (
-        <div className="mb-4 flex items-center gap-3">
-          <MonthFilter
-            months={allMonths}
-            value={selectedMonth}
-            onChange={setSelectedMonth}
-          />
-          <span className="text-sm text-gray-400">
-            {data.total_count} чек{data.total_count === 1 ? "" : "ов"}
-          </span>
-        </div>
-      )}
+      {/* ── Loading ── */}
+      {isLoading && <SkeletonList />}
 
-      {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="animate-pulse h-12 rounded-xl bg-gray-100" />
-          ))}
-        </div>
-      )}
-
+      {/* ── Error ── */}
       {isError && (
-        <div className="rounded-xl bg-red-50 p-6 text-center text-sm text-red-700">
-          Не удалось загрузить список чеков.
+        <div style={{
+          padding: "20px 24px", borderRadius: "var(--r-md)",
+          background: "var(--red-bg)", color: "var(--red-text)",
+          fontSize: "13px", fontWeight: 500,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <span>⚠</span> Не удалось загрузить список чеков.
+          <button
+            onClick={() => void refetch()}
+            style={{ marginLeft: "auto", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: "13px" }}
+          >
+            Повторить
+          </button>
         </div>
       )}
 
-      {data && (
-        <ReceiptTable data={data} selectedMonth={selectedMonth} />
+      {/* ── Content ── */}
+      {data && data.total_count === 0 && (
+        <EmptyState onUpload={() => setShowUpload(true)} />
       )}
-    </main>
+
+      {data && data.total_count > 0 && (
+        <>
+          {/* Summary strip */}
+          <SummaryStrip data={data} filter={selectedMonth} />
+
+          {/* Month filter pills */}
+          <div style={{ marginBottom: 16 }}>
+            <MonthFilterPills months={allMonths} value={selectedMonth} onChange={setSelectedMonth} />
+          </div>
+
+          {/* Accordion month groups */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {visibleMonths.length === 0 ? (
+              <div style={{
+                padding: "32px", textAlign: "center",
+                background: "var(--surface)", borderRadius: "var(--r-md)",
+                border: "1px solid var(--border)",
+                fontSize: "13px", color: "var(--text-muted)",
+              }}>
+                Нет чеков за выбранный период
+              </div>
+            ) : (
+              visibleMonths.map((group, i) => (
+                <MonthAccordion
+                  key={group.month}
+                  group={group}
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onSort={handleSort}
+                  defaultOpen={i === 0}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }

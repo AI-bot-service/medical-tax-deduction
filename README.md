@@ -75,7 +75,11 @@ cp .env.example .env
 ### 2. Запуск через Docker Compose
 
 ```bash
-docker compose -f infra/docker-compose.yml up --build
+cd infra
+docker compose up -d
+
+# При изменении кода — пересобрать образы:
+docker compose up -d --build
 ```
 
 Сервисы:
@@ -87,7 +91,41 @@ docker compose -f infra/docker-compose.yml up --build
 ### 3. Миграции БД
 
 ```bash
-docker compose -f infra/docker-compose.yml exec backend alembic upgrade head
+docker compose exec backend alembic upgrade head
+```
+
+### Остановка
+
+```bash
+cd infra
+docker compose down          # остановить контейнеры (данные сохраняются)
+docker compose down -v       # остановить и удалить volumes (данные БД удаляются!)
+```
+
+### Перезапуск отдельного сервиса
+
+```bash
+cd infra
+docker compose restart backend
+docker compose up -d --force-recreate frontend
+```
+
+### Просмотр логов
+
+```bash
+cd infra
+docker compose logs -f                    # все сервисы
+docker compose logs -f backend            # только backend
+docker compose logs -f celery_worker bot  # несколько сервисов
+docker compose logs --tail=50 frontend    # последние 50 строк
+```
+
+### Проверка состояния
+
+```bash
+cd infra
+docker compose ps                         # статус всех контейнеров
+curl http://localhost:8000/api/v1/health  # health check backend
 ```
 
 ## Локальная разработка
