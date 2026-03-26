@@ -17,7 +17,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "receipt_ocr_system.md"
+# prompts/ живёт в корне backend/, три уровня вверх от этого файла
+_SYSTEM_PROMPT_PATH = Path(__file__).parent.parent.parent.parent / "prompts" / "receipt_ocr_system.md"
 
 # Lazy singleton — created once per worker process
 _client: AsyncOpenAI | None = None
