@@ -1,4 +1,12 @@
-"""OCR Pipeline Orchestrator: параллельный QR + EasyOCR + merge + normalize (B-07)."""
+"""OCR Pipeline — OpenAI Vision + QR scan (B-07).
+
+Replaces EasyOCR/Tesseract/PaddleOCR with GPT-4o Vision.
+Pipeline:
+  1. QR scan (parallel, local — fast fiscal data)
+  2. OpenAI Vision -> structured JSON
+  3. Merge: QR fiscal data overwrites/confirms AI fields
+  4. Drug normalization via GRLS registry
+"""
 from __future__ import annotations
 
 import asyncio
@@ -6,29 +14,24 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
+from app.services.ocr import openai_vision
 from app.services.ocr.drug_normalizer import DrugMatch, get_drug_normalizer
-from app.services.ocr.easyocr_engine import EasyOCREngine
-from app.services.ocr.image_preprocessor import preprocess
-from app.services.ocr.ocr_result import OCRResult, QRResult
+from app.services.ocr.ocr_result import QRResult
 from app.services.ocr.qr_scanner import scan_qr
-from app.services.ocr.result_merger import MergedReceipt, merge
-from app.services.ocr.tesseract_engine import TesseractEngine
 
 logger = logging.getLogger(__name__)
 
-_RECEIPT_MAX_AGE_DAYS = 365  # 12 месяцев — QR старше этого срока пропускается
-_OCR_MIN_BLOCKS = 5  # если EasyOCR вернул < 5 блоков — используем Tesseract
+_RECEIPT_MAX_AGE_DAYS = 365
 
-# Thresholds для итогового статуса
 CONFIDENCE_DONE = 0.85
-CONFIDENCE_REVIEW = 0.20  # lowered: EasyOCR on CPU returns ~0.20-0.30 on real receipts
+CONFIDENCE_REVIEW = 0.20
 
 
 @dataclass
 class NormalizedItem:
-    """Позиция чека после нормализации через DrugNormalizer."""
+    """Receipt line item after GRLS normalization."""
 
     drug_name_raw: str
     drug_inn: str | None
@@ -41,25 +44,19 @@ class NormalizedItem:
 
 @dataclass
 class ParsedReceipt:
-    """Полный результат OCR-пайплайна для одного чека."""
+    """Full pipeline result for one receipt image."""
 
-    # От MergedReceipt
     strategy: str
     confidence: float
     purchase_date: date | None
     total_amount: Decimal | None
     pharmacy_name: str | None
     raw_text: str
-
-    # Нормализованные позиции
     items: list[NormalizedItem] = field(default_factory=list)
-
-    # Метрики
     processing_time_ms: int = 0
 
     @property
     def ocr_status(self) -> str:
-        """DONE / REVIEW / FAILED по порогам confidence."""
         if self.confidence >= CONFIDENCE_DONE:
             return "DONE"
         if self.confidence >= CONFIDENCE_REVIEW:
@@ -67,142 +64,198 @@ class ParsedReceipt:
         return "FAILED"
 
 
-def _is_receipt_too_old(qr: QRResult) -> bool:
-    """True если дата QR-кода старше 12 месяцев."""
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _to_decimal(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+def _parse_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _is_too_old(qr: QRResult) -> bool:
     cutoff = datetime.now(UTC) - timedelta(days=_RECEIPT_MAX_AGE_DAYS)
     qr_dt = qr.date if qr.date.tzinfo else qr.date.replace(tzinfo=UTC)
     return qr_dt < cutoff
 
 
-def _extract_items_from_text(raw_text: str) -> list[str]:
-    """Грубый экстрактор строк-позиций из текста чека.
-
-    Логика простая: строки, не являющиеся заголовком/итогом/датой,
-    считаются кандидатами на позицию. Нормализатор отсеет нераспознанные.
-    """
-    lines = raw_text.splitlines()
-    candidates = []
-    skip_keywords = {
-        "итого", "total", "сумма", "чек", "кассир", "спасибо",
-        "аптека", "apteka", "нал", "безнал", "руб", "rub",
-    }
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or len(stripped) < 4:
-            continue
-        lower = stripped.lower()
-        if any(kw in lower for kw in skip_keywords):
-            continue
-        # Строки, содержащие только цифры и знаки — это суммы/даты, пропускаем
-        alpha_count = sum(1 for c in stripped if c.isalpha())
-        if alpha_count < 3:
-            continue
-        candidates.append(stripped)
-    return candidates
+def _amounts_match(a: Decimal, b: Decimal) -> bool:
+    if a == b:
+        return True
+    diff = abs(a - b)
+    larger = max(abs(a), abs(b))
+    if larger == 0:
+        return True
+    return (diff / larger) <= Decimal("0.02") or diff <= Decimal("5.00")
 
 
-def _build_normalized_items(
-    raw_text: str,
-) -> list[NormalizedItem]:
-    """Извлекает и нормализует позиции из raw_text."""
+def _compute_confidence(ai_data: dict, qr: QRResult | None) -> tuple[float, str]:
+    """Compute confidence score and strategy from AI output + QR result."""
+    has_date = bool(ai_data.get("purchase_date"))
+    has_amount = ai_data.get("total_amount") is not None
+    has_pharmacy = bool(ai_data.get("pharmacy_name"))
+    has_items = bool(ai_data.get("items"))
+
+    if not any([has_date, has_amount, has_pharmacy, has_items]):
+        return 0.0, "ai_failed"
+
+    # Prescription path
+    if ai_data.get("document_type") == "prescription":
+        score = 0.70 if ai_data.get("drugs") else 0.40
+        return score, "ai_prescription"
+
+    # Weighted score: amount + date are most critical for tax deduction
+    score = 0.0
+    if has_date:
+        score += 0.25
+    if has_amount:
+        score += 0.35
+    if has_pharmacy:
+        score += 0.15
+    if has_items:
+        score += 0.15
+
+    strategy = "ai_only"
+    if qr is not None:
+        ai_amount = _to_decimal(ai_data.get("total_amount"))
+        if ai_amount is not None and _amounts_match(qr.amount, ai_amount):
+            score = min(1.0, score + 0.10)
+            strategy = "ai_qr_confirmed"
+        elif ai_amount is None:
+            score = min(1.0, score + 0.05)
+            strategy = "ai_qr_supplemented"
+        else:
+            score *= 0.65
+            strategy = "ai_qr_conflict"
+
+    return round(score, 4), strategy
+
+
+def _normalize_items(raw_items: list[dict]) -> list[NormalizedItem]:
+    """Match AI-extracted drug names against GRLS registry."""
+    if not raw_items:
+        return []
     normalizer = get_drug_normalizer()
-    candidates = _extract_items_from_text(raw_text)
-    items: list[NormalizedItem] = []
-    for candidate in candidates:
-        match: DrugMatch | None = normalizer.normalize(candidate)
-        items.append(
+    result: list[NormalizedItem] = []
+    for item in raw_items:
+        name = item.get("drug_name", "").strip()
+        if not name:
+            continue
+        match: DrugMatch | None = normalizer.normalize(name)
+        result.append(
             NormalizedItem(
-                drug_name_raw=candidate,
+                drug_name_raw=name,
                 drug_inn=match.drug_inn if match else None,
                 is_rx=match.is_rx if match else None,
-                quantity=None,  # требует структурированного парсинга позиций
-                unit_price=None,
-                total_price=None,
+                quantity=float(item["quantity"]) if item.get("quantity") is not None else 1.0,
+                unit_price=_to_decimal(item.get("unit_price")),
+                total_price=_to_decimal(item.get("total_price")),
                 drug_match_score=match.match_score if match else None,
             )
         )
-    return items
+    return result
 
+
+def _build_raw_text(ai_data: dict) -> str:
+    """Build readable text summary from AI extracted fields (for logging/debug)."""
+    parts: list[str] = []
+    if ai_data.get("pharmacy_name"):
+        parts.append(ai_data["pharmacy_name"])
+    if ai_data.get("purchase_date"):
+        parts.append(ai_data["purchase_date"])
+    for item in (ai_data.get("items") or ai_data.get("drugs") or []):
+        line = item.get("drug_name", "")
+        price = item.get("total_price") or item.get("unit_price")
+        if price:
+            line += f" {price}"
+        if line:
+            parts.append(line)
+    if ai_data.get("total_amount") is not None:
+        parts.append(f"ИТОГО {ai_data['total_amount']}")
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 async def process_image(image_bytes: bytes) -> ParsedReceipt:
-    """Основной entry point пайплайна: изображение → ParsedReceipt.
+    """Main pipeline: image bytes -> ParsedReceipt.
 
-    Шаги:
-    1. Preprocessing (sync, в executor)
-    2. QR decode (sync, в executor) параллельно с EasyOCR (thread executor)
-    3. ReceiptAgeEstimator: пропустить QR если > 12 мес
-    4. ResultMerger → MergedReceipt
-    5. DrugNormalizer → items
+    Runs QR scan and OpenAI Vision in parallel, then merges results.
     """
     t_start = time.perf_counter()
     loop = asyncio.get_running_loop()
 
-    # --- Шаг 1: preprocessing ---
-    t0 = time.perf_counter()
-    preprocessed = await loop.run_in_executor(None, preprocess, image_bytes)
-    logger.debug("pipeline: preprocess %.0fms", (time.perf_counter() - t0) * 1000)
+    # Parallel: QR (local, fast) + OpenAI Vision (network)
+    qr_task = loop.run_in_executor(None, scan_qr, image_bytes)
+    ai_task = openai_vision.extract(image_bytes)
 
-    # --- Шаг 2: параллельный QR + EasyOCR ---
-    t0 = time.perf_counter()
-    qr_future = loop.run_in_executor(None, scan_qr, preprocessed)
-    ocr_future = _run_easyocr(loop, preprocessed)
+    qr_raw, ai_data = await asyncio.gather(qr_task, ai_task, return_exceptions=True)
 
-    qr_result: QRResult | None
-    ocr_result: OCRResult
-    qr_result, ocr_result = await asyncio.gather(qr_future, ocr_future)
+    # Handle exceptions
+    qr_result: QRResult | None = None
+    if isinstance(qr_raw, Exception):
+        logger.warning("pipeline: QR scan raised: %s", qr_raw)
+    elif isinstance(qr_raw, QRResult):
+        qr_result = qr_raw
 
-    logger.debug("pipeline: qr+ocr %.0fms", (time.perf_counter() - t0) * 1000)
+    if isinstance(ai_data, Exception):
+        logger.error("pipeline: OpenAI Vision raised: %s", ai_data)
+        ai_data = {}
 
-    # --- Шаг 3: ReceiptAgeEstimator ---
-    if qr_result is not None and _is_receipt_too_old(qr_result):
-        logger.info("pipeline: QR receipt > 12 months old, ignoring QR")
+    # Drop stale QR data
+    if qr_result is not None and _is_too_old(qr_result):
+        logger.info("pipeline: QR > 12 months old, ignoring")
         qr_result = None
 
-    # --- Шаг 4: merge ---
-    t0 = time.perf_counter()
-    merged: MergedReceipt = merge(qr_result, ocr_result)
-    logger.debug("pipeline: merge %.0fms", (time.perf_counter() - t0) * 1000)
+    confidence, strategy = _compute_confidence(ai_data, qr_result)
 
-    # --- Шаг 5: normalize items ---
-    t0 = time.perf_counter()
-    items = _build_normalized_items(merged.raw_text)
-    logger.debug("pipeline: normalize %.0fms", (time.perf_counter() - t0) * 1000)
+    # Build fields — AI is primary source; QR fills gaps
+    purchase_date: date | None = _parse_date(ai_data.get("purchase_date"))
+    total_amount: Decimal | None = _to_decimal(ai_data.get("total_amount"))
+    pharmacy_name: str | None = ai_data.get("pharmacy_name") or None
+
+    if qr_result is not None:
+        if purchase_date is None:
+            purchase_date = qr_result.date.date()
+        if total_amount is None:
+            total_amount = qr_result.amount
+
+    raw_text = _build_raw_text(ai_data)
+
+    # Drug normalization against GRLS (sync, run in thread)
+    raw_items = ai_data.get("items") or ai_data.get("drugs") or []
+    items = await loop.run_in_executor(None, _normalize_items, raw_items)
 
     total_ms = int((time.perf_counter() - t_start) * 1000)
     logger.info(
         "pipeline: done strategy=%s confidence=%.2f items=%d time=%dms",
-        merged.strategy,
-        merged.confidence,
-        len(items),
-        total_ms,
+        strategy, confidence, len(items), total_ms,
     )
 
     return ParsedReceipt(
-        strategy=merged.strategy,
-        confidence=merged.confidence,
-        purchase_date=merged.purchase_date,
-        total_amount=merged.total_amount,
-        pharmacy_name=merged.pharmacy_name,
-        raw_text=merged.raw_text,
+        strategy=strategy,
+        confidence=confidence,
+        purchase_date=purchase_date,
+        total_amount=total_amount,
+        pharmacy_name=pharmacy_name,
+        raw_text=raw_text,
         items=items,
         processing_time_ms=total_ms,
     )
-
-
-async def _run_easyocr(loop: asyncio.AbstractEventLoop, image_bytes: bytes) -> OCRResult:
-    """Запускает EasyOCR; при < 5 блоков — Tesseract fallback."""
-    engine = EasyOCREngine()
-    try:
-        result: OCRResult = await loop.run_in_executor(None, engine.recognize, image_bytes)
-        if len(result.blocks) >= _OCR_MIN_BLOCKS:
-            return result
-        logger.info("pipeline: EasyOCR returned %d blocks, falling back to Tesseract", len(result.blocks))
-    except Exception as exc:
-        logger.warning("pipeline: EasyOCR failed (%s), falling back to Tesseract", exc)
-
-    try:
-        tesseract = TesseractEngine()
-        return await loop.run_in_executor(None, tesseract.recognize, image_bytes)
-    except Exception as exc:
-        logger.error("pipeline: Tesseract also failed: %s", exc)
-        return OCRResult(blocks=[], confidence=0.0, engine_used="none")

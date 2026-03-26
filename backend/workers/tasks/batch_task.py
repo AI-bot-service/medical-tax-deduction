@@ -24,7 +24,6 @@ from app.models.enums import BatchStatus, DocType, OCRStatus, RiskLevel
 from app.models.prescription import Prescription
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
-from app.services.ocr.batch_classifier import classify
 from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, process_image
 from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
 from workers.celery_app import celery_app
@@ -87,25 +86,31 @@ async def _run(
         await _maybe_complete_batch(batch_id)
         return {"status": "failed", "reason": "s3_error"}
 
-    # Classify
-    classification = classify(image_bytes)
+    # Run AI Vision pipeline — it detects document type automatically
+    try:
+        parsed = await process_image(image_bytes)
+    except Exception as exc:
+        logger.error("OCR pipeline failed [%s #%d]: %s", batch_id, file_index, exc)
+        await _increment_counter(batch_id, "failed")
+        await _maybe_complete_batch(batch_id)
+        return {"status": "failed", "reason": "pipeline_error"}
+
     logger.info(
-        "batch %s #%d: classified_as=%s confidence=%.2f",
-        batch_id, file_index, classification.classified_as, classification.confidence,
+        "batch %s #%d: strategy=%s confidence=%.2f",
+        batch_id, file_index, parsed.strategy, parsed.confidence,
     )
 
     file_status = "failed"
 
-    if classification.classified_as == "receipt":
-        file_status = await _process_receipt_file(
-            batch_id, file_index, s3_key, user_id, image_bytes
-        )
-    elif classification.classified_as == "prescription":
+    if parsed.strategy == "ai_prescription":
         file_status = await _process_prescription_file(
-            batch_id, s3_key, user_id, image_bytes, classification
+            batch_id, s3_key, user_id, parsed
+        )
+    elif parsed.confidence > 0:
+        file_status = await _save_receipt_from_parsed(
+            batch_id, file_index, s3_key, user_id, parsed
         )
     else:
-        # unknown: save as receipt FAILED
         file_status = await _save_unknown_receipt(batch_id, s3_key, user_id)
 
     await _increment_counter(batch_id, file_status)
@@ -151,16 +156,14 @@ async def _delete_receipt_and_s3(
     await db.commit()
 
 
-async def _process_receipt_file(
+async def _save_receipt_from_parsed(
     batch_id: str,
     file_index: int,
     s3_key: str,
     user_id: str,
-    image_bytes: bytes,
+    parsed,
 ) -> str:
-    """Run OCR pipeline on receipt image, save Receipt + items. Returns 'done'/'review'/'failed'.
-    On failure: deletes the Receipt record and S3 file — FAILED receipts are not persisted.
-    """
+    """Save already-parsed receipt to DB. Returns 'done'/'review'/'failed'."""
     async with _WorkerSession() as db:
         receipt = Receipt(
             id=uuid.uuid4(),
@@ -173,14 +176,6 @@ async def _process_receipt_file(
         await db.commit()
         await db.refresh(receipt)
 
-        try:
-            parsed = await process_image(image_bytes)
-        except Exception as exc:
-            logger.error("OCR failed [%s #%d]: %s", batch_id, file_index, exc)
-            await _delete_receipt_and_s3(db, receipt, s3_key, f"ocr_exception: {exc}")
-            return "failed"
-
-        # Determine OCR status — low confidence → delete, not FAILED in DB
         if parsed.confidence >= CONFIDENCE_DONE:
             ocr_status = OCRStatus.DONE
             file_status = "done"
@@ -228,10 +223,9 @@ async def _process_prescription_file(
     batch_id: str,
     s3_key: str,
     user_id: str,
-    image_bytes: bytes,
-    classification,
+    parsed,
 ) -> str:
-    """Save image as a Prescription record. Returns 'done'."""
+    """Save AI-parsed prescription to DB. Returns 'done'."""
     async with _WorkerSession() as db:
         presc = Prescription(
             id=uuid.uuid4(),
@@ -241,7 +235,7 @@ async def _process_prescription_file(
             doctor_name="Не определён",
             issue_date=datetime.utcnow().date(),
             expires_at=datetime.utcnow().date(),
-            drug_name="Не распознано",
+            drug_name=parsed.raw_text[:200] if parsed.raw_text else "Не распознано",
             drug_inn=None,
             risk_level=RiskLevel.STANDARD,
             status="active",

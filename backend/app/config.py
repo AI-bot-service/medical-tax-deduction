@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Encryption
     encryption_key: str = ""
 
+    # OpenAI
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+
     # Sentry
     sentry_dsn: str = ""
 
