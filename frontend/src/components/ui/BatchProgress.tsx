@@ -7,7 +7,7 @@ import { useBatchSSE } from "@/hooks/useBatchSSE";
 import { api } from "@/lib/api";
 import {
   CheckCircle2, AlertCircle, LoaderCircle,
-  ZoomIn, ImageOff, X, Check, ArrowRight,
+  ZoomIn, ImageOff, X, Check, ArrowRight, ArrowLeft,
 } from "lucide-react";
 import type { ReceiptListResponse, ReceiptListItem, ReceiptDetail } from "@/types/api";
 
@@ -215,10 +215,10 @@ function DoneCard({ doneCount, failedCount }: { doneCount: number; failedCount: 
 /* ─────────── Инлайн-проверка чека ─────────── */
 function InlineReviewCard({
   item, current, total,
-  onSave, onSkip,
+  onSave, onNext, onPrev,
 }: {
   item: ReceiptListItem; current: number; total: number;
-  onSave: () => void; onSkip: () => void;
+  onSave: () => void; onNext: () => void; onPrev: () => void;
 }) {
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [date, setDate] = useState(item.purchase_date ?? "");
@@ -508,7 +508,7 @@ function InlineReviewCard({
             <div style={{ flex: 1 }}/>
 
             {/* Кнопки */}
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={() => { void handleSave(); }}
                 disabled={saving}
@@ -530,25 +530,50 @@ function InlineReviewCard({
                   ? <><LoaderCircle style={{ width: 16, height: 16 }} className="animate-spin"/>Сохранение...</>
                   : <><Check style={{ width: 16, height: 16 }}/>Сохранить чек</>}
               </button>
-              <button
-                onClick={onSkip}
-                disabled={saving}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  height: 40, padding: "0 16px",
-                  borderRadius: "var(--r-sm)",
-                  background: "var(--surface)",
-                  color: "var(--text-secondary)",
-                  border: "1.5px solid var(--border)",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontSize: 14, fontWeight: 500, fontFamily: "inherit",
-                  transition: "border-color 0.15s, color 0.15s",
-                }}
-                onMouseEnter={(e) => { const t = e.currentTarget; t.style.borderColor = "var(--accent)"; t.style.color = "var(--accent)"; }}
-                onMouseLeave={(e) => { const t = e.currentTarget; t.style.borderColor = "var(--border)"; t.style.color = "var(--text-secondary)"; }}
-              >
-                Пропустить <ArrowRight style={{ width: 15, height: 15 }}/>
-              </button>
+
+              {/* Навигация: Предыдущий / Следующий */}
+              <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                <button
+                  onClick={onPrev}
+                  disabled={saving || current === 1}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    height: 40, padding: "0 14px",
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--surface)",
+                    color: current === 1 ? "var(--text-disabled)" : "var(--text-secondary)",
+                    border: `1.5px solid ${current === 1 ? "var(--border-light)" : "var(--border)"}`,
+                    cursor: (saving || current === 1) ? "not-allowed" : "pointer",
+                    fontSize: 14, fontWeight: 500, fontFamily: "inherit",
+                    opacity: current === 1 ? 0.5 : 1,
+                    transition: "border-color 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (current !== 1 && !saving) { const t = e.currentTarget; t.style.borderColor = "var(--accent)"; t.style.color = "var(--accent)"; } }}
+                  onMouseLeave={(e) => { const t = e.currentTarget; t.style.borderColor = current === 1 ? "var(--border-light)" : "var(--border)"; t.style.color = current === 1 ? "var(--text-disabled)" : "var(--text-secondary)"; }}
+                >
+                  <ArrowLeft style={{ width: 15, height: 15 }}/> Предыдущий
+                </button>
+                <button
+                  onClick={onNext}
+                  disabled={saving || current === total}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    height: 40, padding: "0 14px",
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--surface)",
+                    color: current === total ? "var(--text-disabled)" : "var(--text-secondary)",
+                    border: `1.5px solid ${current === total ? "var(--border-light)" : "var(--border)"}`,
+                    cursor: (saving || current === total) ? "not-allowed" : "pointer",
+                    fontSize: 14, fontWeight: 500, fontFamily: "inherit",
+                    opacity: current === total ? 0.5 : 1,
+                    transition: "border-color 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (current !== total && !saving) { const t = e.currentTarget; t.style.borderColor = "var(--accent)"; t.style.color = "var(--accent)"; } }}
+                  onMouseLeave={(e) => { const t = e.currentTarget; t.style.borderColor = current === total ? "var(--border-light)" : "var(--border)"; t.style.color = current === total ? "var(--text-disabled)" : "var(--text-secondary)"; }}
+                >
+                  Следующий <ArrowRight style={{ width: 15, height: 15 }}/>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -584,16 +609,17 @@ export function BatchProgress() {
 
   useBatchSSE(activeBatch);
 
-  /* Когда завершилось — переходим к следующей фазе */
+  /* Когда завершилось — всегда показываем проверку данных */
   useEffect(() => {
     if (!completed) return;
 
-    if (reviewCount > 0) {
-      void api.get<ReceiptListResponse>("/api/v1/receipts?status=REVIEW")
+    // Небольшая задержка, чтобы БД успела записать данные
+    const timer = setTimeout(() => {
+      void api.get<ReceiptListResponse>("/api/v1/receipts")
         .then((data) => {
-          const items = data.months.flatMap((m) =>
-            m.receipts.filter((r) => r.ocr_status === "REVIEW"),
-          );
+          // Берём самые свежие записи — ровно столько, сколько загрузили
+          const all = data.months.flatMap((m) => m.receipts);
+          const items = all.slice(0, totalFiles);
           setReviewItems(items);
           setReviewIdx(0);
           setPhase(items.length > 0 ? "reviewing" : "done");
@@ -603,10 +629,9 @@ export function BatchProgress() {
           setPhase("done");
           setTimeout(() => clearBatch(), 2500);
         });
-    } else {
-      setPhase("done");
-      // useBatchSSE уже планирует clearBatch через 3с
-    }
+    }, 500);
+
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed]);
 
@@ -642,12 +667,19 @@ export function BatchProgress() {
     }
   }
 
-  function handleSkip() {
+  function handleNext() {
     const nextIdx = reviewIdx + 1;
     if (nextIdx >= reviewItems.length) {
       clearBatch();
     } else {
       setReviewIdx(nextIdx);
+    }
+  }
+
+  function handlePrev() {
+    const prevIdx = reviewIdx - 1;
+    if (prevIdx >= 0) {
+      setReviewIdx(prevIdx);
     }
   }
 
@@ -659,7 +691,8 @@ export function BatchProgress() {
         current={reviewIdx + 1}
         total={reviewItems.length}
         onSave={handleSave}
-        onSkip={handleSkip}
+        onNext={handleNext}
+        onPrev={handlePrev}
       />
     </div>
   );
