@@ -106,15 +106,18 @@ function SortTh({
 // ---------------------------------------------------------------------------
 
 function MonthAccordion({
-  group, sortField, sortDir, onSort, defaultOpen,
+  group, sortField, sortDir, onSort, defaultOpen, onDelete,
 }: {
   group: MonthGroup;
   sortField: SortField; sortDir: SortDir;
   onSort: (f: SortField) => void;
   defaultOpen: boolean;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const sorted   = sortReceipts(group.receipts, sortField, sortDir);
   const rxCount  = group.receipts.filter(r => r.needs_prescription).length;
@@ -223,21 +226,31 @@ function MonthAccordion({
                 <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "center", background: "var(--bg)", width: 40 }}>
                   Rx
                 </th>
+                <th style={{ padding: "10px 8px", background: "var(--bg)", width: 44 }} />
               </tr>
             </thead>
             <tbody>
               {sorted.map((r, i) => (
                 <tr
                   key={r.id}
-                  onClick={() => router.push(`/receipts/${r.id}`)}
+                  onClick={() => confirmId === r.id ? undefined : router.push(`/receipts/${r.id}`)}
                   style={{
                     borderTop: "1px solid var(--border-light)",
-                    cursor: "pointer",
+                    cursor: confirmId === r.id ? "default" : "pointer",
                     transition: "background 0.12s",
                     background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+                    opacity: deletingId === r.id ? 0.5 : 1,
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(123,111,212,0.04)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)")}
+                  onMouseEnter={e => {
+                    if (confirmId !== r.id) e.currentTarget.style.background = "rgba(123,111,212,0.04)";
+                    const btn = e.currentTarget.querySelector<HTMLButtonElement>(".delete-btn");
+                    if (btn) btn.style.opacity = "1";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
+                    const btn = e.currentTarget.querySelector<HTMLButtonElement>(".delete-btn");
+                    if (btn && confirmId !== r.id) btn.style.opacity = "0";
+                  }}
                 >
                   <td style={{ padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                     {formatDate(r.purchase_date)}
@@ -254,6 +267,60 @@ function MonthAccordion({
                   <td style={{ padding: "12px 16px", textAlign: "center" }}>
                     {r.needs_prescription && (
                       <span title="Требуется рецепт" style={{ fontSize: "14px" }}>💊</span>
+                    )}
+                  </td>
+                  <td
+                    style={{ padding: "12px 8px", textAlign: "center", width: 44 }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {confirmId === r.id ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center" }}>
+                        <button
+                          onClick={async () => {
+                            setDeletingId(r.id);
+                            setConfirmId(null);
+                            await onDelete(r.id);
+                            setDeletingId(null);
+                          }}
+                          disabled={deletingId === r.id}
+                          style={{
+                            padding: "3px 8px", fontSize: "11px", fontWeight: 700,
+                            background: "var(--red-text, #EF4444)", color: "#fff",
+                            border: "none", borderRadius: "var(--r-sm)", cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Да
+                        </button>
+                        <button
+                          onClick={() => setConfirmId(null)}
+                          style={{
+                            padding: "3px 8px", fontSize: "11px",
+                            background: "var(--bg)", color: "var(--text-secondary)",
+                            border: "1px solid var(--border)", borderRadius: "var(--r-sm)", cursor: "pointer",
+                          }}
+                        >
+                          Нет
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="delete-btn"
+                        title="Удалить чек"
+                        onClick={() => setConfirmId(r.id)}
+                        style={{
+                          opacity: 0,
+                          transition: "opacity 0.15s",
+                          background: "none", border: "none", cursor: "pointer",
+                          padding: "4px", borderRadius: "var(--r-sm)",
+                          color: "var(--text-muted)",
+                          fontSize: "14px", lineHeight: 1,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.background = "var(--red-bg, rgba(239,68,68,0.08))"; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "none"; }}
+                      >
+                        🗑
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -400,6 +467,11 @@ export default function ReceiptsPage() {
     else { setSortField(field); setSortDir("desc"); }
   }
 
+  async function handleDelete(id: string) {
+    await api.delete(`/api/v1/receipts/${id}`);
+    void refetch();
+  }
+
   // Only show DONE receipts — REVIEW goes to /review page, FAILED/PENDING are not shown
   const doneData: ReceiptListResponse | undefined = data
     ? {
@@ -522,6 +594,7 @@ export default function ReceiptsPage() {
                   sortDir={sortDir}
                   onSort={handleSort}
                   defaultOpen={i === 0}
+                  onDelete={handleDelete}
                 />
               ))
             )}

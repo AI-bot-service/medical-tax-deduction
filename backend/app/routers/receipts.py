@@ -5,6 +5,7 @@ Endpoints:
   GET  /receipts                — list with year/month filter, grouped by month
   GET  /receipts/{id}           — detail with presigned image URL and items
   PATCH /receipts/{id}          — partial update (purchase_date, pharmacy_name, etc.)
+  DELETE /receipts/{id}         — delete receipt (DB + S3)
 """
 from __future__ import annotations
 
@@ -349,3 +350,33 @@ async def patch_receipt(
     detail = ReceiptDetail.model_validate(receipt)
     detail.items = [ReceiptItemSchema.model_validate(item) for item in receipt.items]
     return detail
+
+
+# ---------------------------------------------------------------------------
+# DELETE /receipts/{id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{receipt_id}", status_code=204)
+async def delete_receipt(
+    receipt_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> None:
+    """Delete receipt: remove from DB (cascade removes items) and S3."""
+    stmt = select(Receipt).where(Receipt.id == receipt_id, Receipt.user_id == current_user.id)
+    result = await db.execute(stmt)
+    receipt = result.scalar_one_or_none()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+
+    s3_key = receipt.s3_key
+    await db.delete(receipt)
+    await db.commit()
+
+    # Delete from S3 (non-fatal if it fails)
+    try:
+        s3 = S3Client()
+        s3.delete_object(BUCKET_RECEIPTS, s3_key)
+    except Exception as exc:
+        logger.warning("Failed to delete S3 object %s: %s", s3_key, exc)
