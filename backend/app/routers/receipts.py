@@ -315,6 +315,9 @@ async def patch_receipt(
     if body.total_amount is not None:
         receipt.total_amount = float(body.total_amount)
 
+    # Пользователь явно подтвердил данные — помечаем как DONE
+    receipt.ocr_status = OCRStatus.DONE
+
     # Update items if provided
     if body.items is not None:
         items_by_id = {item.id: item for item in receipt.items}

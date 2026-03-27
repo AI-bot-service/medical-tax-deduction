@@ -171,10 +171,8 @@ async def _save_receipt_from_parsed(
         await db.refresh(receipt)
 
         if parsed.confidence >= CONFIDENCE_DONE:
-            ocr_status = OCRStatus.DONE
             file_status = "done"
         elif parsed.confidence >= CONFIDENCE_REVIEW:
-            ocr_status = OCRStatus.REVIEW
             file_status = "review"
         else:
             await _delete_receipt_and_s3(
@@ -183,7 +181,9 @@ async def _save_receipt_from_parsed(
             )
             return "failed"
 
-        receipt.ocr_status = ocr_status
+        # Все успешно распознанные чеки требуют подтверждения пользователем (REVIEW).
+        # Статус DONE устанавливается только явно через PATCH /receipts/{id}.
+        receipt.ocr_status = OCRStatus.REVIEW
         receipt.purchase_date = parsed.purchase_date
         receipt.pharmacy_name = parsed.pharmacy_name
         receipt.total_amount = float(parsed.total_amount) if parsed.total_amount is not None else None
