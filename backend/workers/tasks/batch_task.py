@@ -1,9 +1,8 @@
 """Batch Task (F-01).
 
 Processes a single file within a batch job:
-  1. Classify image (batch_classifier) → receipt | prescription | unknown
-  2a. If receipt: run OCR pipeline (process_image), save Receipt + items, autolink
-  2b. If prescription: save as Prescription record
+  1. Run OCR pipeline (process_image) — OpenAI Vision + QR scan
+  2. Save Receipt + items if confidence sufficient
   3. Increment batch_job counters atomically
   4. Publish SSE event to Redis PubSub channel batch:{batch_id}
   5. If all files done → mark batch_job completed
@@ -20,8 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.models.batch_job import BatchJob
-from app.models.enums import BatchStatus, DocType, OCRStatus, RiskLevel
-from app.models.prescription import Prescription
+from app.models.enums import BatchStatus, OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, process_image
@@ -102,11 +100,7 @@ async def _run(
 
     file_status = "failed"
 
-    if parsed.strategy == "ai_prescription":
-        file_status = await _process_prescription_file(
-            batch_id, s3_key, user_id, parsed
-        )
-    elif parsed.confidence > 0:
+    if parsed.confidence > 0:
         file_status = await _save_receipt_from_parsed(
             batch_id, file_index, s3_key, user_id, parsed
         )
@@ -217,33 +211,6 @@ async def _save_receipt_from_parsed(
             await _autolink_prescriptions(db, receipt, uuid.UUID(batch_id), parsed)
 
         return file_status
-
-
-async def _process_prescription_file(
-    batch_id: str,
-    s3_key: str,
-    user_id: str,
-    parsed,
-) -> str:
-    """Save AI-parsed prescription to DB. Returns 'done'."""
-    async with _WorkerSession() as db:
-        presc = Prescription(
-            id=uuid.uuid4(),
-            user_id=uuid.UUID(user_id),
-            batch_id=uuid.UUID(batch_id),
-            doc_type=DocType.RECIPE_107,
-            doctor_name="Не определён",
-            issue_date=datetime.utcnow().date(),
-            expires_at=datetime.utcnow().date(),
-            drug_name=parsed.raw_text[:200] if parsed.raw_text else "Не распознано",
-            drug_inn=None,
-            risk_level=RiskLevel.STANDARD,
-            status="active",
-            s3_key=s3_key,
-        )
-        db.add(presc)
-        await db.commit()
-    return "done"
 
 
 async def _save_unknown_receipt(batch_id: str, s3_key: str, user_id: str) -> str:

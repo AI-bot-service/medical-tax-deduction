@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBatchStore } from "@/lib/store";
+import { uploadFormData } from "@/lib/api";
 import type { BatchJob } from "@/types/api";
 
 const ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf";
@@ -94,18 +95,7 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
       const form = new FormData();
       previews.forEach((p) => form.append("files", p.file));
 
-      const res = await fetch("/api/v1/batch", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { detail?: string };
-        throw new Error(body.detail ?? `Ошибка ${res.status}`);
-      }
-
-      const batch = (await res.json()) as BatchJob;
+      const batch = await uploadFormData<BatchJob>("/api/v1/batch", form);
       startBatch(batch.batch_id, batch.total_files);
 
       previews.forEach((p) => {
@@ -263,7 +253,7 @@ export function UploadZone({ onUploaded }: UploadZoneProps) {
           >
             {uploading
               ? "Загрузка..."
-              : `↑ Загрузить ${previews.length} ${previews.length === 1 ? "файл" : "файлов"}`}
+              : `Загрузить ${previews.length} ${previews.length === 1 ? "файл" : "файлов"}`}
           </button>
           <button
             onClick={() => {

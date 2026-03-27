@@ -114,11 +114,6 @@ def _compute_confidence(ai_data: dict, qr: QRResult | None) -> tuple[float, str]
     if not any([has_date, has_amount, has_pharmacy, has_items]):
         return 0.0, "ai_failed"
 
-    # Prescription path
-    if ai_data.get("document_type") == "prescription":
-        score = 0.70 if ai_data.get("drugs") else 0.40
-        return score, "ai_prescription"
-
     # Weighted score: amount + date are most critical for tax deduction
     score = 0.0
     if has_date:
