@@ -226,12 +226,15 @@ function InlineReviewCard({
   const [amount, setAmount] = useState(item.total_amount ?? "");
   const [saving, setSaving] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
+  // Редактирование названий позиций: id → новое название
+  const [itemEdits, setItemEdits] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   useEffect(() => {
     setDate(item.purchase_date ?? "");
     setPharmacy(item.pharmacy_name ?? "");
     setAmount(item.total_amount ?? "");
+    setItemEdits({});
     setDetail(null);
     void api.get<ReceiptDetail>(`/api/v1/receipts/${item.id}`).then((d) => {
       setDetail(d);
@@ -244,10 +247,12 @@ function InlineReviewCard({
   async function handleSave() {
     setSaving(true);
     try {
+      const editedItems = Object.entries(itemEdits).map(([id, drug_name]) => ({ id, drug_name }));
       await api.patch(`/api/v1/receipts/${item.id}`, {
         purchase_date: date || null,
         pharmacy_name: pharmacy || null,
         total_amount: amount ? parseFloat(amount) : null,
+        items: editedItems.length > 0 ? editedItems : undefined,
       });
       void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
       void queryClient.invalidateQueries({ queryKey: ["receipts-review"] });
@@ -472,35 +477,80 @@ function InlineReviewCard({
               <div>
                 <label style={labelStyle}>Позиции ({detail.items.length})</label>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
-                  {detail.items.map((it, i) => (
-                    <div key={it.id} style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      gap: 8, padding: "8px 12px", fontSize: 12,
-                      background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
-                      borderTop: i > 0 ? "1px solid var(--border-light)" : "none",
-                    }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {it.drug_name}
-                        </span>
-                        {it.drug_inn && (
-                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{it.drug_inn}</span>
-                        )}
+                  {detail.items.map((it, i) => {
+                    const currentName = itemEdits[it.id] ?? it.drug_name;
+                    const qty = it.quantity;
+                    const unitP = parseFloat(it.unit_price);
+                    const totalP = parseFloat(it.total_price);
+                    const showBreakdown = qty !== 1 && unitP > 0;
+                    return (
+                      <div key={it.id} style={{
+                        display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                        gap: 12, padding: "9px 12px", fontSize: 12,
+                        background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+                        borderTop: i > 0 ? "1px solid var(--border-light)" : "none",
+                      }}>
+                        {/* Левая часть: название (редактируемое) + МНН */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <input
+                            value={currentName}
+                            onChange={(e) => setItemEdits((prev) => ({ ...prev, [it.id]: e.target.value }))}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: "var(--text-primary)",
+                              background: "transparent",
+                              border: "none",
+                              borderBottom: itemEdits[it.id] !== undefined
+                                ? "1.5px solid var(--accent)"
+                                : "1.5px solid transparent",
+                              outline: "none",
+                              padding: "0 0 1px",
+                              fontFamily: "inherit",
+                              cursor: "text",
+                              transition: "border-color 0.15s",
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderBottomColor = "var(--accent)";
+                            }}
+                            onBlur={(e) => {
+                              if (itemEdits[it.id] === undefined) {
+                                e.currentTarget.style.borderBottomColor = "transparent";
+                              }
+                            }}
+                          />
+                          {it.drug_inn && (
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, display: "block" }}>
+                              МНН: {it.drug_inn}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Правая часть: кол-во × цена + итого + бейдж */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {it.is_rx && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: "2px 6px",
+                                borderRadius: "var(--r-pill)",
+                                background: "var(--purple-bg)", color: "var(--purple-text)",
+                              }}>Рецепт</span>
+                            )}
+                            <span style={{ fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                              {totalP.toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
+                            </span>
+                          </div>
+                          {showBreakdown && (
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                              {qty % 1 === 0 ? qty : qty} шт. × {unitP.toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                        {it.is_rx && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: "2px 6px",
-                            borderRadius: "var(--r-pill)",
-                            background: "var(--purple-bg)", color: "var(--purple-text)",
-                          }}>Рецепт</span>
-                        )}
-                        <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>
-                          {parseFloat(it.total_price).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
