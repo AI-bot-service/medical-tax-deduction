@@ -710,6 +710,12 @@ export function BatchProgress() {
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     const nextIdx = reviewIdx + 1;
     if (nextIdx >= reviewItems.length) {
+      // Авто-подтверждаем все чеки, которые были пропущены (не сохранены явно)
+      reviewItems
+        .filter((_, idx) => idx !== reviewIdx)
+        .forEach((skipped) => {
+          void api.patch(`/api/v1/receipts/${skipped.id}`, {});
+        });
       setPhase("done");
       setTimeout(() => clearBatch(), 2500);
     } else {
