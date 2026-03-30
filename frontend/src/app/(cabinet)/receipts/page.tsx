@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { BatchProgress } from "@/components/ui/BatchProgress";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
 import { useBatchStore } from "@/lib/store";
 import type {
@@ -734,7 +733,7 @@ function ProcessingPipeline({
         {/* ── Step 3: Operator review ── */}
         <PipelineStep
           kind={step3Kind}
-          label="Проверка оператором"
+          label="Проверка"
           sublabel={step3Sub}
           icon={<IconReview />}
           onClick={step3Kind === "alert" ? () => router.push("/review") : undefined}
@@ -767,7 +766,11 @@ export default function ReceiptsPage() {
   // pipeline ref so EmptyState can trigger upload
   const pipelineUploadRef = useRef<(() => void) | null>(null);
 
-  const activeBatch = useBatchStore(s => s.activeBatch);
+  const { activeBatch, completed, reviewCount } = useBatchStore(s => ({
+    activeBatch: s.activeBatch,
+    completed:   s.completed,
+    reviewCount: s.reviewCount,
+  }));
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
     queryKey: ["receipts-list"],
@@ -806,10 +809,33 @@ export default function ReceiptsPage() {
         onRefetch={() => void refetch()}
       />
 
-      {/* ── Batch progress (scanning animation) ── */}
-      {activeBatch && (
-        <div style={{ marginBottom: 20 }}>
-          <BatchProgress />
+      {/* ── Duplicate alert banner ── */}
+      {activeBatch && completed && reviewCount > 0 && (
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 12,
+          padding: "14px 18px",
+          background: "rgba(245,158,11,0.08)",
+          border: "1px solid rgba(245,158,11,0.35)",
+          borderRadius: "var(--r-md)",
+          marginBottom: 20,
+        }}>
+          <span style={{ fontSize: 20, lineHeight: 1, flexShrink: 0 }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 2 }}>
+              Обнаружены возможные дубликаты
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              {reviewCount} {plural(reviewCount, "документ требует", "документа требуют", "документов требуют")} проверки — среди них могут быть дубликаты уже загруженных файлов.{" "}
+              <a
+                href="/review"
+                style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+                onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+              >
+                Перейти к проверке →
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
