@@ -23,6 +23,8 @@ from app.models.enums import BatchStatus, OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.models.prescription import Prescription
+from app.services.dedup.receipt_dedup import DuplicateKind as ReceiptDuplicateKind, check_receipt_duplicate
+from app.services.dedup.prescription_dedup import DuplicateKind as PrescriptionDuplicateKind, check_prescription_duplicate
 from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, ParsedPrescription, process_image
 from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
 from workers.celery_app import celery_app
@@ -163,8 +165,23 @@ async def _save_receipt_from_parsed(
     user_id: str,
     parsed,
 ) -> str:
-    """Save already-parsed receipt to DB. Returns 'done'/'review'/'failed'."""
+    """Save already-parsed receipt to DB. Returns 'done'/'review'/'failed'/'skipped'."""
     async with _WorkerSession() as db:
+        # Проверка дубликата до создания записи
+        dedup = await check_receipt_duplicate(db, uuid.UUID(user_id), parsed)
+
+        if dedup.kind == ReceiptDuplicateKind.IDENTICAL:
+            logger.info(
+                "batch %s #%d: точный дубль чека existing=%s, пропускаем",
+                batch_id, file_index, dedup.existing_id,
+            )
+            # Удаляем файл из S3 — дубль не нужен
+            try:
+                S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
+            except Exception as exc:
+                logger.error("S3 delete failed for duplicate %s: %s", s3_key, exc)
+            return "done"  # засчитываем как done для счётчика батча
+
         receipt = Receipt(
             id=uuid.uuid4(),
             user_id=uuid.UUID(user_id),
@@ -189,12 +206,24 @@ async def _save_receipt_from_parsed(
 
         # Все успешно распознанные чеки требуют подтверждения пользователем (REVIEW).
         # Статус DONE устанавливается только явно через PATCH /receipts/{id}.
+        # Конфликтный дубль также идёт в REVIEW с пометкой duplicate_of_id.
         receipt.ocr_status = OCRStatus.REVIEW
         receipt.purchase_date = parsed.purchase_date
         receipt.pharmacy_name = parsed.pharmacy_name
         receipt.total_amount = float(parsed.total_amount) if parsed.total_amount is not None else None
         receipt.ocr_confidence = parsed.confidence
         receipt.merge_strategy = parsed.strategy
+        receipt.fiscal_fn = parsed.fiscal_fn
+        receipt.fiscal_fd = parsed.fiscal_fd
+        receipt.fiscal_fp = parsed.fiscal_fp
+
+        if dedup.kind == ReceiptDuplicateKind.CONFLICT:
+            logger.warning(
+                "batch %s #%d: дубль чека с другим составом existing=%s, отправляем оператору",
+                batch_id, file_index, dedup.existing_id,
+            )
+            receipt.duplicate_of_id = dedup.existing_id
+            file_status = "review"
 
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx)
         receipt.needs_prescription = has_rx
@@ -237,6 +266,29 @@ async def _save_prescription_from_parsed(
     file_status = "done" if parsed.confidence >= CONFIDENCE_DONE else "review"
 
     async with _WorkerSession() as db:
+        # Проверка дубликата рецепта
+        dedup = await check_prescription_duplicate(db, uuid.UUID(user_id), parsed)
+
+        if dedup.kind == PrescriptionDuplicateKind.IDENTICAL:
+            logger.info(
+                "batch %s: точный дубль рецепта existing=%s, пропускаем",
+                batch_id, dedup.existing_id,
+            )
+            try:
+                S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
+            except Exception as exc:
+                logger.error("S3 delete failed for duplicate prescription %s: %s", s3_key, exc)
+            return "done"
+
+        duplicate_of_id: uuid.UUID | None = None
+        if dedup.kind == PrescriptionDuplicateKind.CONFLICT:
+            logger.warning(
+                "batch %s: дубль рецепта с другим составом existing=%s, отправляем оператору",
+                batch_id, dedup.existing_id,
+            )
+            duplicate_of_id = dedup.existing_id
+            file_status = "review"
+
         for drug in parsed.drugs:
             # Все препараты одного рецепта получают одинаковый s3_key для группировки в UI
             prescription = Prescription(
@@ -253,6 +305,7 @@ async def _save_prescription_from_parsed(
                 s3_key=s3_key,
                 batch_id=uuid.UUID(batch_id),
                 status="active",
+                duplicate_of_id=duplicate_of_id,
             )
             db.add(prescription)
 

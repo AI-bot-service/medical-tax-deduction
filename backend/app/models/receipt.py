@@ -12,6 +12,7 @@ class Receipt(TimestampMixin, Base):
     __tablename__ = "receipts"
     __table_args__ = (
         Index("ix_receipts_purchase_date", "user_id", "purchase_date"),
+        Index("ix_receipts_fiscal", "fiscal_fn", "fiscal_fd"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -31,6 +32,19 @@ class Receipt(TimestampMixin, Base):
     ocr_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     merge_strategy: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Fiscal QR data (ФНС): fn=номер ФН, fd=номер ФД, fp=фискальный признак
+    # Комбинация fn+fd глобально уникальна для российских фискальных чеков
+    fiscal_fn: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fiscal_fd: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fiscal_fp: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Если не None — этот чек является дублем; нужна проверка оператором
+    duplicate_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("receipts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("batch_jobs.id", ondelete="SET NULL"),
@@ -44,4 +58,7 @@ class Receipt(TimestampMixin, Base):
     )
     batch_job: Mapped["BatchJob | None"] = relationship(  # noqa: F821
         "BatchJob", back_populates="receipts", lazy="noload"
+    )
+    duplicate_of: Mapped["Receipt | None"] = relationship(  # noqa: F821
+        "Receipt", remote_side="Receipt.id", foreign_keys=[duplicate_of_id], lazy="noload"
     )

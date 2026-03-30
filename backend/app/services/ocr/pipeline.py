@@ -55,6 +55,10 @@ class ParsedReceipt:
     raw_text: str
     items: list[NormalizedItem] = field(default_factory=list)
     processing_time_ms: int = 0
+    # Фискальные данные из QR-кода ФНС (fn+fd глобально уникальны)
+    fiscal_fn: str | None = None
+    fiscal_fd: str | None = None
+    fiscal_fp: str | None = None
 
     @property
     def ocr_status(self) -> str:
@@ -392,4 +396,7 @@ async def process_image(image_bytes: bytes) -> ParsedReceipt | ParsedPrescriptio
         raw_text=raw_text,
         items=items,
         processing_time_ms=total_ms,
+        fiscal_fn=qr_result.fn if qr_result is not None else None,
+        fiscal_fd=qr_result.fd if qr_result is not None else None,
+        fiscal_fp=qr_result.fp if qr_result is not None else None,
     )

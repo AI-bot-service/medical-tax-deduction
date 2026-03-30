@@ -23,6 +23,7 @@ from app.config import settings
 from app.models.enums import OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
+from app.services.dedup.receipt_dedup import DuplicateKind, check_receipt_duplicate
 from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, ParsedReceipt, process_image
 from app.services.storage.s3_client import S3Client, BUCKET_RECEIPTS
 from workers.celery_app import celery_app
@@ -100,19 +101,41 @@ async def _run(receipt_id: str) -> None:
             )
             return
 
-        # 5. Update receipt fields
+        # 5. Проверка на дубликат перед сохранением
+        dedup = await check_receipt_duplicate(db, receipt.user_id, parsed)
+        if dedup.kind == DuplicateKind.IDENTICAL:
+            logger.info(
+                "Receipt %s — точный дубль existing=%s, пропускаем",
+                receipt_id, dedup.existing_id,
+            )
+            await _delete_failed_receipt(db, receipt, s3, "duplicate_identical")
+            return
+        if dedup.kind == DuplicateKind.CONFLICT:
+            logger.warning(
+                "Receipt %s — дубль с другим составом existing=%s, отправляем на проверку оператору",
+                receipt_id, dedup.existing_id,
+            )
+            # Помечаем как конфликт для оператора; статус REVIEW
+            ocr_status = OCRStatus.REVIEW
+
+        # 6. Update receipt fields
         receipt.purchase_date = parsed.purchase_date
         receipt.pharmacy_name = parsed.pharmacy_name
         receipt.total_amount = float(parsed.total_amount) if parsed.total_amount is not None else None
         receipt.ocr_confidence = parsed.confidence
         receipt.merge_strategy = parsed.strategy
         receipt.ocr_status = ocr_status
+        receipt.fiscal_fn = parsed.fiscal_fn
+        receipt.fiscal_fd = parsed.fiscal_fd
+        receipt.fiscal_fp = parsed.fiscal_fp
+        if dedup.kind == DuplicateKind.CONFLICT:
+            receipt.duplicate_of_id = dedup.existing_id
 
-        # 5. Determine if any rx items need prescription
+        # 7. Determine if any rx items need prescription
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx is True)
         receipt.needs_prescription = has_rx
 
-        # 6. Create receipt_items
+        # 8. Create receipt_items
         for item in parsed.items:
             receipt_item = ReceiptItem(
                 receipt_id=receipt.id,
@@ -128,11 +151,11 @@ async def _run(receipt_id: str) -> None:
         await db.commit()
         await db.refresh(receipt)
 
-        # 7. Prescription search for rx items (best-effort, non-blocking)
+        # 9. Prescription search for rx items (best-effort, non-blocking)
         if has_rx and receipt.ocr_status != OCRStatus.FAILED:
             await _try_link_prescriptions(db, receipt, parsed)
 
-        # 8. Notify user (fire-and-forget, errors are swallowed)
+        # 10. Notify user (fire-and-forget, errors are swallowed)
         await _notify_user(receipt, parsed)
 
         logger.info(

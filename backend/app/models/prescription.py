@@ -47,7 +47,17 @@ class Prescription(TimestampMixin, Base):
         index=True,
     )
 
+    # Если не None — этот рецепт является дублем; нужна проверка оператором
+    duplicate_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("prescriptions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     user: Mapped["User"] = relationship("User", back_populates="prescriptions")  # noqa: F821
     receipt_items: Mapped[list["ReceiptItem"]] = relationship(  # noqa: F821
         "ReceiptItem", back_populates="prescription"
+    )
+    duplicate_of: Mapped["Prescription | None"] = relationship(  # noqa: F821
+        "Prescription", remote_side="Prescription.id", foreign_keys=[duplicate_of_id], lazy="noload"
     )
