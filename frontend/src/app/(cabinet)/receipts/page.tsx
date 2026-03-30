@@ -629,9 +629,12 @@ function ProcessingPipeline({
   } = useBatchStore();
 
   // ── Derived states ────────────────────────────────────────────────────────
+  const allPipelineDone = !!activeBatch && completed && reviewCount === 0;
+
   const step1Kind: StepKind =
-    uploadState === "uploading" ? "active" :
-    uploadState === "error"     ? "idle" :
+    allPipelineDone             ? "idle" :   // весь пайплайн завершён → сброс к исходному виду
+    uploadState === "uploading"  ? "active" :
+    uploadState === "error"      ? "idle" :
     uploadState === "done" || !!activeBatch ? "done" :
     "idle";
 
@@ -647,8 +650,9 @@ function ProcessingPipeline({
 
   // ── Subtitle texts ────────────────────────────────────────────────────────
   const step1Sub =
-    uploadState === "uploading" ? `${uploadProgress}%` :
-    uploadState === "error"     ? "Ошибка — повторите" :
+    allPipelineDone             ? "Нажмите для загрузки" :
+    uploadState === "uploading"  ? `${uploadProgress}%` :
+    uploadState === "error"      ? "Ошибка — повторите" :
     uploadState === "done" || !!activeBatch ? "Файлы переданы" :
     "Нажмите для загрузки";
 
