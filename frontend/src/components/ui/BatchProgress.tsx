@@ -118,7 +118,7 @@ function ScanningCard({ processed, total }: { processed: number; total: number }
       {/* Текст */}
       <div style={{ textAlign: "center", zIndex: 1 }}>
         <p style={{ margin: "0 0 5px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          ИИ распознаёт чеки
+          Распознавание фото
         </p>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
           {processed > 0
