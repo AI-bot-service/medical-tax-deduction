@@ -7,7 +7,7 @@ Create Date: 2026-03-30
 from alembic import op
 
 revision = "0007_fiscal_unique"
-down_revision = "0006_dedup_fields"
+down_revision = "0006"
 branch_labels = None
 depends_on = None
 
