@@ -55,6 +55,7 @@ async def check_receipt_duplicate(
     existing: Receipt | None = None
 
     # 1. Основной ключ: фискальные данные QR (fn+fd глобально уникальны)
+    #    Если fn+fd совпадают — это точно тот же физический чек, всегда IDENTICAL.
     if parsed.fiscal_fn and parsed.fiscal_fd:
         result = await db.execute(
             select(Receipt)
@@ -64,31 +65,41 @@ async def check_receipt_duplicate(
                     Receipt.fiscal_fd == parsed.fiscal_fd,
                 )
             )
-            .options(selectinload(Receipt.items))
             .limit(1)
         )
-        existing = result.scalar_one_or_none()
-        if existing is not None:
+        row = result.scalar_one_or_none()
+        if row is not None:
             logger.info(
-                "receipt dedup: fiscal match fn=%s fd=%s -> existing=%s",
-                parsed.fiscal_fn, parsed.fiscal_fd, existing.id,
+                "receipt dedup: fiscal match fn=%s fd=%s -> IDENTICAL existing=%s",
+                parsed.fiscal_fn, parsed.fiscal_fd, row.id,
             )
+            return ReceiptDuplicateResult(kind=DuplicateKind.IDENTICAL, existing_id=row.id)
 
-    # 2. Фолбэк: user + дата + сумма (для чеков без QR)
+    # 2. Фолбэк: user + дата + сумма + аптека (для чеков без QR).
+    #    Без fiscal данных мягкое совпадение — только если ещё и аптека совпадает,
+    #    иначе слишком много ложных срабатываний.
     if existing is None and parsed.purchase_date and parsed.total_amount is not None:
         # Округляем до 2 знаков чтобы совпасть с Numeric(10,2) в БД
         amount_dec = parsed.total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        # Нормализуем название аптеки для сравнения
+        pharmacy_norm = " ".join((parsed.pharmacy_name or "").strip().lower().split())
+
+        filters = [
+            Receipt.user_id == user_id,
+            Receipt.purchase_date == parsed.purchase_date,
+            Receipt.total_amount == amount_dec,
+            Receipt.duplicate_of_id.is_(None),
+        ]
+        # Добавляем аптеку в условие только если она распознана
+        if pharmacy_norm:
+            from sqlalchemy import func
+            filters.append(
+                func.lower(func.trim(Receipt.pharmacy_name)) == pharmacy_norm
+            )
+
         result = await db.execute(
             select(Receipt)
-            .where(
-                and_(
-                    Receipt.user_id == user_id,
-                    Receipt.purchase_date == parsed.purchase_date,
-                    Receipt.total_amount == amount_dec,
-                    # Исключаем сами дублёнки из поиска, чтобы не создавать цепочки
-                    Receipt.duplicate_of_id.is_(None),
-                )
-            )
+            .where(and_(*filters))
             .options(selectinload(Receipt.items))
             .limit(1)
         )
