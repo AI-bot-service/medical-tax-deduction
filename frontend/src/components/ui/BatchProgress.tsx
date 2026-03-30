@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBatchStore } from "@/lib/store";
 import { useBatchSSE } from "@/hooks/useBatchSSE";
@@ -213,37 +213,58 @@ function DoneCard({ doneCount, failedCount }: { doneCount: number; failedCount: 
 }
 
 /* ─────────── Инлайн-проверка чека ─────────── */
+type Draft = { date: string; pharmacy: string; amount: string; itemEdits: Record<string, string> };
+
 function InlineReviewCard({
   item, current, total, savedCount, savedStatuses, isSaved,
   onSave, onNext, onPrev, onCancel,
+  draft, cachedDetail, onDraftChange, onDetailFetched,
 }: {
   item: ReceiptListItem; current: number; total: number;
   savedCount: number; savedStatuses: boolean[]; isSaved: boolean;
   onSave: () => void; onNext: () => void; onPrev: () => void; onCancel: () => void;
+  draft?: Draft;
+  cachedDetail?: ReceiptDetail;
+  onDraftChange: (d: Draft) => void;
+  onDetailFetched: (d: ReceiptDetail) => void;
 }) {
-  const [detail, setDetail] = useState<ReceiptDetail | null>(null);
-  const [date, setDate] = useState(item.purchase_date ?? "");
-  const [pharmacy, setPharmacy] = useState(item.pharmacy_name ?? "");
-  const [amount, setAmount] = useState(item.total_amount ?? "");
+  const [detail, setDetail] = useState<ReceiptDetail | null>(cachedDetail ?? null);
+  const [date, setDate] = useState(draft?.date ?? item.purchase_date ?? "");
+  const [pharmacy, setPharmacy] = useState(draft?.pharmacy ?? item.pharmacy_name ?? "");
+  const [amount, setAmount] = useState(draft?.amount ?? item.total_amount ?? "");
   const [saving, setSaving] = useState(false);
   const [imgExpanded, setImgExpanded] = useState(false);
   // Редактирование названий позиций: id → новое название
-  const [itemEdits, setItemEdits] = useState<Record<string, string>>({});
+  const [itemEdits, setItemEdits] = useState<Record<string, string>>(draft?.itemEdits ?? {});
   const queryClient = useQueryClient();
 
+  // Сохраняем черновик в родительском компоненте при каждом изменении полей
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
   useEffect(() => {
-    setDate(item.purchase_date ?? "");
-    setPharmacy(item.pharmacy_name ?? "");
-    setAmount(item.total_amount ?? "");
-    setItemEdits({});
+    onDraftChangeRef.current({ date, pharmacy, amount, itemEdits });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, pharmacy, amount, itemEdits]);
+
+  useEffect(() => {
+    // Если детали уже закешированы — используем их, не делаем запрос
+    if (cachedDetail) {
+      setDetail(cachedDetail);
+      return;
+    }
     setDetail(null);
     void api.get<ReceiptDetail>(`/api/v1/receipts/${item.id}`).then((d) => {
       setDetail(d);
-      setDate(d.purchase_date ?? item.purchase_date ?? "");
-      setPharmacy(d.pharmacy_name ?? item.pharmacy_name ?? "");
-      setAmount(d.total_amount ?? item.total_amount ?? "");
+      onDetailFetched(d);
+      // Устанавливаем поля из ответа только если черновика ещё нет
+      if (!draft) {
+        setDate(d.purchase_date ?? item.purchase_date ?? "");
+        setPharmacy(d.pharmacy_name ?? item.pharmacy_name ?? "");
+        setAmount(d.total_amount ?? item.total_amount ?? "");
+      }
     });
-  }, [item.id, item.purchase_date, item.pharmacy_name, item.total_amount]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -684,6 +705,8 @@ export function BatchProgress() {
   const [reviewItems, setReviewItems] = useState<ReceiptListItem[]>([]);
   const [reviewIdx, setReviewIdx]   = useState(0);
   const [savedIds, setSavedIds]     = useState<Set<string>>(new Set());
+  const [draftMap, setDraftMap]     = useState<Record<string, Draft>>({});
+  const [detailMap, setDetailMap]   = useState<Record<string, ReceiptDetail>>({});
 
   useBatchSSE(activeBatch);
 
@@ -700,6 +723,8 @@ export function BatchProgress() {
           const items = all.slice(0, totalFiles);
           setReviewItems(items);
           setSavedIds(new Set());
+          setDraftMap({});
+          setDetailMap({});
           setReviewIdx(0);
           setPhase(items.length > 0 ? "reviewing" : "done");
           if (items.length === 0) setTimeout(() => clearBatch(), 2500);
@@ -793,6 +818,10 @@ export function BatchProgress() {
         onNext={handleNext}
         onPrev={handlePrev}
         onCancel={handleCancel}
+        draft={draftMap[currentItem.id]}
+        cachedDetail={detailMap[currentItem.id]}
+        onDraftChange={(d) => setDraftMap((prev) => ({ ...prev, [currentItem.id]: d }))}
+        onDetailFetched={(d) => setDetailMap((prev) => ({ ...prev, [currentItem.id]: d }))}
       />
     </div>
   );
