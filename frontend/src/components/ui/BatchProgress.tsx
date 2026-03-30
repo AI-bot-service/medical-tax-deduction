@@ -214,11 +214,12 @@ function DoneCard({ doneCount, failedCount }: { doneCount: number; failedCount: 
 
 /* ─────────── Инлайн-проверка чека ─────────── */
 function InlineReviewCard({
-  item, current, total,
-  onSave, onNext, onPrev,
+  item, current, total, savedCount, savedStatuses, isSaved,
+  onSave, onNext, onPrev, onCancel,
 }: {
   item: ReceiptListItem; current: number; total: number;
-  onSave: () => void; onNext: () => void; onPrev: () => void;
+  savedCount: number; savedStatuses: boolean[]; isSaved: boolean;
+  onSave: () => void; onNext: () => void; onPrev: () => void; onCancel: () => void;
 }) {
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [date, setDate] = useState(item.purchase_date ?? "");
@@ -336,15 +337,19 @@ function InlineReviewCard({
           background: "var(--surface-subtle)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "3px 10px", borderRadius: "var(--r-pill)",
-            fontSize: 11, fontWeight: 700,
-            background: "var(--yellow-bg)", color: "var(--yellow-text)",
-          }}>
-            <AlertCircle style={{ width: 11, height: 11 }}/>
-            Проверьте данные
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "3px 10px", borderRadius: "var(--r-pill)",
+              fontSize: 11, fontWeight: 700,
+              background: isSaved ? "var(--green)" : "var(--yellow-bg)",
+              color: isSaved ? "var(--green-text)" : "var(--yellow-text)",
+            }}>
+              {isSaved
+                ? <><CheckCircle2 style={{ width: 11, height: 11 }}/>Сохранён</>
+                : <><AlertCircle style={{ width: 11, height: 11 }}/>Проверьте данные</>}
+            </span>
+          </div>
 
           {/* Прогресс-точки */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -353,13 +358,13 @@ function InlineReviewCard({
                 <div key={i} style={{
                   height: 5, borderRadius: 3,
                   width: i === current - 1 ? 16 : 5,
-                  background: i < current - 1 ? "var(--green)" : i === current - 1 ? "var(--accent)" : "var(--border)",
+                  background: savedStatuses[i] ? "var(--green)" : i === current - 1 ? "var(--accent)" : "var(--border)",
                   transition: "all 250ms var(--ease-spring)",
                 }}/>
               ))}
             </div>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
-              {current} / {total}
+              Сохранено: {savedCount} / {total}
             </span>
           </div>
         </div>
@@ -558,7 +563,8 @@ function InlineReviewCard({
             <div style={{ flex: 1 }}/>
 
             {/* Кнопки */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Сохранить */}
               <button
                 onClick={() => { void handleSave(); }}
                 disabled={saving}
@@ -579,6 +585,27 @@ function InlineReviewCard({
                 {saving
                   ? <><LoaderCircle style={{ width: 16, height: 16 }} className="animate-spin"/>Сохранение...</>
                   : <><Check style={{ width: 16, height: 16 }}/>Сохранить чек</>}
+              </button>
+
+              {/* Отменить */}
+              <button
+                onClick={onCancel}
+                disabled={saving}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  height: 40, padding: "0 16px",
+                  borderRadius: "var(--r-sm)",
+                  background: "var(--surface)",
+                  color: "var(--text-secondary)",
+                  border: "1.5px solid var(--border)",
+                  cursor: saving ? "not-allowed" : "pointer",
+                  fontSize: 14, fontWeight: 500, fontFamily: "inherit",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+                onMouseEnter={(e) => { if (!saving) { e.currentTarget.style.borderColor = "var(--red-text)"; e.currentTarget.style.color = "var(--red-text)"; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+              >
+                <X style={{ width: 14, height: 14 }}/>Отменить
               </button>
 
               {/* Навигация: Предыдущий / Следующий */}
@@ -656,10 +683,11 @@ export function BatchProgress() {
   const [phase, setPhase]           = useState<Phase>("processing");
   const [reviewItems, setReviewItems] = useState<ReceiptListItem[]>([]);
   const [reviewIdx, setReviewIdx]   = useState(0);
+  const [savedIds, setSavedIds]     = useState<Set<string>>(new Set());
 
   useBatchSSE(activeBatch);
 
-  /* Когда завершилось — всегда показываем проверку данных */
+  /* Когда завершилось — загружаем чеки на проверку */
   useEffect(() => {
     if (!completed) return;
 
@@ -671,6 +699,7 @@ export function BatchProgress() {
           const all = data.months.flatMap((m) => m.receipts);
           const items = all.slice(0, totalFiles);
           setReviewItems(items);
+          setSavedIds(new Set());
           setReviewIdx(0);
           setPhase(items.length > 0 ? "reviewing" : "done");
           if (items.length === 0) setTimeout(() => clearBatch(), 2500);
@@ -707,27 +736,32 @@ export function BatchProgress() {
   }
 
   function handleSave() {
+    const id = reviewItems[reviewIdx].id;
+    const newSaved = new Set(savedIds);
+    newSaved.add(id);
+    setSavedIds(newSaved);
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
-    const nextIdx = reviewIdx + 1;
-    if (nextIdx >= reviewItems.length) {
-      // Авто-подтверждаем все чеки, которые были пропущены (не сохранены явно)
-      reviewItems
-        .filter((_, idx) => idx !== reviewIdx)
-        .forEach((skipped) => {
-          void api.patch(`/api/v1/receipts/${skipped.id}`, {});
-        });
+
+    if (newSaved.size >= reviewItems.length) {
+      // Все чеки сохранены — завершаем
       setPhase("done");
       setTimeout(() => clearBatch(), 2500);
-    } else {
-      setReviewIdx(nextIdx);
+      return;
+    }
+
+    // Переходим к следующему несохранённому чеку (вперёд, с переносом)
+    for (let i = 1; i <= reviewItems.length; i++) {
+      const candidate = (reviewIdx + i) % reviewItems.length;
+      if (!newSaved.has(reviewItems[candidate].id)) {
+        setReviewIdx(candidate);
+        break;
+      }
     }
   }
 
   function handleNext() {
     const nextIdx = reviewIdx + 1;
-    if (nextIdx >= reviewItems.length) {
-      clearBatch();
-    } else {
+    if (nextIdx < reviewItems.length) {
       setReviewIdx(nextIdx);
     }
   }
@@ -739,6 +773,12 @@ export function BatchProgress() {
     }
   }
 
+  function handleCancel() {
+    clearBatch();
+  }
+
+  const savedStatuses = reviewItems.map((item) => savedIds.has(item.id));
+
   return (
     <div>
       <InlineReviewCard
@@ -746,9 +786,13 @@ export function BatchProgress() {
         item={currentItem}
         current={reviewIdx + 1}
         total={reviewItems.length}
+        savedCount={savedIds.size}
+        savedStatuses={savedStatuses}
+        isSaved={savedIds.has(currentItem.id)}
         onSave={handleSave}
         onNext={handleNext}
         onPrev={handlePrev}
+        onCancel={handleCancel}
       />
     </div>
   );
