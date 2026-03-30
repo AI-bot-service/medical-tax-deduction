@@ -1,7 +1,7 @@
 import uuid
 from datetime import date as date_type
 
-from sqlalchemy import Boolean, Date, Enum, Float, ForeignKey, Index, Numeric, String, Uuid
+from sqlalchemy import Boolean, Date, Enum, Float, ForeignKey, Index, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -12,7 +12,9 @@ class Receipt(TimestampMixin, Base):
     __tablename__ = "receipts"
     __table_args__ = (
         Index("ix_receipts_purchase_date", "user_id", "purchase_date"),
-        Index("ix_receipts_fiscal", "fiscal_fn", "fiscal_fd"),
+        # fn+fd глобально уникальны для российских фискальных чеков.
+        # NULL-значения не нарушают ограничение (чеки без QR разрешены).
+        UniqueConstraint("fiscal_fn", "fiscal_fd", name="uq_receipts_fiscal"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
