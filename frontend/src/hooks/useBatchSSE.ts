@@ -29,10 +29,7 @@ export function useBatchSSE(batchId: string | null) {
           es.close();
           void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
           void queryClient.invalidateQueries({ queryKey: ["summary"] });
-          // Если есть чеки на проверку — BatchProgress сам управляет жизненным циклом
-          if (event.review_count === 0) {
-            setTimeout(() => clearBatch(), 3000);
-          }
+          // BatchProgress всегда показывает проверку данных — сам управляет clearBatch
         }
       } catch {
         // ignore malformed events

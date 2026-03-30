@@ -117,9 +117,10 @@ function MonthAccordion({
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [animatingId, setAnimatingId] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
-  const sorted   = sortReceipts(group.receipts, sortField, sortDir);
+  const sorted   = sortReceipts(group.receipts.filter(r => !deletedIds.has(r.id)), sortField, sortDir);
   const rxCount  = group.receipts.filter(r => r.needs_prescription).length;
   const doneCount  = group.receipts.filter(r => r.ocr_status === "DONE").length;
   const reviewCount = group.receipts.filter(r => r.ocr_status === "REVIEW").length;
@@ -233,23 +234,30 @@ function MonthAccordion({
               {sorted.map((r, i) => (
                 <tr
                   key={r.id}
-                  onClick={() => confirmId === r.id ? undefined : router.push(`/receipts/${r.id}`)}
+                  className={animatingId === r.id ? "row-deleting" : ""}
+                  onAnimationEnd={() => {
+                    if (animatingId === r.id) {
+                      setDeletedIds(prev => new Set([...prev, r.id]));
+                      setAnimatingId(null);
+                      void onDelete(r.id);
+                    }
+                  }}
+                  onClick={() => (confirmId === r.id || animatingId === r.id) ? undefined : router.push(`/receipts/${r.id}`)}
                   style={{
                     borderTop: "1px solid var(--border-light)",
-                    cursor: confirmId === r.id ? "default" : "pointer",
-                    transition: "background 0.12s",
+                    cursor: (confirmId === r.id || animatingId === r.id) ? "default" : "pointer",
+                    transition: animatingId === r.id ? "none" : "background 0.12s",
                     background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
-                    opacity: deletingId === r.id ? 0.5 : 1,
                   }}
                   onMouseEnter={e => {
-                    if (confirmId !== r.id) e.currentTarget.style.background = "rgba(123,111,212,0.04)";
+                    if (confirmId !== r.id && animatingId !== r.id) e.currentTarget.style.background = "rgba(123,111,212,0.04)";
                     const btn = e.currentTarget.querySelector<HTMLButtonElement>(".delete-btn");
-                    if (btn) btn.style.opacity = "1";
+                    if (btn) { btn.style.opacity = "1"; btn.style.transform = "scale(1)"; }
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
+                    if (animatingId !== r.id) e.currentTarget.style.background = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
                     const btn = e.currentTarget.querySelector<HTMLButtonElement>(".delete-btn");
-                    if (btn && confirmId !== r.id) btn.style.opacity = "0";
+                    if (btn && confirmId !== r.id) { btn.style.opacity = "0.25"; btn.style.transform = "scale(0.9)"; }
                   }}
                 >
                   <td style={{ padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
@@ -270,37 +278,31 @@ function MonthAccordion({
                     )}
                   </td>
                   <td
-                    style={{ padding: "12px 8px", textAlign: "center", width: 44 }}
+                    style={{ padding: "12px 8px", textAlign: "center", width: 52 }}
                     onClick={e => e.stopPropagation()}
                   >
                     {confirmId === r.id ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center" }}>
                         <button
-                          onClick={async () => {
-                            setDeletingId(r.id);
-                            setConfirmId(null);
-                            await onDelete(r.id);
-                            setDeletingId(null);
-                          }}
-                          disabled={deletingId === r.id}
+                          onClick={() => { setConfirmId(null); setAnimatingId(r.id); }}
                           style={{
-                            padding: "3px 8px", fontSize: "11px", fontWeight: 700,
-                            background: "var(--red-text, #EF4444)", color: "#fff",
+                            padding: "4px 10px", fontSize: "12px", fontWeight: 700,
+                            background: "#EF4444", color: "#fff",
                             border: "none", borderRadius: "var(--r-sm)", cursor: "pointer",
-                            whiteSpace: "nowrap",
+                            whiteSpace: "nowrap", letterSpacing: "0.01em",
                           }}
                         >
-                          Да
+                          Удалить
                         </button>
                         <button
                           onClick={() => setConfirmId(null)}
                           style={{
-                            padding: "3px 8px", fontSize: "11px",
+                            padding: "4px 8px", fontSize: "12px",
                             background: "var(--bg)", color: "var(--text-secondary)",
                             border: "1px solid var(--border)", borderRadius: "var(--r-sm)", cursor: "pointer",
                           }}
                         >
-                          Нет
+                          Отмена
                         </button>
                       </div>
                     ) : (
@@ -309,17 +311,23 @@ function MonthAccordion({
                         title="Удалить чек"
                         onClick={() => setConfirmId(r.id)}
                         style={{
-                          opacity: 0,
-                          transition: "opacity 0.15s",
+                          opacity: 0.25,
+                          transform: "scale(0.9)",
+                          transition: "opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s",
                           background: "none", border: "none", cursor: "pointer",
-                          padding: "4px", borderRadius: "var(--r-sm)",
-                          color: "var(--text-muted)",
-                          fontSize: "14px", lineHeight: 1,
+                          padding: "5px", borderRadius: "var(--r-sm)",
+                          color: "#EF4444",
+                          lineHeight: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.background = "var(--red-bg, rgba(239,68,68,0.08))"; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "none"; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
                       >
-                        🗑
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
                       </button>
                     )}
                   </td>
@@ -369,7 +377,8 @@ function MonthFilterPills({
 
 function SummaryStrip({ data, filter }: { data: ReceiptListResponse; filter: string }) {
   const months = filter === "all" ? data.months : data.months.filter(m => m.month === filter);
-  const total  = months.reduce((s, m) => s + parseFloat(m.total_amount || "0"), 0);
+  // Считаем из самих чеков — total_amount на MonthGroup включает все статусы с бэкенда
+  const total  = months.reduce((s, m) => s + m.receipts.reduce((rs, r) => rs + parseFloat(r.total_amount ?? "0"), 0), 0);
   const count  = months.reduce((s, m) => s + m.receipts.length, 0);
   const deduction = (total * 0.13).toFixed(0);
 

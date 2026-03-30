@@ -313,3 +313,5 @@ Celery → `sse_publisher.py` публикует в Redis PubSub канал `bat
 2. Выбрать одну задачу `status: pending` с наивысшим приоритетом
 3. Убедиться что все `dependencies` имеют `status: done`
 4. После завершения: обновить `status` на `done`, добавить запись в `proekt/progress.txt`
+
+Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

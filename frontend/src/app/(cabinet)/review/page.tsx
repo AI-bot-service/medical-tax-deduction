@@ -3,9 +3,89 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  CheckIcon, ArrowRightIcon, AlertCircleIcon,
+  ZoomInIcon, XIcon, ImageOffIcon, LoaderCircleIcon, StarIcon,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useReviewStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import type { ReceiptListResponse, ReceiptListItem, ReceiptDetail } from "@/types/api";
+
+// ---------------------------------------------------------------------------
+// Confidence bar
+// ---------------------------------------------------------------------------
+
+function ConfBar({ value }: { value: number }) {
+  const pct = Math.round(value * 100);
+  const color = pct >= 70 ? "var(--green)" : pct >= 40 ? "var(--yellow)" : "var(--red)";
+  const label = pct >= 70 ? "Высокая" : pct >= 40 ? "Средняя" : "Низкая";
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+          Точность OCR
+        </span>
+        <span style={{ fontSize: "12px", fontWeight: 700, color }}>{pct}% — {label}</span>
+      </div>
+      <Progress value={pct}>
+        <ProgressTrack className="h-1.5" style={{ background: "var(--bg)" }}>
+          <ProgressIndicator style={{ background: color }} />
+        </ProgressTrack>
+      </Progress>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Receipt items list
+// ---------------------------------------------------------------------------
+
+function ItemsTable({ items }: { items: ReceiptDetail["items"] }) {
+  if (!items.length) return null;
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+        Позиции ({items.length})
+      </Label>
+      <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
+        {items.map((it, i) => (
+          <div
+            key={it.id}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: "8px", padding: "8px 12px", fontSize: "12px",
+              background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+              borderTop: i > 0 ? "1px solid var(--border-light)" : "none",
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {it.drug_name}
+              </span>
+              {it.drug_inn && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{it.drug_inn}</span>}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+              {it.is_rx && (
+                <Badge variant="secondary" className="text-[10px] font-bold px-1.5 h-auto" style={{ background: "var(--purple-bg)", color: "var(--purple-text)" }}>
+                  Рецепт
+                </Badge>
+              )}
+              <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                {parseFloat(it.total_price).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // ReviewCard
@@ -25,6 +105,7 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
   const [pharmacy, setPharmacy] = useState(item.pharmacy_name ?? "");
   const [amount, setAmount] = useState(item.total_amount ?? "");
   const [saving, setSaving] = useState(false);
+  const [imgExpanded, setImgExpanded] = useState(false);
 
   useEffect(() => {
     void api.get<ReceiptDetail>(`/api/v1/receipts/${item.id}`).then((d) => {
@@ -35,18 +116,10 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
     });
   }, [item.id]);
 
-  const LOW_CONFIDENCE = 0.7;
   const isLowConf =
     item.ocr_confidence !== null &&
     item.ocr_confidence !== undefined &&
-    item.ocr_confidence < LOW_CONFIDENCE;
-
-  const highlightCls = isLowConf
-    ? "border-yellow-300 bg-yellow-50 focus:border-yellow-500"
-    : "border-gray-200 bg-white focus:border-blue-400";
-  const inputBase =
-    "w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors";
-  const labelCls = "block text-xs text-gray-500 mb-1";
+    item.ocr_confidence < 0.7;
 
   async function handleApprove() {
     setSaving(true);
@@ -62,92 +135,221 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
     }
   }
 
+  const inputCls = isLowConf
+    ? "border-yellow-400 bg-yellow-50/50 focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent-light)]"
+    : "focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent-light)]";
+
   return (
-    <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gray-50 px-5 py-3 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-yellow-100 px-3 py-0.5 text-xs font-medium text-yellow-700">
-            Требует проверки
-          </span>
-          {isLowConf && (
-            <span className="text-xs text-yellow-600">
-              ⚠️ OCR {Math.round((item.ocr_confidence ?? 0) * 100)}%
-            </span>
-          )}
+    <>
+      {/* Lightbox */}
+      {imgExpanded && detail?.image_url && (
+        <div
+          onClick={() => setImgExpanded(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(10,10,20,0.85)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={detail.image_url} alt="Фото чека" style={{ maxWidth: "90vw", maxHeight: "90vh", borderRadius: "var(--r-md)", boxShadow: "var(--shadow-lg)" }} />
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setImgExpanded(false); }}
+            className="absolute top-4 right-4 text-white border border-white/20 hover:bg-white/20">
+            <XIcon />
+          </Button>
         </div>
-        <span className="text-xs text-gray-400">
-          {current} из {total}
-        </span>
-      </div>
+      )}
 
-      <div className="flex flex-col gap-5 p-5 sm:flex-row">
-        {/* Photo */}
-        <div className="sm:w-48 flex-shrink-0">
-          {detail?.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={detail.image_url}
-              alt="Фото чека"
-              className="h-48 w-full rounded-xl object-cover border border-gray-200"
-            />
-          ) : (
-            <div className="flex h-48 items-center justify-center rounded-xl bg-gray-100 text-gray-400 text-sm">
-              {detail === null ? "Загрузка..." : "Фото недоступно"}
+      {/* Card — HEITKAMP structure, не shadcn Card */}
+      <div className="card reveal reveal-1" style={{ overflow: "hidden" }}>
+
+        {/* ── Header ── */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 20px", borderBottom: "1px solid var(--border-light)",
+          background: "var(--surface-subtle)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Badge variant="secondary" className="h-auto px-2.5 py-0.5 text-[11px] font-semibold"
+              style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
+              Требует проверки
+            </Badge>
+            {isLowConf && item.ocr_confidence != null && (
+              <Badge variant="secondary" className="h-auto px-2 text-[11px] font-bold gap-1"
+                style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
+                <AlertCircleIcon className="size-3" />
+                OCR {Math.round(item.ocr_confidence * 100)}%
+              </Badge>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {Array.from({ length: Math.min(total, 7) }).map((_, i) => (
+                <div key={i} style={{
+                  height: "6px", borderRadius: "999px",
+                  width: i === current - 1 ? "18px" : "6px",
+                  background: i < current ? "var(--accent)" : "var(--border)",
+                  transition: "all 250ms cubic-bezier(0.16,1,0.3,1)",
+                }} />
+              ))}
             </div>
-          )}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", flexShrink: 0 }}>
+              {current} / {total}
+            </span>
+          </div>
         </div>
 
-        {/* Fields */}
-        <div className="flex-1 flex flex-col gap-4">
-          <div>
-            <label className={labelCls}>Дата покупки</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={`${inputBase} ${highlightCls}`}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Аптека</label>
-            <input
-              type="text"
-              value={pharmacy}
-              onChange={(e) => setPharmacy(e.target.value)}
-              className={`${inputBase} ${highlightCls}`}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Сумма</label>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className={`${inputBase} ${highlightCls}`}
-            />
+        {/* ── Body: два столбца ── */}
+        <div style={{ display: "flex", minHeight: "380px" }}>
+
+          {/* Левая панель: изображение */}
+          <div style={{
+            width: "260px", flexShrink: 0,
+            display: "flex", flexDirection: "column", gap: "12px",
+            padding: "16px",
+            borderRight: "1px solid var(--border-light)",
+            background: "var(--surface-subtle)",
+          }}>
+            {/* Область изображения */}
+            <div
+              onClick={() => detail?.image_url && setImgExpanded(true)}
+              style={{
+                flex: 1, minHeight: "200px",
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                overflow: "hidden",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                position: "relative",
+                cursor: detail?.image_url ? "zoom-in" : "default",
+              }}
+            >
+              {detail?.image_url ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={detail.image_url}
+                    alt="Фото чека"
+                    style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                  />
+                  <div style={{
+                    position: "absolute", bottom: "8px", right: "8px",
+                    display: "flex", alignItems: "center", gap: "4px",
+                    background: "rgba(10,10,20,0.55)", backdropFilter: "blur(4px)",
+                    borderRadius: "var(--r-sm)", padding: "4px 8px",
+                    fontSize: "11px", fontWeight: 600, color: "#fff",
+                  }}>
+                    <ZoomInIcon style={{ width: "11px", height: "11px" }} />
+                    Увеличить
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "24px", color: "var(--text-muted)", textAlign: "center" }}>
+                  {detail === null
+                    ? <><LoaderCircleIcon style={{ width: "28px", height: "28px", opacity: 0.5 }} className="animate-spin" /><span style={{ fontSize: "12px" }}>Загрузка...</span></>
+                    : <><ImageOffIcon style={{ width: "28px", height: "28px", opacity: 0.3 }} /><span style={{ fontSize: "12px" }}>Фото недоступно</span></>
+                  }
+                </div>
+              )}
+            </div>
+
+            {item.ocr_confidence != null && <ConfBar value={item.ocr_confidence} />}
+
+            {detail?.merge_strategy && (
+              <div style={{
+                display: "flex", justifyContent: "space-between",
+                borderRadius: "var(--r-sm)", border: "1px solid var(--border)",
+                background: "var(--bg)", padding: "6px 10px", fontSize: "11px",
+              }}>
+                <span style={{ color: "var(--text-muted)" }}>Стратегия OCR</span>
+                <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{detail.merge_strategy}</span>
+              </div>
+            )}
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 mt-auto">
-            <button
-              onClick={handleApprove}
-              disabled={saving}
-              className="flex-1 rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300 transition-colors"
-            >
-              {saving ? "Сохранение..." : "✓ Подтвердить"}
-            </button>
-            <button
-              onClick={onSkip}
-              disabled={saving}
-              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              Пропустить →
-            </button>
+          {/* Правая панель: форма */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "16px", padding: "20px 24px", overflowY: "auto" }}>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rv-date" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                Дата покупки
+              </Label>
+              <Input id="rv-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rv-pharmacy" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                Аптека
+              </Label>
+              <Input id="rv-pharmacy" type="text" value={pharmacy} onChange={(e) => setPharmacy(e.target.value)}
+                placeholder="Название аптеки" className={inputCls} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rv-amount" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                Сумма, ₽
+              </Label>
+              <div style={{ position: "relative" }}>
+                <Input id="rv-amount" type="number" step="0.01" value={amount}
+                  onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+                  className={`pr-7 ${inputCls}`} />
+                <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "13px", fontWeight: 700, color: "var(--text-muted)", pointerEvents: "none" }}>₽</span>
+              </div>
+            </div>
+
+            {detail && <ItemsTable items={detail.items} />}
+
+            <div style={{ flex: 1 }} />
+
+            {isLowConf && (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: "8px",
+                borderRadius: "var(--r-sm)", border: "1px solid #F6D860",
+                background: "var(--yellow-bg)", padding: "10px 12px",
+                fontSize: "12px", color: "var(--yellow-text)",
+              }}>
+                <AlertCircleIcon style={{ width: "14px", height: "14px", flexShrink: 0, marginTop: "1px" }} />
+                Низкая точность OCR — проверьте данные перед подтверждением
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <Button onClick={handleApprove} disabled={saving}
+                className="flex-1 font-semibold h-9"
+                style={{ background: "var(--accent)", color: "#fff" }}>
+                {saving
+                  ? <><LoaderCircleIcon className="animate-spin" />Сохранение...</>
+                  : <><CheckIcon />Подтвердить</>}
+              </Button>
+              <Button variant="outline" onClick={onSkip} disabled={saving}
+                className="shrink-0 h-9 font-medium"
+                style={{ borderColor: "var(--border)" }}>
+                Пропустить <ArrowRightIcon />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Empty / Done states
+// ---------------------------------------------------------------------------
+
+function EmptyState({ icon, title, subtitle, onDashboard }: { icon: React.ReactNode; title: string; subtitle: string; onDashboard: () => void }) {
+  return (
+    <div className="card" style={{ padding: "64px 24px", textAlign: "center" }}>
+      <div style={{ width: "56px", height: "56px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+        {icon}
+      </div>
+      <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>{title}</p>
+      <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: "0 0 24px" }}>{subtitle}</p>
+      <Button onClick={onDashboard} className="font-semibold" size="sm" style={{ background: "var(--accent)", color: "#fff" }}>
+        На дашборд
+      </Button>
     </div>
   );
 }
@@ -183,49 +385,67 @@ export default function ReviewPage() {
     void queryClient.invalidateQueries({ queryKey: ["receipts-review"] });
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     approve();
-    if (currentIdx + 1 >= queue.length) {
-      router.push("/dashboard");
-    }
+    if (currentIdx + 1 >= queue.length) router.push("/dashboard");
   }
 
   function handleSkip() {
     skip();
-    if (currentIdx + 1 >= queue.length) {
-      router.push("/dashboard");
-    }
+    if (currentIdx + 1 >= queue.length) router.push("/dashboard");
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Очередь проверки</h1>
-        {remaining > 0 && (
-          <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-700">
-            {remaining} чек{remaining === 1 ? "" : "ов"} требует проверки
-          </span>
+    <div style={{ maxWidth: "860px" }}>
+      {/* Заголовок */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px" }}>
+        <div>
+          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>
+            Очередь проверки
+          </h1>
+          {!isLoading && queue.length > 0 && (
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
+              {remaining > 0
+                ? `Осталось ${remaining} чек${remaining === 1 ? "" : remaining < 5 ? "а" : "ов"} для проверки`
+                : "Все чеки просмотрены"}
+            </p>
+          )}
+        </div>
+        {!isLoading && queue.length > 0 && (
+          <Badge variant="secondary" className="h-auto px-3 py-1 text-[12px] font-semibold shrink-0"
+            style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
+            {queue.length} на проверке
+          </Badge>
         )}
       </div>
 
+      {/* Скелетон загрузки */}
       {isLoading && (
-        <div className="animate-pulse h-64 rounded-xl bg-gray-100" />
-      )}
-
-      {!isLoading && queue.length === 0 && (
-        <div className="rounded-xl bg-green-50 border border-green-100 p-12 text-center">
-          <p className="text-4xl mb-3">✅</p>
-          <p className="text-lg font-semibold text-green-800">Всё проверено!</p>
-          <p className="mt-1 text-sm text-green-600">
-            Нет чеков, требующих ручной проверки
-          </p>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mt-5 rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors"
-          >
-            На дашборд
-          </button>
+        <div className="card" style={{ height: "420px", overflow: "hidden" }}>
+          <div style={{ display: "flex", height: "100%" }}>
+            <div style={{ width: "260px", flexShrink: 0, background: "var(--bg)", borderRight: "1px solid var(--border-light)", animation: "pulse 1.5s ease-in-out infinite" }} />
+            <div style={{ flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {[60, 40, 40].map((w, i) => (
+                <div key={i}>
+                  <div style={{ width: "80px", height: "10px", background: "var(--bg)", borderRadius: "4px", marginBottom: "8px", animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: "36px", background: "var(--bg)", borderRadius: "var(--r-sm)", animation: "pulse 1.5s ease-in-out infinite", width: `${w}%` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
         </div>
       )}
 
+      {/* Пусто */}
+      {!isLoading && queue.length === 0 && (
+        <EmptyState
+          icon={<CheckIcon style={{ width: "24px", height: "24px", color: "var(--green-text)", strokeWidth: 2.5 }} />}
+          title="Всё проверено!"
+          subtitle="Нет чеков, требующих ручной проверки"
+          onDashboard={() => router.push("/dashboard")}
+        />
+      )}
+
+      {/* Карточка проверки */}
       {!isLoading && currentItem && currentIdx < queue.length && (
         <ReviewCard
           item={currentItem}
@@ -236,20 +456,15 @@ export default function ReviewPage() {
         />
       )}
 
+      {/* Все просмотрены */}
       {!isLoading && queue.length > 0 && currentIdx >= queue.length && (
-        <div className="rounded-xl bg-blue-50 border border-blue-100 p-12 text-center">
-          <p className="text-4xl mb-3">🎉</p>
-          <p className="text-lg font-semibold text-blue-800">
-            Вы просмотрели все чеки в очереди
-          </p>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mt-5 rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-          >
-            На дашборд
-          </button>
-        </div>
+        <EmptyState
+          icon={<StarIcon style={{ width: "24px", height: "24px", color: "var(--accent)", strokeWidth: 2.5 }} />}
+          title="Вы просмотрели все чеки"
+          subtitle={`${queue.length} ${queue.length === 1 ? "чек проверен" : "чека проверено"} в этой сессии`}
+          onDashboard={() => router.push("/dashboard")}
+        />
       )}
-    </main>
+    </div>
   );
 }
