@@ -33,7 +33,7 @@ function plural(n: number, one: string, few: string, many: string) {
 }
 
 /* ─── XHR upload с отслеживанием прогресса + 401 retry ─── */
-async function uploadWithProgress(
+export async function uploadWithProgress(
   url: string,
   body: FormData,
   onProgress: (pct: number) => void,

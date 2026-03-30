@@ -637,3 +637,38 @@ body {
     @apply font-sans;
   }
 }
+/* ── Processing Pipeline ────────────────────────────────────────────────── */
+@keyframes ppIdlePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(123,111,212,0.42); }
+  55%       { box-shadow: 0 0 0 11px rgba(123,111,212,0); }
+}
+@keyframes ppActivePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(123,111,212,0.55); }
+  55%       { box-shadow: 0 0 0 14px rgba(123,111,212,0); }
+}
+@keyframes ppAlertPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
+  55%       { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
+}
+@keyframes ppSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes ppCheckPop {
+  0%   { transform: scale(0)    rotate(-18deg); opacity: 0; }
+  65%  { transform: scale(1.22) rotate(4deg);   opacity: 1; }
+  100% { transform: scale(1)    rotate(0);      opacity: 1; }
+}
+@keyframes ppLineFill {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+@keyframes ppScanBeam {
+  0%   { top: 6%;  opacity: 0;   }
+  12%  {           opacity: 1;   }
+  88%  {           opacity: 1;   }
+  100% { top: 82%; opacity: 0;   }
+}
+@keyframes ppDotBlink {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1;   }
+}
