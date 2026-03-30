@@ -22,7 +22,8 @@ from app.models.batch_job import BatchJob
 from app.models.enums import BatchStatus, OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
-from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, process_image
+from app.models.prescription import Prescription
+from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, ParsedPrescription, process_image
 from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
 from workers.celery_app import celery_app
 from workers.sse_publisher import publish_batch_event
@@ -100,7 +101,12 @@ async def _run(
 
     file_status = "failed"
 
-    if parsed.confidence > 0:
+    if isinstance(parsed, ParsedPrescription):
+        if parsed.confidence > 0:
+            file_status = await _save_prescription_from_parsed(batch_id, s3_key, user_id, parsed)
+        else:
+            file_status = await _save_unknown_receipt(batch_id, s3_key, user_id)
+    elif parsed.confidence > 0:
         file_status = await _save_receipt_from_parsed(
             batch_id, file_index, s3_key, user_id, parsed
         )
@@ -211,6 +217,52 @@ async def _save_receipt_from_parsed(
             await _autolink_prescriptions(db, receipt, uuid.UUID(batch_id), parsed)
 
         return file_status
+
+
+async def _save_prescription_from_parsed(
+    batch_id: str,
+    s3_key: str,
+    user_id: str,
+    parsed: ParsedPrescription,
+) -> str:
+    """Save OCR-detected prescription(s) to DB. One record per drug. Returns 'done'/'review'/'failed'."""
+    if parsed.confidence < CONFIDENCE_REVIEW:
+        await _save_unknown_receipt(batch_id, s3_key, user_id)
+        return "failed"
+
+    if not parsed.drugs or parsed.issue_date is None:
+        await _save_unknown_receipt(batch_id, s3_key, user_id)
+        return "failed"
+
+    file_status = "done" if parsed.confidence >= CONFIDENCE_DONE else "review"
+
+    async with _WorkerSession() as db:
+        for i, drug in enumerate(parsed.drugs):
+            # s3_key храним только на первом рецепте батча, остальные — без фото
+            prescription = Prescription(
+                id=uuid.uuid4(),
+                user_id=uuid.UUID(user_id),
+                doc_type=parsed.doc_type,
+                doctor_name=parsed.doctor_name or "Не указан",
+                clinic_name=parsed.clinic_name,
+                issue_date=parsed.issue_date,
+                expires_at=parsed.expires_at,
+                drug_name=drug.drug_name_raw,
+                drug_inn=drug.drug_inn,
+                dosage=drug.dosage,
+                s3_key=s3_key if i == 0 else None,
+                batch_id=uuid.UUID(batch_id),
+                status="active",
+            )
+            db.add(prescription)
+
+        await db.commit()
+
+    logger.info(
+        "batch %s: saved %d prescription(s) confidence=%.2f",
+        batch_id, len(parsed.drugs), parsed.confidence,
+    )
+    return file_status
 
 
 async def _save_unknown_receipt(batch_id: str, s3_key: str, user_id: str) -> str:

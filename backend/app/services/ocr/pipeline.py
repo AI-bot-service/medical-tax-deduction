@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+from app.models.enums import DocType
 from app.services.ocr import openai_vision
 from app.services.ocr.drug_normalizer import DrugMatch, get_drug_normalizer
 from app.services.ocr.ocr_result import QRResult
@@ -53,6 +54,40 @@ class ParsedReceipt:
     pharmacy_name: str | None
     raw_text: str
     items: list[NormalizedItem] = field(default_factory=list)
+    processing_time_ms: int = 0
+
+    @property
+    def ocr_status(self) -> str:
+        if self.confidence >= CONFIDENCE_DONE:
+            return "DONE"
+        if self.confidence >= CONFIDENCE_REVIEW:
+            return "REVIEW"
+        return "FAILED"
+
+
+@dataclass
+class ParsedDrug:
+    """One drug extracted from a prescription."""
+    drug_name_raw: str
+    dosage: str | None
+    drug_inn: str | None = None
+    is_rx: bool | None = None
+    drug_match_score: float | None = None
+
+
+@dataclass
+class ParsedPrescription:
+    """Full pipeline result for one prescription image."""
+
+    strategy: str = "prescription"
+    confidence: float = 0.0
+    doc_type: DocType = DocType.RECIPE_107
+    issue_date: date | None = None
+    expires_at: date | None = None
+    clinic_name: str | None = None
+    doctor_name: str | None = None
+    validity_days: int = 60
+    drugs: list[ParsedDrug] = field(default_factory=list)
     processing_time_ms: int = 0
 
     @property
@@ -166,6 +201,98 @@ def _normalize_items(raw_items: list[dict]) -> list[NormalizedItem]:
     return result
 
 
+_DOC_FORM_MAP: dict[str, DocType] = {
+    "107-1/у": DocType.RECIPE_107,
+    "107/у": DocType.RECIPE_107,
+    "107": DocType.RECIPE_107,
+    "егисз": DocType.RECIPE_EGISZ,
+    "egisz": DocType.RECIPE_EGISZ,
+    "025/у": DocType.DOC_025,
+    "025": DocType.DOC_025,
+    "025-1/у": DocType.DOC_025_1,
+    "003/у": DocType.DOC_003,
+    "043/у": DocType.DOC_043,
+    "111/у": DocType.DOC_111,
+}
+
+
+def _map_doc_form(doc_form: str | None) -> DocType:
+    if not doc_form:
+        return DocType.RECIPE_107
+    key = doc_form.lower().strip()
+    for pattern, dtype in _DOC_FORM_MAP.items():
+        if pattern in key:
+            return dtype
+    return DocType.RECIPE_107
+
+
+def _compute_prescription_confidence(ai_data: dict) -> float:
+    """Compute confidence score for a prescription document."""
+    has_date = bool(ai_data.get("issue_date"))
+    has_drugs = bool(ai_data.get("drugs"))
+    has_doctor = bool(ai_data.get("doctor_name"))
+    has_clinic = bool(ai_data.get("clinic_name"))
+
+    if not has_date and not has_drugs:
+        return 0.0
+
+    score = 0.0
+    if has_date:
+        score += 0.35
+    if has_drugs:
+        score += 0.40
+    if has_doctor:
+        score += 0.15
+    if has_clinic:
+        score += 0.10
+    return round(score, 4)
+
+
+def _normalize_prescription_drugs(raw_drugs: list[dict]) -> list[ParsedDrug]:
+    """Match drug names from prescription against GRLS registry."""
+    if not raw_drugs:
+        return []
+    normalizer = get_drug_normalizer()
+    result: list[ParsedDrug] = []
+    for item in raw_drugs:
+        name = (item.get("drug_name") or "").strip()
+        if not name:
+            continue
+        match: DrugMatch | None = normalizer.normalize(name)
+        result.append(ParsedDrug(
+            drug_name_raw=name,
+            dosage=item.get("dosage") or None,
+            drug_inn=match.drug_inn if match else None,
+            is_rx=match.is_rx if match else None,
+            drug_match_score=match.match_score if match else None,
+        ))
+    return result
+
+
+def _parse_prescription(ai_data: dict, total_ms: int) -> ParsedPrescription:
+    """Build ParsedPrescription from AI response dict."""
+    confidence = _compute_prescription_confidence(ai_data)
+    issue_date = _parse_date(ai_data.get("issue_date"))
+    validity_days = int(ai_data.get("validity_days") or 60)
+    expires_at = (issue_date + timedelta(days=validity_days)) if issue_date else None
+
+    raw_drugs = ai_data.get("drugs") or []
+    drugs = _normalize_prescription_drugs(raw_drugs)
+
+    return ParsedPrescription(
+        strategy="prescription",
+        confidence=confidence,
+        doc_type=_map_doc_form(ai_data.get("doc_form")),
+        issue_date=issue_date,
+        expires_at=expires_at,
+        clinic_name=ai_data.get("clinic_name") or None,
+        doctor_name=ai_data.get("doctor_name") or None,
+        validity_days=validity_days,
+        drugs=drugs,
+        processing_time_ms=total_ms,
+    )
+
+
 def _build_raw_text(ai_data: dict) -> str:
     """Build readable text summary from AI extracted fields (for logging/debug)."""
     parts: list[str] = []
@@ -189,10 +316,10 @@ def _build_raw_text(ai_data: dict) -> str:
 # Entry point
 # ---------------------------------------------------------------------------
 
-async def process_image(image_bytes: bytes) -> ParsedReceipt:
-    """Main pipeline: image bytes -> ParsedReceipt.
+async def process_image(image_bytes: bytes) -> ParsedReceipt | ParsedPrescription:
+    """Main pipeline: image bytes -> ParsedReceipt or ParsedPrescription.
 
-    Runs QR scan and OpenAI Vision in parallel, then merges results.
+    Runs QR scan and OpenAI Vision in parallel, then routes by document_type.
     """
     t_start = time.perf_counter()
     loop = asyncio.get_running_loop()
@@ -214,6 +341,19 @@ async def process_image(image_bytes: bytes) -> ParsedReceipt:
         logger.error("pipeline: OpenAI Vision raised: %s", ai_data)
         ai_data = {}
 
+    total_ms = int((time.perf_counter() - t_start) * 1000)
+    doc_type = ai_data.get("document_type")
+
+    # --- РЕЦЕПТ ---
+    if doc_type == "prescription":
+        result = _parse_prescription(ai_data, total_ms)
+        logger.info(
+            "pipeline: prescription confidence=%.2f drugs=%d doctor=%s time=%dms",
+            result.confidence, len(result.drugs), result.doctor_name, total_ms,
+        )
+        return result
+
+    # --- ЧЕК (или неизвестный документ) ---
     # Drop stale QR data
     if qr_result is not None and _is_too_old(qr_result):
         logger.info("pipeline: QR > 12 months old, ignoring")
@@ -235,12 +375,11 @@ async def process_image(image_bytes: bytes) -> ParsedReceipt:
     raw_text = _build_raw_text(ai_data)
 
     # Drug normalization against GRLS (sync, run in thread)
-    raw_items = ai_data.get("items") or ai_data.get("drugs") or []
+    raw_items = ai_data.get("items") or []
     items = await loop.run_in_executor(None, _normalize_items, raw_items)
 
-    total_ms = int((time.perf_counter() - t_start) * 1000)
     logger.info(
-        "pipeline: done strategy=%s confidence=%.2f items=%d time=%dms",
+        "pipeline: receipt strategy=%s confidence=%.2f items=%d time=%dms",
         strategy, confidence, len(items), total_ms,
     )
 
