@@ -210,16 +210,19 @@ async def get_summary(
 async def list_receipts(
     year: int | None = Query(default=None, description="Фильтр по году"),
     month: int | None = Query(default=None, ge=1, le=12, description="Фильтр по месяцу"),
+    batch_id: uuid.UUID | None = Query(default=None, description="Фильтр по batch_id"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> ReceiptListResponse:
-    """Return receipts grouped by month, optionally filtered by year/month."""
+    """Return receipts grouped by month, optionally filtered by year/month/batch_id."""
     stmt = select(Receipt).where(Receipt.user_id == current_user.id)
 
     if year is not None:
         stmt = stmt.where(extract("year", Receipt.created_at) == year)
     if month is not None:
         stmt = stmt.where(extract("month", Receipt.created_at) == month)
+    if batch_id is not None:
+        stmt = stmt.where(Receipt.batch_id == batch_id)
 
     stmt = stmt.order_by(Receipt.created_at.desc())
     result = await db.execute(stmt)

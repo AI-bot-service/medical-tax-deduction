@@ -716,11 +716,10 @@ export function BatchProgress() {
 
     // Небольшая задержка, чтобы БД успела записать данные
     const timer = setTimeout(() => {
-      void api.get<ReceiptListResponse>("/api/v1/receipts")
+      void api.get<ReceiptListResponse>(`/api/v1/receipts?batch_id=${activeBatch}`)
         .then((data) => {
-          // Берём самые свежие записи — ровно столько, сколько загрузили
-          const all = data.months.flatMap((m) => m.receipts);
-          const items = all.slice(0, totalFiles);
+          // Берём только чеки из текущего батча
+          const items = data.months.flatMap((m) => m.receipts);
           setReviewItems(items);
           setSavedIds(new Set());
           setDraftMap({});
