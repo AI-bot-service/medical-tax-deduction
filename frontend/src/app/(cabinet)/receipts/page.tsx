@@ -766,11 +766,9 @@ export default function ReceiptsPage() {
   // pipeline ref so EmptyState can trigger upload
   const pipelineUploadRef = useRef<(() => void) | null>(null);
 
-  const { activeBatch, completed, reviewCount } = useBatchStore(s => ({
-    activeBatch: s.activeBatch,
-    completed:   s.completed,
-    reviewCount: s.reviewCount,
-  }));
+  const activeBatch = useBatchStore(s => s.activeBatch);
+  const completed   = useBatchStore(s => s.completed);
+  const reviewCount = useBatchStore(s => s.reviewCount);
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
     queryKey: ["receipts-list"],
