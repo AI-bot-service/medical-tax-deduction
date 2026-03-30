@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timedelta
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.models.enums import DocType, RiskLevel
 
@@ -19,6 +19,7 @@ class PrescriptionCreate(BaseModel):
     clinic_name: str | None = None
     issue_date: date
     expires_at: date | None = None  # default: issue_date + 60 days
+    validity_days: int | None = None  # альтернатива expires_at: 60 или 365
     drug_name: str
     drug_inn: str | None = None
     dosage: str | None = None
@@ -26,8 +27,19 @@ class PrescriptionCreate(BaseModel):
     @model_validator(mode="after")
     def set_default_expires(self) -> "PrescriptionCreate":
         if self.expires_at is None:
-            self.expires_at = self.issue_date + timedelta(days=60)
+            days = self.validity_days or 60
+            self.expires_at = self.issue_date + timedelta(days=days)
         return self
+
+
+class PrescriptionPatch(BaseModel):
+    issue_date: date | None = None
+    drug_name: str | None = None
+    drug_inn: str | None = None
+    dosage: str | None = None
+    doctor_name: str | None = None
+    clinic_name: str | None = None
+    validity_days: int | None = None  # 60 или 365 → пересчитывает expires_at
 
 
 class PrescriptionResponse(BaseModel):
@@ -46,6 +58,7 @@ class PrescriptionResponse(BaseModel):
     s3_key: str | None = None
     risk_level: RiskLevel
     status: str
+    batch_id: uuid.UUID | None = None
     created_at: datetime
 
 

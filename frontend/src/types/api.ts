@@ -130,6 +130,7 @@ export interface Prescription {
   s3_key: string | null;
   risk_level: RiskLevel;
   status: string;
+  batch_id: string | null;
   created_at: string;
 }
 

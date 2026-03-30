@@ -25,9 +25,10 @@ from app.schemas.prescription import (
     LinkPrescriptionRequest,
     PrescriptionCreate,
     PrescriptionListResponse,
+    PrescriptionPatch,
     PrescriptionResponse,
 )
-from app.services.storage.s3_client import BUCKET_PRESCRIPTIONS, S3Client
+from app.services.storage.s3_client import BUCKET_PRESCRIPTIONS, BUCKET_RECEIPTS, S3Client
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,43 @@ async def upload_prescription_photo(
 
 
 # ---------------------------------------------------------------------------
+# GET /prescriptions/{id}/image  — presigned URL для фото рецепта
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{prescription_id}/image")
+async def get_prescription_image(
+    prescription_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Return presigned S3 URL for prescription photo."""
+    result = await db.execute(
+        select(Prescription).where(
+            Prescription.id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    prescription = result.scalar_one_or_none()
+    if prescription is None:
+        raise HTTPException(status_code=404, detail="Рецепт не найден")
+
+    if not prescription.s3_key:
+        return {"image_url": None}
+
+    try:
+        s3 = S3Client()
+        # Файлы из batch-загрузки лежат в BUCKET_RECEIPTS, вручную загруженные — в BUCKET_PRESCRIPTIONS
+        bucket = BUCKET_RECEIPTS if prescription.s3_key.startswith("receipts/") else BUCKET_PRESCRIPTIONS
+        url = s3.generate_presigned_url(bucket, prescription.s3_key)
+    except Exception:
+        url = None
+
+    return {"image_url": url}
+
+
+# ---------------------------------------------------------------------------
 # GET /prescriptions/{id}/pdf-blank  (E-05)
 # ---------------------------------------------------------------------------
 
@@ -170,14 +208,17 @@ async def get_prescription_pdf_blank(
 async def list_prescriptions(
     doc_type: DocType | None = Query(default=None),
     status: str | None = Query(default=None, description="active | expired | deleted"),
+    batch_id: uuid.UUID | None = Query(default=None, description="Фильтр по batch_id"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> PrescriptionListResponse:
-    """List prescriptions with optional doc_type and status filters."""
+    """List prescriptions with optional doc_type, status and batch_id filters."""
     stmt = select(Prescription).where(Prescription.user_id == current_user.id)
 
     if doc_type is not None:
         stmt = stmt.where(Prescription.doc_type == doc_type)
+    if batch_id is not None:
+        stmt = stmt.where(Prescription.batch_id == batch_id)
 
     today = date.today()
     if status == "active":
@@ -221,6 +262,52 @@ async def get_prescription(
     prescription = result.scalar_one_or_none()
     if prescription is None:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
+    return PrescriptionResponse.model_validate(prescription)
+
+
+# ---------------------------------------------------------------------------
+# PATCH /prescriptions/{id}
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{prescription_id}", response_model=PrescriptionResponse)
+async def patch_prescription(
+    prescription_id: uuid.UUID,
+    body: PrescriptionPatch,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> PrescriptionResponse:
+    """Partial update of a prescription (date, drug name, validity, doctor, clinic)."""
+    result = await db.execute(
+        select(Prescription).where(
+            Prescription.id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    prescription = result.scalar_one_or_none()
+    if prescription is None:
+        raise HTTPException(status_code=404, detail="Рецепт не найден")
+
+    if body.issue_date is not None:
+        prescription.issue_date = body.issue_date
+    if body.drug_name is not None:
+        prescription.drug_name = body.drug_name
+    if body.drug_inn is not None:
+        prescription.drug_inn = body.drug_inn
+    if body.dosage is not None:
+        prescription.dosage = body.dosage
+    if body.doctor_name is not None:
+        prescription.doctor_name = body.doctor_name
+    if body.clinic_name is not None:
+        prescription.clinic_name = body.clinic_name
+    if body.validity_days is not None:
+        from datetime import timedelta
+        base = body.issue_date or prescription.issue_date
+        prescription.expires_at = base + timedelta(days=body.validity_days)
+
+    await db.commit()
+    await db.refresh(prescription)
     return PrescriptionResponse.model_validate(prescription)
 
 

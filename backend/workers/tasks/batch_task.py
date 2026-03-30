@@ -237,8 +237,8 @@ async def _save_prescription_from_parsed(
     file_status = "done" if parsed.confidence >= CONFIDENCE_DONE else "review"
 
     async with _WorkerSession() as db:
-        for i, drug in enumerate(parsed.drugs):
-            # s3_key храним только на первом рецепте батча, остальные — без фото
+        for drug in parsed.drugs:
+            # Все препараты одного рецепта получают одинаковый s3_key для группировки в UI
             prescription = Prescription(
                 id=uuid.uuid4(),
                 user_id=uuid.UUID(user_id),
@@ -250,7 +250,7 @@ async def _save_prescription_from_parsed(
                 drug_name=drug.drug_name_raw,
                 drug_inn=drug.drug_inn,
                 dosage=drug.dosage,
-                s3_key=s3_key if i == 0 else None,
+                s3_key=s3_key,
                 batch_id=uuid.UUID(batch_id),
                 status="active",
             )
