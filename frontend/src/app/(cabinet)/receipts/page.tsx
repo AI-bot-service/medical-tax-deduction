@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
 import { useBatchStore } from "@/lib/store";
+import { useBatchSSE } from "@/hooks/useBatchSSE";
 import type {
   ReceiptListResponse, ReceiptListItem, MonthGroup, OCRStatus, BatchJob,
 } from "@/types/api";
@@ -626,6 +627,9 @@ function ProcessingPipeline({
     activeBatch, totalFiles, doneCount, reviewCount, failedCount, completed,
     startBatch, clearBatch,
   } = useBatchStore();
+
+  // Подключаем SSE-стрим для получения обновлений о прогрессе батча
+  useBatchSSE(activeBatch);
 
   // ── Derived states ────────────────────────────────────────────────────────
   // Батч завершён (с ревью или без) → шаг 1 всегда возвращается к облаку
