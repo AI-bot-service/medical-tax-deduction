@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
+import { BatchProgress } from "@/components/ui/BatchProgress";
 import { useBatchStore } from "@/lib/store";
 import { useBatchSSE } from "@/hooks/useBatchSSE";
 import type {
@@ -631,6 +632,14 @@ function ProcessingPipeline({
   // Подключаем SSE-стрим для получения обновлений о прогрессе батча
   useBatchSSE(activeBatch);
 
+  // Сбрасываем uploadState когда BatchProgress завершает проверку и очищает батч
+  useEffect(() => {
+    if (!activeBatch && uploadState === "done") {
+      setUploadState("idle");
+      setUploadProgress(0);
+    }
+  }, [activeBatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived states ────────────────────────────────────────────────────────
   // Батч завершён (с ревью или без) → шаг 1 всегда возвращается к облаку
   const batchCompleted = !!activeBatch && completed;
@@ -810,6 +819,9 @@ export default function ReceiptsPage() {
       <ProcessingPipeline
         onRefetch={() => void refetch()}
       />
+
+      {/* ── Инлайн-проверка: показывается после OCR, оператор подтверждает каждый чек ── */}
+      <BatchProgress />
 
       {/* ── Duplicate alert banner ── */}
       {activeBatch && completed && reviewCount > 0 && (

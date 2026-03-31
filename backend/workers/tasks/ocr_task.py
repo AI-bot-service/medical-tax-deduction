@@ -40,11 +40,9 @@ _WorkerSession = async_sessionmaker(_worker_engine, expire_on_commit=False)
 
 
 def _ocr_status_from_confidence(confidence: float) -> OCRStatus | None:
-    """Return DONE/REVIEW, or None if confidence is too low (receipt should be deleted)."""
-    if confidence >= CONFIDENCE_DONE:
-        return OCRStatus.DONE
+    """Return REVIEW for valid receipts (operator must confirm), or None if confidence too low."""
     if confidence >= CONFIDENCE_REVIEW:
-        return OCRStatus.REVIEW
+        return OCRStatus.REVIEW  # Always REVIEW — operator sets DONE after confirmation
     return None  # FAILED — do not persist
 
 
