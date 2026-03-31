@@ -36,6 +36,7 @@ from app.schemas.receipt import (
     ReceiptUploadResponse,
     SummaryResponse,
 )
+from app.services.ocr.drug_normalizer import get_drug_normalizer
 from app.services.storage.s3_client import BUCKET_RECEIPTS, S3Client
 
 logger = logging.getLogger(__name__)
@@ -323,6 +324,7 @@ async def patch_receipt(
 
     # Update items if provided
     if body.items is not None:
+        normalizer = get_drug_normalizer()
         items_by_id = {item.id: item for item in receipt.items}
         for patch_item in body.items:
             db_item = items_by_id.get(patch_item.id)
@@ -330,6 +332,12 @@ async def patch_receipt(
                 continue  # silently skip unknown items
             if patch_item.drug_name is not None:
                 db_item.drug_name = patch_item.drug_name
+                # Если drug_inn не задан явно — перенормализуем по новому названию
+                if patch_item.drug_inn is None:
+                    match = normalizer.normalize(patch_item.drug_name)
+                    db_item.drug_inn = match.drug_inn if match else None
+                    if match and patch_item.is_rx is None:
+                        db_item.is_rx = match.is_rx
             if patch_item.drug_inn is not None:
                 db_item.drug_inn = patch_item.drug_inn
             if patch_item.quantity is not None:
