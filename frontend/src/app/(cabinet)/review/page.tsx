@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,8 +10,6 @@ import {
 import { api } from "@/lib/api";
 import { useReviewStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import type { ReceiptListResponse, ReceiptListItem, ReceiptDetail } from "@/types/api";
@@ -49,39 +47,76 @@ function ConfBar({ value }: { value: number }) {
 function ItemsTable({ items }: { items: ReceiptDetail["items"] }) {
   if (!items.length) return null;
   return (
-    <div className="space-y-1.5">
-      <Label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-        Позиции ({items.length})
-      </Label>
-      <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
-        {items.map((it, i) => (
-          <div
-            key={it.id}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: "8px", padding: "8px 12px", fontSize: "12px",
-              background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
-              borderTop: i > 0 ? "1px solid var(--border-light)" : "none",
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: "block", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {it.drug_name}
-              </span>
-              {it.drug_inn && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{it.drug_inn}</span>}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-              {it.is_rx && (
-                <Badge variant="secondary" className="text-[10px] font-bold px-1.5 h-auto" style={{ background: "var(--purple-bg)", color: "var(--purple-text)" }}>
-                  Рецепт
-                </Badge>
-              )}
-              <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>
-                {parseFloat(it.total_price).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
-              </span>
-            </div>
-          </div>
-        ))}
+    <div className="card" style={{ overflow: "hidden" }}>
+      <div className="card-header">
+        <span className="card-title">Препараты</span>
+        <span style={{
+          fontSize: "11px", fontWeight: 600, color: "var(--text-muted)",
+          background: "var(--bg)", padding: "2px 8px", borderRadius: "var(--r-pill)",
+        }}>
+          {items.length} поз.
+        </span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "var(--bg)" }}>
+              {["Название", "МНН", "Кол-во", "Цена", "Сумма", "Rx"].map((h, i) => (
+                <th key={h} style={{
+                  padding: "10px 14px",
+                  fontSize: "10px", fontWeight: 700,
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  textAlign: i >= 2 ? "center" : "left",
+                  whiteSpace: "nowrap",
+                }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((it, i) => (
+              <tr
+                key={it.id}
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                  background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
+                }}
+              >
+                <td style={{ padding: "11px 14px", fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {it.drug_name}
+                </td>
+                <td style={{ padding: "11px 14px", fontSize: "11px", color: "var(--text-muted)" }}>
+                  {it.drug_inn ?? "—"}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "center", fontSize: "13px", color: "var(--text-primary)" }}>
+                  {it.quantity ?? "—"}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", color: "var(--text-secondary)" }}>
+                  {it.unit_price ? parseFloat(it.unit_price).toLocaleString("ru-RU", { minimumFractionDigits: 2 }) + " ₽" : "—"}
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+                  {parseFloat(it.total_price).toLocaleString("ru-RU", { minimumFractionDigits: 2 })} ₽
+                </td>
+                <td style={{ padding: "11px 14px", textAlign: "center" }}>
+                  {it.is_rx ? (
+                    <span style={{
+                      fontSize: "10px", fontWeight: 700,
+                      padding: "2px 8px", borderRadius: "var(--r-pill)",
+                      background: "var(--purple-bg)", color: "var(--purple-text)",
+                    }}>
+                      Rx
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--text-disabled)" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -135,9 +170,19 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
     }
   }
 
-  const inputCls = isLowConf
-    ? "border-yellow-400 bg-yellow-50/50 focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent-light)]"
-    : "focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent-light)]";
+  const inputStyle = (highlight: boolean): React.CSSProperties => ({
+    width: "100%",
+    borderRadius: "var(--r-sm)",
+    border: `1px solid ${highlight ? "var(--yellow)" : "var(--border)"}`,
+    background: highlight ? "var(--yellow-bg)" : "var(--surface)",
+    padding: "9px 12px",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    outline: "none",
+    fontFamily: "Urbanist, sans-serif",
+    transition: "border-color 0.15s",
+    boxSizing: "border-box",
+  });
 
   return (
     <>
@@ -160,161 +205,185 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
         </div>
       )}
 
-      {/* Card — HEITKAMP structure, не shadcn Card */}
-      <div className="card reveal reveal-1" style={{ overflow: "hidden" }}>
-
-        {/* ── Header ── */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 20px", borderBottom: "1px solid var(--border-light)",
-          background: "var(--surface-subtle)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Badge variant="secondary" className="h-auto px-2.5 py-0.5 text-[11px] font-semibold"
+      {/* ── Header: badge + progress ── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: "16px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Badge variant="secondary" className="h-auto px-2.5 py-0.5 text-[11px] font-semibold"
+            style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
+            Требует проверки
+          </Badge>
+          {isLowConf && item.ocr_confidence != null && (
+            <Badge variant="secondary" className="h-auto px-2 text-[11px] font-bold gap-1"
               style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
-              Требует проверки
+              <AlertCircleIcon className="size-3" />
+              OCR {Math.round(item.ocr_confidence * 100)}%
             </Badge>
-            {isLowConf && item.ocr_confidence != null && (
-              <Badge variant="secondary" className="h-auto px-2 text-[11px] font-bold gap-1"
-                style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
-                <AlertCircleIcon className="size-3" />
-                OCR {Math.round(item.ocr_confidence * 100)}%
-              </Badge>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ display: "flex", gap: "4px" }}>
+            {Array.from({ length: Math.min(total, 7) }).map((_, i) => (
+              <div key={i} style={{
+                height: "6px", borderRadius: "999px",
+                width: i === current - 1 ? "18px" : "6px",
+                background: i < current ? "var(--accent)" : "var(--border)",
+                transition: "all 250ms cubic-bezier(0.16,1,0.3,1)",
+              }} />
+            ))}
+          </div>
+          <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", flexShrink: 0 }}>
+            {current} / {total}
+          </span>
+        </div>
+      </div>
+
+      {/* ── 2-column grid (как на странице деталей чека) ── */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 380px) 1fr",
+        gap: "20px",
+        alignItems: "start",
+      }}>
+
+        {/* Левая колонка: фото + confidence + стратегия */}
+        <div style={{ position: "sticky", top: 80, display: "flex", flexDirection: "column", gap: "12px" }}>
+          {/* Изображение */}
+          <div
+            onClick={() => detail?.image_url && setImgExpanded(true)}
+            style={{
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+              overflow: "hidden",
+              minHeight: "200px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              position: "relative",
+              cursor: detail?.image_url ? "zoom-in" : "default",
+            }}
+          >
+            {detail?.image_url ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={detail.image_url}
+                  alt="Фото чека"
+                  style={{ width: "100%", height: "auto", objectFit: "contain", display: "block", maxHeight: "60vh" }}
+                />
+                <div style={{
+                  position: "absolute", bottom: "8px", right: "8px",
+                  display: "flex", alignItems: "center", gap: "4px",
+                  background: "rgba(10,10,20,0.55)", backdropFilter: "blur(4px)",
+                  borderRadius: "var(--r-sm)", padding: "4px 8px",
+                  fontSize: "11px", fontWeight: 600, color: "#fff",
+                }}>
+                  <ZoomInIcon style={{ width: "11px", height: "11px" }} />
+                  Увеличить
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "48px 24px", color: "var(--text-muted)", textAlign: "center" }}>
+                {detail === null
+                  ? <><LoaderCircleIcon style={{ width: "32px", height: "32px", opacity: 0.5 }} className="animate-spin" /><span style={{ fontSize: "13px" }}>Загрузка...</span></>
+                  : <><ImageOffIcon style={{ width: "32px", height: "32px", opacity: 0.3 }} /><span style={{ fontSize: "13px" }}>Фото недоступно</span></>
+                }
+              </div>
             )}
           </div>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
+            🔍 Нажмите чтобы увеличить
+          </p>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ display: "flex", gap: "4px" }}>
-              {Array.from({ length: Math.min(total, 7) }).map((_, i) => (
-                <div key={i} style={{
-                  height: "6px", borderRadius: "999px",
-                  width: i === current - 1 ? "18px" : "6px",
-                  background: i < current ? "var(--accent)" : "var(--border)",
-                  transition: "all 250ms cubic-bezier(0.16,1,0.3,1)",
-                }} />
-              ))}
+          {item.ocr_confidence != null && <ConfBar value={item.ocr_confidence} />}
+
+          {detail?.merge_strategy && (
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              borderRadius: "var(--r-sm)", border: "1px solid var(--border)",
+              background: "var(--bg)", padding: "6px 10px", fontSize: "11px",
+            }}>
+              <span style={{ color: "var(--text-muted)" }}>Стратегия OCR</span>
+              <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{detail.merge_strategy}</span>
             </div>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", flexShrink: 0 }}>
-              {current} / {total}
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* ── Body: два столбца ── */}
-        <div style={{ display: "flex", minHeight: "380px" }}>
+        {/* Правая колонка: форма + таблица + кнопки */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
-          {/* Левая панель: изображение */}
-          <div style={{
-            width: "260px", flexShrink: 0,
-            display: "flex", flexDirection: "column", gap: "12px",
-            padding: "16px",
-            borderRight: "1px solid var(--border-light)",
-            background: "var(--surface-subtle)",
-          }}>
-            {/* Область изображения */}
-            <div
-              onClick={() => detail?.image_url && setImgExpanded(true)}
-              style={{
-                flex: 1, minHeight: "200px",
-                borderRadius: "var(--r-sm)",
-                border: "1px solid var(--border)",
-                background: "var(--bg)",
-                overflow: "hidden",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative",
-                cursor: detail?.image_url ? "zoom-in" : "default",
-              }}
-            >
-              {detail?.image_url ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={detail.image_url}
-                    alt="Фото чека"
-                    style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                  />
-                  <div style={{
-                    position: "absolute", bottom: "8px", right: "8px",
-                    display: "flex", alignItems: "center", gap: "4px",
-                    background: "rgba(10,10,20,0.55)", backdropFilter: "blur(4px)",
-                    borderRadius: "var(--r-sm)", padding: "4px 8px",
-                    fontSize: "11px", fontWeight: 600, color: "#fff",
-                  }}>
-                    <ZoomInIcon style={{ width: "11px", height: "11px" }} />
-                    Увеличить
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "24px", color: "var(--text-muted)", textAlign: "center" }}>
-                  {detail === null
-                    ? <><LoaderCircleIcon style={{ width: "28px", height: "28px", opacity: 0.5 }} className="animate-spin" /><span style={{ fontSize: "12px" }}>Загрузка...</span></>
-                    : <><ImageOffIcon style={{ width: "28px", height: "28px", opacity: 0.3 }} /><span style={{ fontSize: "12px" }}>Фото недоступно</span></>
-                  }
-                </div>
+          {/* Карточка с данными (как OCREditor) */}
+          <div className="card" style={{ padding: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+                Данные чека
+              </h2>
+              {isLowConf && (
+                <span style={{
+                  display: "flex", alignItems: "center", gap: "5px",
+                  fontSize: "11px", color: "var(--yellow-text)",
+                  background: "var(--yellow-bg)",
+                  padding: "3px 10px", borderRadius: "var(--r-pill)",
+                  fontWeight: 600,
+                }}>
+                  ⚠ Низкая точность OCR ({Math.round((item.ocr_confidence ?? 0) * 100)}%)
+                </span>
               )}
             </div>
 
-            {item.ocr_confidence != null && <ConfBar value={item.ocr_confidence} />}
-
-            {detail?.merge_strategy && (
-              <div style={{
-                display: "flex", justifyContent: "space-between",
-                borderRadius: "var(--r-sm)", border: "1px solid var(--border)",
-                background: "var(--bg)", padding: "6px 10px", fontSize: "11px",
-              }}>
-                <span style={{ color: "var(--text-muted)" }}>Стратегия OCR</span>
-                <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{detail.merge_strategy}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* Дата */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Дата покупки
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  style={inputStyle(isLowConf)}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = isLowConf ? "var(--yellow)" : "var(--border)"; }}
+                />
               </div>
-            )}
-          </div>
 
-          {/* Правая панель: форма */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "16px", padding: "20px 24px", overflowY: "auto" }}>
+              {/* Аптека */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Аптека
+                </label>
+                <input
+                  type="text"
+                  value={pharmacy}
+                  onChange={(e) => setPharmacy(e.target.value)}
+                  placeholder="Название аптеки"
+                  style={inputStyle(isLowConf)}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = isLowConf ? "var(--yellow)" : "var(--border)"; }}
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="rv-date" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Дата покупки
-              </Label>
-              <Input id="rv-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              {/* Сумма */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Сумма (₽)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  style={inputStyle(isLowConf)}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = isLowConf ? "var(--yellow)" : "var(--border)"; }}
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="rv-pharmacy" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Аптека
-              </Label>
-              <Input id="rv-pharmacy" type="text" value={pharmacy} onChange={(e) => setPharmacy(e.target.value)}
-                placeholder="Название аптеки" className={inputCls} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="rv-amount" className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Сумма, ₽
-              </Label>
-              <div style={{ position: "relative" }}>
-                <Input id="rv-amount" type="number" step="0.01" value={amount}
-                  onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
-                  className={`pr-7 ${inputCls}`} />
-                <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "13px", fontWeight: 700, color: "var(--text-muted)", pointerEvents: "none" }}>₽</span>
-              </div>
-            </div>
-
-            {detail && <ItemsTable items={detail.items} />}
-
-            <div style={{ flex: 1 }} />
-
-            {isLowConf && (
-              <div style={{
-                display: "flex", alignItems: "flex-start", gap: "8px",
-                borderRadius: "var(--r-sm)", border: "1px solid #F6D860",
-                background: "var(--yellow-bg)", padding: "10px 12px",
-                fontSize: "12px", color: "var(--yellow-text)",
-              }}>
-                <AlertCircleIcon style={{ width: "14px", height: "14px", flexShrink: 0, marginTop: "1px" }} />
-                Низкая точность OCR — проверьте данные перед подтверждением
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: "10px" }}>
+            {/* Кнопки */}
+            <div style={{ marginTop: "18px", display: "flex", gap: "10px" }}>
               <Button onClick={handleApprove} disabled={saving}
                 className="flex-1 font-semibold h-9"
                 style={{ background: "var(--accent)", color: "#fff" }}>
@@ -329,6 +398,9 @@ function ReviewCard({ item, total, current, onApprove, onSkip }: ReviewCardProps
               </Button>
             </div>
           </div>
+
+          {/* Таблица препаратов */}
+          {detail && <ItemsTable items={detail.items} />}
         </div>
       </div>
     </>
@@ -394,7 +466,7 @@ export default function ReviewPage() {
   }
 
   return (
-    <div style={{ maxWidth: "860px" }}>
+    <div style={{ maxWidth: "1100px" }}>
       {/* Заголовок */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px" }}>
         <div>
