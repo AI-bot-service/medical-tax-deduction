@@ -22,7 +22,7 @@ from app.models.batch_job import BatchJob
 from app.models.enums import BatchStatus, OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 from app.services.dedup.receipt_dedup import DuplicateKind as ReceiptDuplicateKind, check_receipt_duplicate
 from app.services.dedup.prescription_dedup import DuplicateKind as PrescriptionDuplicateKind, check_prescription_duplicate
 from app.services.ocr.pipeline import CONFIDENCE_DONE, CONFIDENCE_REVIEW, ParsedPrescription, process_image
@@ -193,10 +193,8 @@ async def _save_receipt_from_parsed(
         await db.commit()
         await db.refresh(receipt)
 
-        if parsed.confidence >= CONFIDENCE_DONE:
-            file_status = "done"
-        elif parsed.confidence >= CONFIDENCE_REVIEW:
-            file_status = "review"
+        if parsed.confidence >= CONFIDENCE_REVIEW:
+            file_status = "review"  # всегда REVIEW — оператор подтверждает
         else:
             await _delete_receipt_and_s3(
                 db, receipt, s3_key,
@@ -263,7 +261,7 @@ async def _save_prescription_from_parsed(
         await _save_unknown_receipt(batch_id, s3_key, user_id)
         return "failed"
 
-    file_status = "done" if parsed.confidence >= CONFIDENCE_DONE else "review"
+    file_status = "review"  # всегда REVIEW — оператор подтверждает
 
     async with _WorkerSession() as db:
         # Проверка дубликата рецепта
@@ -289,25 +287,30 @@ async def _save_prescription_from_parsed(
             duplicate_of_id = dedup.existing_id
             file_status = "review"
 
+        prescription = Prescription(
+            id=uuid.uuid4(),
+            user_id=uuid.UUID(user_id),
+            doc_type=parsed.doc_type,
+            doctor_name=parsed.doctor_name or "Не указан",
+            clinic_name=parsed.clinic_name,
+            issue_date=parsed.issue_date,
+            expires_at=parsed.expires_at,
+            s3_key=s3_key,
+            batch_id=uuid.UUID(batch_id),
+            status="active",
+            duplicate_of_id=duplicate_of_id,
+        )
+        db.add(prescription)
+        await db.flush()
+
         for drug in parsed.drugs:
-            # Все препараты одного рецепта получают одинаковый s3_key для группировки в UI
-            prescription = Prescription(
-                id=uuid.uuid4(),
-                user_id=uuid.UUID(user_id),
-                doc_type=parsed.doc_type,
-                doctor_name=parsed.doctor_name or "Не указан",
-                clinic_name=parsed.clinic_name,
-                issue_date=parsed.issue_date,
-                expires_at=parsed.expires_at,
+            db.add(PrescriptionItem(
+                prescription_id=prescription.id,
                 drug_name=drug.drug_name_raw,
                 drug_inn=drug.drug_inn,
                 dosage=drug.dosage,
-                s3_key=s3_key,
-                batch_id=uuid.UUID(batch_id),
-                status="active",
-                duplicate_of_id=duplicate_of_id,
-            )
-            db.add(prescription)
+                is_rx=True,
+            ))
 
         await db.commit()
 
