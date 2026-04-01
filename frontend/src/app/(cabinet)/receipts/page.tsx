@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
-import { BatchProgress } from "@/components/ui/BatchProgress";
 import { useBatchStore } from "@/lib/store";
 import { useBatchSSE } from "@/hooks/useBatchSSE";
 import type {
@@ -632,7 +631,7 @@ function ProcessingPipeline({
   // Подключаем SSE-стрим для получения обновлений о прогрессе батча
   useBatchSSE(activeBatch);
 
-  // Сбрасываем uploadState когда BatchProgress завершает проверку и очищает батч
+  // Сбрасываем uploadState когда батч очищается
   useEffect(() => {
     if (!activeBatch && uploadState === "done") {
       setUploadState("idle");
@@ -640,15 +639,24 @@ function ProcessingPipeline({
     }
   }, [activeBatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Derived states ────────────────────────────────────────────────────────
-  // Батч завершён (с ревью или без) → шаг 1 всегда возвращается к облаку
-  const batchCompleted = !!activeBatch && completed;
+  // Авто-сброс пайплайна когда батч завершился без чеков на проверку (дубликат / не распознан)
+  useEffect(() => {
+    if (!activeBatch || !completed || reviewCount > 0) return;
+    const t = setTimeout(() => {
+      clearBatch();
+      setUploadState("idle");
+      setUploadProgress(0);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [activeBatch, completed, reviewCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Derived states ────────────────────────────────────────────────────────
   const step1Kind: StepKind =
-    batchCompleted              ? "idle" :
-    uploadState === "uploading"  ? "active" :
-    uploadState === "error"      ? "idle" :
-    uploadState === "done" || !!activeBatch ? "done" :
+    uploadState === "uploading"                               ? "active" :
+    uploadState === "error"                                   ? "idle" :
+    !!activeBatch && !completed                               ? "done" :
+    uploadState === "done" && !!activeBatch && completed      ? "idle" :
+    uploadState === "done"                                    ? "done" :
     "idle";
 
   const step2Kind: StepKind =
@@ -657,16 +665,18 @@ function ProcessingPipeline({
     "pending";
 
   const step3Kind: StepKind =
-    !!activeBatch && completed && reviewCount > 0  ? "alert" :
-    !!activeBatch && completed && reviewCount === 0 ? "done" :
+    !!activeBatch && completed && reviewCount > 0                              ? "alert" :
+    !!activeBatch && completed && reviewCount === 0 && failedCount > 0 && doneCount === 0 ? "alert" :
+    !!activeBatch && completed && reviewCount === 0                            ? "done" :
     "pending";
 
   // ── Subtitle texts ────────────────────────────────────────────────────────
   const step1Sub =
-    batchCompleted              ? "Нажмите для загрузки" :
-    uploadState === "uploading"  ? `${uploadProgress}%` :
-    uploadState === "error"      ? "Ошибка — повторите" :
-    uploadState === "done" || !!activeBatch ? "Файлы переданы" :
+    uploadState === "uploading"                          ? `${uploadProgress}%` :
+    uploadState === "error"                              ? "Ошибка — повторите" :
+    !!activeBatch && !completed                          ? "Файлы переданы" :
+    !!activeBatch && completed && uploadState === "done" ? "Нажмите для загрузки" :
+    uploadState === "done"                               ? "Файлы переданы" :
     "Нажмите для загрузки";
 
   const processed = doneCount + reviewCount + failedCount;
@@ -676,14 +686,20 @@ function ProcessingPipeline({
     "Ожидает загрузки";
 
   const step3Sub =
-    step3Kind === "alert" ? `${reviewCount} ${plural(reviewCount, "документ", "документа", "документов")} →` :
-    step3Kind === "done"  ? "Всё проверено" :
+    !!activeBatch && completed && reviewCount > 0
+      ? `${reviewCount} ${plural(reviewCount, "чек", "чека", "чеков")} на проверке →` :
+    !!activeBatch && completed && failedCount > 0 && reviewCount === 0 && doneCount === 0
+      ? "Не распознан" :
+    !!activeBatch && completed && doneCount > 0 && reviewCount === 0
+      ? "Дубликат, пропущен" :
+    !!activeBatch && completed
+      ? "Обработано" :
     "Ожидает обработки";
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function triggerUpload() {
     if (uploadState === "uploading") return;
-    if (completed) {
+    if (activeBatch) {
       clearBatch();
       setUploadState("idle");
       setUploadProgress(0);
@@ -749,7 +765,11 @@ function ProcessingPipeline({
           label="Проверка"
           sublabel={step3Sub}
           icon={<IconReview />}
-          onClick={step3Kind === "alert" ? () => router.push("/review") : undefined}
+          onClick={step3Kind === "alert" && reviewCount > 0 ? () => {
+            clearBatch();
+            setUploadState("idle");
+            router.push("/review");
+          } : undefined}
         />
       </div>
 
@@ -819,9 +839,6 @@ export default function ReceiptsPage() {
       <ProcessingPipeline
         onRefetch={() => void refetch()}
       />
-
-      {/* ── Инлайн-проверка: показывается после OCR, оператор подтверждает каждый чек ── */}
-      <BatchProgress />
 
       {/* ── Duplicate alert banner ── */}
       {activeBatch && completed && reviewCount > 0 && (
