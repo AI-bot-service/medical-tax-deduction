@@ -171,16 +171,52 @@ async def _save_receipt_from_parsed(
         dedup = await check_receipt_duplicate(db, uuid.UUID(user_id), parsed)
 
         if dedup.kind == ReceiptDuplicateKind.IDENTICAL:
-            logger.info(
-                "batch %s #%d: точный дубль чека existing=%s, пропускаем",
-                batch_id, file_index, dedup.existing_id,
-            )
-            # Удаляем файл из S3 — дубль не нужен
-            try:
-                S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
-            except Exception as exc:
-                logger.error("S3 delete failed for duplicate %s: %s", s3_key, exc)
-            return "done"  # засчитываем как done для счётчика батча
+            if parsed.confidence >= CONFIDENCE_REVIEW:
+                logger.info(
+                    "batch %s #%d: точный дубль чека existing=%s, сохраняем для проверки пользователем",
+                    batch_id, file_index, dedup.existing_id,
+                )
+                receipt = Receipt(
+                    id=uuid.uuid4(),
+                    user_id=uuid.UUID(user_id),
+                    s3_key=s3_key,
+                    ocr_status=OCRStatus.DUPLICATE_REVIEW,
+                    batch_id=uuid.UUID(batch_id),
+                    duplicate_of_id=dedup.existing_id,
+                    purchase_date=parsed.purchase_date,
+                    pharmacy_name=parsed.pharmacy_name,
+                    total_amount=float(parsed.total_amount) if parsed.total_amount is not None else None,
+                    ocr_confidence=parsed.confidence,
+                    merge_strategy=parsed.strategy,
+                    fiscal_fn=parsed.fiscal_fn,
+                    fiscal_fd=parsed.fiscal_fd,
+                    fiscal_fp=parsed.fiscal_fp,
+                    needs_prescription=any(item.is_rx for item in parsed.items if item.is_rx),
+                )
+                db.add(receipt)
+                await db.flush()
+                for item in parsed.items:
+                    db.add(ReceiptItem(
+                        receipt_id=receipt.id,
+                        drug_name=item.drug_name_raw,
+                        drug_inn=item.drug_inn,
+                        quantity=item.quantity if item.quantity is not None else 1.0,
+                        unit_price=float(item.unit_price) if item.unit_price is not None else 0.0,
+                        total_price=float(item.total_price) if item.total_price is not None else 0.0,
+                        is_rx=item.is_rx or False,
+                    ))
+                await db.commit()
+                return "review"
+            else:
+                logger.info(
+                    "batch %s #%d: точный дубль чека existing=%s, низкое доверие — пропускаем",
+                    batch_id, file_index, dedup.existing_id,
+                )
+                try:
+                    S3Client().delete_object(BUCKET_RECEIPTS, s3_key)
+                except Exception as exc:
+                    logger.error("S3 delete failed for duplicate %s: %s", s3_key, exc)
+                return "done"
 
         receipt = Receipt(
             id=uuid.uuid4(),
@@ -204,7 +240,7 @@ async def _save_receipt_from_parsed(
 
         # Все успешно распознанные чеки требуют подтверждения пользователем (REVIEW).
         # Статус DONE устанавливается только явно через PATCH /receipts/{id}.
-        # Конфликтный дубль также идёт в REVIEW с пометкой duplicate_of_id.
+        # Конфликтный дубль идёт в DUPLICATE_REVIEW с пометкой duplicate_of_id.
         receipt.ocr_status = OCRStatus.REVIEW
         receipt.purchase_date = parsed.purchase_date
         receipt.pharmacy_name = parsed.pharmacy_name
@@ -221,6 +257,7 @@ async def _save_receipt_from_parsed(
                 batch_id, file_index, dedup.existing_id,
             )
             receipt.duplicate_of_id = dedup.existing_id
+            receipt.ocr_status = OCRStatus.DUPLICATE_REVIEW
             file_status = "review"
 
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx)

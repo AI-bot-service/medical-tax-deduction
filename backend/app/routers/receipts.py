@@ -33,6 +33,7 @@ from app.schemas.receipt import (
     ReceiptListItem,
     ReceiptListResponse,
     ReceiptPatch,
+    ReceiptResolveDuplicate,
     ReceiptUploadResponse,
     SummaryResponse,
 )
@@ -353,6 +354,152 @@ async def patch_receipt(
     await db.refresh(receipt)
 
     # Re-load items after commit
+    stmt2 = (
+        select(Receipt)
+        .where(Receipt.id == receipt_id)
+        .options(selectinload(Receipt.items))
+    )
+    result2 = await db.execute(stmt2)
+    receipt = result2.scalar_one()
+
+    detail = ReceiptDetail.model_validate(receipt)
+    detail.items = [ReceiptItemSchema.model_validate(item) for item in receipt.items]
+    return detail
+
+
+# ---------------------------------------------------------------------------
+# GET /receipts/{id}/duplicate-original
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{receipt_id}/duplicate-original", response_model=ReceiptDetail)
+async def get_duplicate_original(
+    receipt_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> ReceiptDetail:
+    """Вернуть детали оригинального чека, который является источником дубликата."""
+    stmt = select(Receipt).where(Receipt.id == receipt_id, Receipt.user_id == current_user.id)
+    result = await db.execute(stmt)
+    receipt = result.scalar_one_or_none()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+    if not receipt.duplicate_of_id:
+        raise HTTPException(status_code=404, detail="У чека нет ссылки на оригинал")
+
+    orig_stmt = (
+        select(Receipt)
+        .where(Receipt.id == receipt.duplicate_of_id)
+        .options(selectinload(Receipt.items))
+    )
+    orig_result = await db.execute(orig_stmt)
+    original = orig_result.scalar_one_or_none()
+    if original is None:
+        raise HTTPException(status_code=404, detail="Оригинальный чек не найден")
+
+    image_url: str | None = None
+    try:
+        s3 = S3Client()
+        image_url = s3.generate_presigned_url(BUCKET_RECEIPTS, original.s3_key, ttl=900)
+    except Exception as exc:
+        logger.warning("Failed to generate presigned URL for original %s: %s", original.id, exc)
+
+    detail = ReceiptDetail.model_validate(original)
+    detail.image_url = image_url
+    detail.items = [ReceiptItemSchema.model_validate(item) for item in original.items]
+    return detail
+
+
+# ---------------------------------------------------------------------------
+# POST /receipts/{id}/resolve-duplicate
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{receipt_id}/resolve-duplicate", response_model=ReceiptDetail)
+async def resolve_duplicate(
+    receipt_id: uuid.UUID,
+    body: ReceiptResolveDuplicate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> ReceiptDetail:
+    """Разрешить дубликат: проверить актуальность и сохранить или вернуть 409.
+
+    - Если новые fiscal_fn+fiscal_fd совпадают с другим чеком → 409.
+    - Иначе → сохраняем поля, переводим статус REVIEW, снимаем флаг duplicate_of_id.
+    """
+    stmt = (
+        select(Receipt)
+        .where(Receipt.id == receipt_id, Receipt.user_id == current_user.id)
+        .options(selectinload(Receipt.items))
+    )
+    result = await db.execute(stmt)
+    receipt = result.scalar_one_or_none()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+    if receipt.ocr_status != OCRStatus.DUPLICATE_REVIEW:
+        raise HTTPException(status_code=400, detail="Чек не находится в статусе проверки дубликата")
+
+    # Определяем итоговые фискальные данные (из тела или из сохранённого чека)
+    fn = body.fiscal_fn if body.fiscal_fn is not None else receipt.fiscal_fn
+    fd = body.fiscal_fd if body.fiscal_fd is not None else receipt.fiscal_fd
+
+    if fn and fd:
+        dup_stmt = select(Receipt).where(
+            Receipt.fiscal_fn == fn,
+            Receipt.fiscal_fd == fd,
+            Receipt.id != receipt_id,
+        )
+        dup_result = await db.execute(dup_stmt)
+        conflicting = dup_result.scalar_one_or_none()
+        if conflicting:
+            raise HTTPException(
+                status_code=409,
+                detail="Найден дубликат: чек с такими фискальными данными уже существует в базе.",
+            )
+
+    # Применяем правки
+    if body.purchase_date is not None:
+        receipt.purchase_date = body.purchase_date
+    if body.pharmacy_name is not None:
+        receipt.pharmacy_name = body.pharmacy_name
+    if body.total_amount is not None:
+        receipt.total_amount = float(body.total_amount)
+    if body.fiscal_fn is not None:
+        receipt.fiscal_fn = body.fiscal_fn
+    if body.fiscal_fd is not None:
+        receipt.fiscal_fd = body.fiscal_fd
+
+    if body.items is not None:
+        normalizer = get_drug_normalizer()
+        items_by_id = {item.id: item for item in receipt.items}
+        for patch_item in body.items:
+            db_item = items_by_id.get(patch_item.id)
+            if db_item is None:
+                continue
+            if patch_item.drug_name is not None:
+                db_item.drug_name = patch_item.drug_name
+                if patch_item.drug_inn is None:
+                    match = normalizer.normalize(patch_item.drug_name)
+                    db_item.drug_inn = match.drug_inn if match else None
+                    if match and patch_item.is_rx is None:
+                        db_item.is_rx = match.is_rx
+            if patch_item.drug_inn is not None:
+                db_item.drug_inn = patch_item.drug_inn
+            if patch_item.quantity is not None:
+                db_item.quantity = patch_item.quantity
+            if patch_item.unit_price is not None:
+                db_item.unit_price = float(patch_item.unit_price)
+            if patch_item.total_price is not None:
+                db_item.total_price = float(patch_item.total_price)
+            if patch_item.is_rx is not None:
+                db_item.is_rx = patch_item.is_rx
+
+    # Снимаем флаг дубликата и переводим на обычную проверку
+    receipt.ocr_status = OCRStatus.REVIEW
+    receipt.duplicate_of_id = None
+
+    await db.commit()
+
     stmt2 = (
         select(Receipt)
         .where(Receipt.id == receipt_id)

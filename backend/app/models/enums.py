@@ -6,6 +6,7 @@ class OCRStatus(enum.StrEnum):
     DONE = "DONE"
     REVIEW = "REVIEW"
     FAILED = "FAILED"
+    DUPLICATE_REVIEW = "DUPLICATE_REVIEW"
 
 
 class DocType(enum.StrEnum):

@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
+import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
 import { useBatchStore } from "@/lib/store";
 import { useBatchSSE } from "@/hooks/useBatchSSE";
 import type {
@@ -792,6 +793,7 @@ function ProcessingPipeline({
 
 export default function ReceiptsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [sortField, setSortField]         = useState<SortField>("purchase_date");
   const [sortDir, setSortDir]             = useState<SortDir>("desc");
@@ -802,6 +804,31 @@ export default function ReceiptsPage() {
   const activeBatch = useBatchStore(s => s.activeBatch);
   const completed   = useBatchStore(s => s.completed);
   const reviewCount = useBatchStore(s => s.reviewCount);
+
+  // Очередь ID чеков со статусом DUPLICATE_REVIEW для показа модалки
+  const [duplicateQueue, setDuplicateQueue] = useState<string[]>([]);
+
+  // После завершения батча ищем чеки с DUPLICATE_REVIEW в этом батче
+  useEffect(() => {
+    if (!activeBatch || !completed) return;
+    api.get<ReceiptListResponse>(`/api/v1/receipts?batch_id=${activeBatch}`)
+      .then(resp => {
+        const dupeIds = resp.months
+          .flatMap(m => m.receipts)
+          .filter(r => r.ocr_status === "DUPLICATE_REVIEW")
+          .map(r => r.id);
+        if (dupeIds.length > 0) {
+          setDuplicateQueue(dupeIds);
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }, [activeBatch, completed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleDuplicateDone() {
+    setDuplicateQueue(prev => prev.slice(1));
+    void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
+    void queryClient.invalidateQueries({ queryKey: ["summary"] });
+  }
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
     queryKey: ["receipts-list"],
@@ -835,6 +862,15 @@ export default function ReceiptsPage() {
 
   return (
     <>
+      {/* ── Модалка проверки дубликата ── */}
+      {duplicateQueue.length > 0 && (
+        <DuplicateReviewModal
+          receiptId={duplicateQueue[0]}
+          onSaved={handleDuplicateDone}
+          onCancelled={handleDuplicateDone}
+        />
+      )}
+
       {/* ── Processing Pipeline (replaces old header + upload button) ── */}
       <ProcessingPipeline
         onRefetch={() => void refetch()}

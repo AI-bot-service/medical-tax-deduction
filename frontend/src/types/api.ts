@@ -7,7 +7,7 @@
 // Enums
 // ---------------------------------------------------------------------------
 
-export type OCRStatus = "PENDING" | "DONE" | "REVIEW" | "FAILED";
+export type OCRStatus = "PENDING" | "DONE" | "REVIEW" | "FAILED" | "DUPLICATE_REVIEW";
 
 export type DocType =
   | "recipe_107"
@@ -82,6 +82,9 @@ export interface ReceiptListResponse {
 
 export interface ReceiptDetail extends ReceiptListItem {
   merge_strategy: string | null;
+  fiscal_fn: string | null;
+  fiscal_fd: string | null;
+  duplicate_of_id: string | null;
   image_url: string | null;
   items: ReceiptItem[];
 }

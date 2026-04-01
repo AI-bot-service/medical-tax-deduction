@@ -103,18 +103,18 @@ async def _run(receipt_id: str) -> None:
         dedup = await check_receipt_duplicate(db, receipt.user_id, parsed)
         if dedup.kind == DuplicateKind.IDENTICAL:
             logger.info(
-                "Receipt %s — точный дубль existing=%s, пропускаем",
+                "Receipt %s — точный дубль existing=%s, сохраняем для проверки пользователем",
                 receipt_id, dedup.existing_id,
             )
-            await _delete_failed_receipt(db, receipt, s3, "duplicate_identical")
-            return
-        if dedup.kind == DuplicateKind.CONFLICT:
+            ocr_status = OCRStatus.DUPLICATE_REVIEW
+            receipt.duplicate_of_id = dedup.existing_id
+        elif dedup.kind == DuplicateKind.CONFLICT:
             logger.warning(
                 "Receipt %s — дубль с другим составом existing=%s, отправляем на проверку оператору",
                 receipt_id, dedup.existing_id,
             )
-            # Помечаем как конфликт для оператора; статус REVIEW
-            ocr_status = OCRStatus.REVIEW
+            ocr_status = OCRStatus.DUPLICATE_REVIEW
+            receipt.duplicate_of_id = dedup.existing_id
 
         # 6. Update receipt fields
         receipt.purchase_date = parsed.purchase_date
@@ -126,8 +126,6 @@ async def _run(receipt_id: str) -> None:
         receipt.fiscal_fn = parsed.fiscal_fn
         receipt.fiscal_fd = parsed.fiscal_fd
         receipt.fiscal_fp = parsed.fiscal_fp
-        if dedup.kind == DuplicateKind.CONFLICT:
-            receipt.duplicate_of_id = dedup.existing_id
 
         # 7. Determine if any rx items need prescription
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx is True)

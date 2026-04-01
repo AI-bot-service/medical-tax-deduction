@@ -84,6 +84,9 @@ class ReceiptDetail(BaseModel):
     ocr_confidence: float | None = None
     merge_strategy: str | None = None
     needs_prescription: bool
+    fiscal_fn: str | None = None
+    fiscal_fd: str | None = None
+    duplicate_of_id: uuid.UUID | None = None
     image_url: str | None = None  # presigned URL, injected after DB fetch
     items: list[ReceiptItemSchema] = Field(default_factory=list)
     created_at: datetime
@@ -129,4 +132,15 @@ class ReceiptPatch(BaseModel):
     purchase_date: date | None = None
     pharmacy_name: str | None = None
     total_amount: Decimal | None = None
+    items: list[ReceiptItemPatch] | None = None
+
+
+class ReceiptResolveDuplicate(BaseModel):
+    """Тело запроса POST /receipts/{id}/resolve-duplicate."""
+
+    purchase_date: date | None = None
+    pharmacy_name: str | None = None
+    total_amount: Decimal | None = None
+    fiscal_fn: str | None = None
+    fiscal_fd: str | None = None
     items: list[ReceiptItemPatch] | None = None
