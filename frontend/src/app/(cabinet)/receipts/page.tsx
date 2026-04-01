@@ -43,10 +43,11 @@ function plural(n: number, one: string, few: string, many: string) {
 // ---------------------------------------------------------------------------
 
 const STATUS_CONFIG: Record<OCRStatus, { cls: string; dot: string; label: string }> = {
-  DONE:    { cls: "badge badge-done",    dot: "#22C55E", label: "Готов" },
-  REVIEW:  { cls: "badge badge-review",  dot: "#F59E0B", label: "Проверка" },
-  FAILED:  { cls: "badge badge-failed",  dot: "#EF4444", label: "Ошибка" },
-  PENDING: { cls: "badge badge-pending", dot: "#7B6FD4", label: "Обработка" },
+  DONE:             { cls: "badge badge-done",    dot: "#22C55E", label: "Готов" },
+  REVIEW:           { cls: "badge badge-review",  dot: "#F59E0B", label: "Проверка" },
+  FAILED:           { cls: "badge badge-failed",  dot: "#EF4444", label: "Ошибка" },
+  PENDING:          { cls: "badge badge-pending", dot: "#7B6FD4", label: "Обработка" },
+  DUPLICATE_REVIEW: { cls: "badge badge-review",  dot: "#F59E0B", label: "Дубликат" },
 };
 
 function StatusBadge({ status, confidence }: { status: OCRStatus; confidence?: number | null }) {

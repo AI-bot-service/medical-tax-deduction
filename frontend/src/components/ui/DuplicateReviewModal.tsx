@@ -12,7 +12,7 @@
  *   - «Отмена» / «Закрыть»: DELETE /receipts/{id} + закрытие модалки
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { ReceiptDetail } from "@/types/api";
