@@ -47,6 +47,41 @@ def _make_session() -> tuple:
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
+async def _on_permanent_failure(batch_id: str, file_index: int) -> None:
+    """Вызывается когда все попытки задачи исчерпаны: обновляет счётчик и публикует SSE."""
+    engine, session_factory = _make_session()
+    try:
+        async with session_factory() as db:
+            await db.execute(
+                update(BatchJob)
+                .where(BatchJob.id == uuid.UUID(batch_id))
+                .values({BatchJob.failed_count: BatchJob.failed_count + 1})
+            )
+            await db.commit()
+
+        async with session_factory() as db:
+            batch = await _get_batch(db, batch_id)
+            if batch is None:
+                return
+            completed = (batch.done_count + batch.review_count + batch.failed_count) >= batch.total_files
+            publish_batch_event(
+                batch_id=batch_id,
+                file_index=file_index,
+                status="failed",
+                done_count=batch.done_count,
+                review_count=batch.review_count,
+                failed_count=batch.failed_count,
+                total_files=batch.total_files,
+                completed=completed,
+            )
+            if completed:
+                batch.status = BatchStatus.PARTIAL
+                batch.completed_at = datetime.utcnow()
+                await db.commit()
+    finally:
+        await engine.dispose()
+
+
 @celery_app.task(name="workers.tasks.batch_task.process_batch_file", bind=True, max_retries=2)
 def process_batch_file(
     self,
@@ -63,9 +98,17 @@ def process_batch_file(
         return result
     except Exception as exc:
         logger.error("batch_task failed [%s #%d]: %s", batch_id, file_index, exc)
-        raise self.retry(exc=exc, countdown=30)
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=30)
+        # Все попытки исчерпаны — фиксируем провал в счётчике батча и отправляем SSE
+        try:
+            loop.run_until_complete(_on_permanent_failure(batch_id, file_index))
+        except Exception as inner:
+            logger.error("_on_permanent_failure failed [%s #%d]: %s", batch_id, file_index, inner)
+        raise
     finally:
-        loop.close()
+        if not loop.is_closed():
+            loop.close()
 
 
 async def _run(
@@ -188,8 +231,10 @@ async def _save_receipt_from_parsed(
                     total_amount=float(parsed.total_amount) if parsed.total_amount is not None else None,
                     ocr_confidence=parsed.confidence,
                     merge_strategy=parsed.strategy,
-                    fiscal_fn=parsed.fiscal_fn,
-                    fiscal_fd=parsed.fiscal_fd,
+                    # fiscal_fn/fd не сохраняем: нарушит uq_receipts_fiscal (совпадают с оригиналом)
+                    # пользователь увидит эти данные в левой карточке оригинала
+                    fiscal_fn=None,
+                    fiscal_fd=None,
                     fiscal_fp=parsed.fiscal_fp,
                     needs_prescription=any(item.is_rx for item in parsed.items if item.is_rx),
                 )
@@ -258,6 +303,9 @@ async def _save_receipt_from_parsed(
             )
             receipt.duplicate_of_id = dedup.existing_id
             receipt.ocr_status = OCRStatus.DUPLICATE_REVIEW
+            # fiscal_fn/fd не сохраняем: нарушит uq_receipts_fiscal
+            receipt.fiscal_fn = None
+            receipt.fiscal_fd = None
             file_status = "review"
 
         has_rx = any(item.is_rx for item in parsed.items if item.is_rx)

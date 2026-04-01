@@ -624,6 +624,8 @@ function ProcessingPipeline({
 
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStuckSince, setProcessingStuckSince] = useState<number | null>(null);
+  const [showStuckWarning, setShowStuckWarning] = useState(false);
 
   const {
     activeBatch, totalFiles, doneCount, reviewCount, failedCount, completed,
@@ -632,6 +634,27 @@ function ProcessingPipeline({
 
   // Подключаем SSE-стрим для получения обновлений о прогрессе батча
   useBatchSSE(activeBatch);
+
+  // Отслеживаем зависание: если батч не завершился за 3 минуты — показываем предупреждение
+  useEffect(() => {
+    if (!activeBatch || completed) {
+      setProcessingStuckSince(null);
+      setShowStuckWarning(false);
+      return;
+    }
+    const processed = doneCount + reviewCount + failedCount;
+    if (processed < totalFiles) {
+      if (!processingStuckSince) setProcessingStuckSince(Date.now());
+    } else {
+      setProcessingStuckSince(null);
+    }
+  }, [activeBatch, completed, doneCount, reviewCount, failedCount, totalFiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!processingStuckSince) { setShowStuckWarning(false); return; }
+    const t = setTimeout(() => setShowStuckWarning(true), 3 * 60 * 1000); // 3 минуты
+    return () => clearTimeout(t);
+  }, [processingStuckSince]);
 
   // Сбрасываем uploadState когда батч очищается
   useEffect(() => {
@@ -774,6 +797,36 @@ function ProcessingPipeline({
           } : undefined}
         />
       </div>
+
+      {/* ── Предупреждение о зависании распознавания ── */}
+      {showStuckWarning && (
+        <div style={{
+          marginTop: 14,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          padding: "12px 16px",
+          background: "rgba(239,68,68,0.07)",
+          border: "1px solid rgba(239,68,68,0.28)",
+          borderRadius: "var(--r-md)",
+        }}>
+          <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>⚠</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--red-text)", marginBottom: 2 }}>
+              Распознавание занимает слишком долго
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              Возможная причина: ошибка связи с сервером распознавания или временный сбой. Попробуйте{" "}
+              <button
+                onClick={() => { clearBatch(); setUploadState("idle"); setShowStuckWarning(false); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontSize: 12, padding: 0, textDecoration: "underline" }}
+              >
+                сбросить и загрузить повторно
+              </button>.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hidden file input */}
       <input

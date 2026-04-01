@@ -123,8 +123,10 @@ async def _run(receipt_id: str) -> None:
         receipt.ocr_confidence = parsed.confidence
         receipt.merge_strategy = parsed.strategy
         receipt.ocr_status = ocr_status
-        receipt.fiscal_fn = parsed.fiscal_fn
-        receipt.fiscal_fd = parsed.fiscal_fd
+        # fiscal_fn/fd не сохраняем для дубликатов: нарушит uq_receipts_fiscal
+        if dedup.kind not in (DuplicateKind.IDENTICAL, DuplicateKind.CONFLICT):
+            receipt.fiscal_fn = parsed.fiscal_fn
+            receipt.fiscal_fd = parsed.fiscal_fd
         receipt.fiscal_fp = parsed.fiscal_fp
 
         # 7. Determine if any rx items need prescription
