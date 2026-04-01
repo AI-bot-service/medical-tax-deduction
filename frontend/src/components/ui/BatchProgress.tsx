@@ -1158,9 +1158,9 @@ export function BatchProgress() {
 
   const processed = doneCount + reviewCount + failedCount;
 
-  /* ── Сканирование ── */
+  /* ── Сканирование — анимация только в верхнем пайплайне ── */
   if (phase === "processing") {
-    return <ScanningCard processed={processed} total={totalFiles}/>;
+    return null;
   }
 
   /* ── Всё готово, нечего проверять ── */
