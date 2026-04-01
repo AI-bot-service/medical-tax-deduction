@@ -494,8 +494,8 @@ async def resolve_duplicate(
             if patch_item.is_rx is not None:
                 db_item.is_rx = patch_item.is_rx
 
-    # Снимаем флаг дубликата и переводим на обычную проверку
-    receipt.ocr_status = OCRStatus.REVIEW
+    # Снимаем флаг дубликата — пользователь сам подтвердил данные, ставим DONE
+    receipt.ocr_status = OCRStatus.DONE
     receipt.duplicate_of_id = None
 
     await db.commit()
