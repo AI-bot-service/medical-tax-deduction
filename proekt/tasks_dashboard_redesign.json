@@ -214,7 +214,7 @@
         "Шаг 4: при нулевых суммах — стакан пустой"
       ],
       "dependencies": ["TASK-003", "TASK-004"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-011",
