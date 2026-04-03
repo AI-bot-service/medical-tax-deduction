@@ -342,7 +342,7 @@
         "Шаг 5: открыть Network в DevTools — нет лишних запросов при каждом рендере"
       ],
       "dependencies": ["TASK-009", "TASK-012", "TASK-014", "TASK-015"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-017",

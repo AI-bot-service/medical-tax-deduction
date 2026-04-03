@@ -1,3 +1,33 @@
+## 2026-04-03 — TASK-016: Финальная сборка дашборда
+
+**Статус**: DONE
+
+**Что сделано**:
+- `DashboardContent` уже содержал все 4 панели: HeroCard, YearFilter, LimitsPanel, DocumentsPanel — структура была правильной
+- Обнаружена и исправлена ошибка: `HeroCard` хардкодил `const year = new Date().getFullYear()` — год не менялся при переключении в `YearFilter`
+- Добавлен проп `year: number` в `HeroCard` и `DashboardContent`
+- `DashboardPage` передаёт `year` (из `useDashboardStore`) в `DashboardContent → HeroCard`
+- Теперь все 4 компонента реагируют на смену `selectedYear`: HeroCard через пропс, LimitsPanel/DocumentsPanel через `useDashboardStore` напрямую
+- `pytest tests/test_deduction/` — 54 passed
+
+**Acceptance Criteria выполнены**:
+- ✅ DashboardContent: HeroCard + YearFilter + LimitsPanel + DocumentsPanel
+- ✅ Все компоненты используют единый selectedYear
+- ✅ Смена года перерисовывает HeroCard (данные summary + год), LimitsPanel, DocumentsPanel
+- ✅ Нет старых компонентов (StatusKanban, ReceiptsSchedule, SidePanel — удалены в TASK-015)
+
+**Разблокировано**:
+- TASK-017: заменить эмодзи в HeroCard на иконки Lucide (low priority, зависит от TASK-016)
+
+**Следующие задачи**:
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+- TASK-006: кнопка «i» с tooltip (high, зависит от TASK-005)
+- TASK-007: расширяемый список вычетов в sidebar (medium, зависит от TASK-005)
+- TASK-018: unit-тест для GET /api/v1/tax-limits (low, зависит от TASK-002=done)
+- TASK-017: заменить эмодзи на Lucide Icons (low, зависит от TASK-016=done)
+
+---
+
 ## 2026-04-03 — TASK-015: Удалить старые панели из дашборда
 
 **Статус**: DONE
