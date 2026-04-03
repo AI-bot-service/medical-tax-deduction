@@ -57,6 +57,7 @@ def create_app() -> FastAPI:
     from app.routers.auth import router as auth_router
     from app.routers.batch import router as batch_router
     from app.routers.calculator import router as calculator_router
+    from app.routers.documents import router as documents_router
     from app.routers.expenses import router as expenses_router
     from app.routers.export import router as export_router
     from app.routers.prescriptions import router as prescriptions_router
@@ -74,6 +75,8 @@ def create_app() -> FastAPI:
     app.include_router(tax_limits_router, prefix="/api/v1")
     # Расходы пользователя — требуют авторизации
     app.include_router(expenses_router, prefix="/api/v1")
+    # Статистика документов — требует авторизации
+    app.include_router(documents_router, prefix="/api/v1")
 
     return app
 

@@ -444,7 +444,7 @@
         "Шаг 5: GET с year=2023 — данные не пересекаются с 2024"
       ],
       "dependencies": ["TASK-020"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-022",

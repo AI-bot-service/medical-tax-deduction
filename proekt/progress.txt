@@ -1,3 +1,34 @@
+## 2026-04-03 — TASK-021: Backend GET /api/v1/documents/stats
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан роутер `backend/app/routers/documents.py` с эндпоинтом `GET /api/v1/documents/stats?year={year}`
+- Эндпоинт требует авторизации (JWT-кука через `get_current_user`)
+- Возвращает 5 групп: `clinic_certs`, `recipes`, `pharmacy_receipts`, `vhi_docs`, `ndfl_certs`
+- Источники данных:
+  - `clinic_certs`: Prescription с doc_type в DOC_* + Document.CLINIC_CERT
+  - `recipes`: Prescription с doc_type RECIPE_107/RECIPE_EGISZ
+  - `pharmacy_receipts`: Receipt (фильтр по `purchase_date` год)
+  - `vhi_docs`: Document.VHI_CERT
+  - `ndfl_certs`: Document.NDFL_2
+- `pending_count` для Receipt = ocr_status in (PENDING, REVIEW, DUPLICATE_REVIEW)
+- `pending_count` для Document = doc_status = PENDING
+- `pending_count` для Prescription = duplicate_of_id IS NOT NULL
+- Роутер зарегистрирован в `app/main.py`
+- `ruff check` для новых файлов — чисто; `pytest tests/test_deduction/` — 54 passed
+
+**Разблокировано**:
+- TASK-022: Frontend хуки `useExpenseCategories` и `useDocumentStats` (теперь оба бекенд-эндпоинта готовы)
+- После TASK-022 → TASK-012 + TASK-014 → TASK-016 (критический путь)
+
+**Следующие задачи**:
+- TASK-022: создать типы и хуки `useExpenseCategories(year)` и `useDocumentStats(year)` (высокий приоритет, обе зависимости done)
+- TASK-011: SmallGlass компонент (нет зависимостей, high priority)
+- TASK-010: BigGlass компонент (зависимости выполнены)
+
+---
+
 ## 2026-04-03 — TASK-020: Модель Document + миграция БД
 
 **Статус**: DONE
