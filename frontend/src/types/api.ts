@@ -161,6 +161,26 @@ export interface BatchJobDetail extends BatchJob {
   completed_at: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Tax Limits
+// ---------------------------------------------------------------------------
+
+export interface TaxLimitItem {
+  type_key: string;
+  type_name: string;
+  limit_amount: number | null;
+  refund_amount: number | null;
+  refund_percent: number | null;
+  is_uncapped: boolean;
+  is_separate: boolean;
+}
+
+export interface TaxLimitsResponse {
+  year: number;
+  combined_limit: number;
+  limits: TaxLimitItem[];
+}
+
 // SSE event payload from sse_publisher.py
 export interface BatchSSEEvent {
   batch_id: string;

@@ -1,8 +1,9 @@
 /**
  * Zustand stores (G-01):
- *  - authStore   : authentication state
- *  - batchStore  : active batch + SSE event handling
- *  - reviewStore : REVIEW-queue navigation
+ *  - authStore     : authentication state
+ *  - batchStore    : active batch + SSE event handling
+ *  - reviewStore   : REVIEW-queue navigation
+ *  - dashboardStore: selected tax year for dashboard panels
  */
 
 import { create } from "zustand";
@@ -128,4 +129,18 @@ export const useReviewStore = create<ReviewState>((set) => ({
     set((state) => ({
       currentIdx: Math.min(state.currentIdx + 1, state.queue.length),
     })),
+}));
+
+// ---------------------------------------------------------------------------
+// dashboardStore
+// ---------------------------------------------------------------------------
+
+interface DashboardState {
+  selectedYear: number;
+  setSelectedYear: (year: number) => void;
+}
+
+export const useDashboardStore = create<DashboardState>((set) => ({
+  selectedYear: new Date().getFullYear(),
+  setSelectedYear: (year) => set({ selectedYear: year }),
 }));
