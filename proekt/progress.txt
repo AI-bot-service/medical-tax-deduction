@@ -1,3 +1,28 @@
+## 2026-04-03 — TASK-020: Модель Document + миграция БД
+
+**Статус**: DONE
+
+**Что сделано**:
+- Добавлены enum `DocumentType` (clinic_cert, vhi_cert, ndfl_2, contract) и `DocumentStatus` (uploaded, pending, confirmed) в `backend/app/models/enums.py`
+- Создана модель `Document` в `backend/app/models/document.py` с полями: id, user_id, doc_type, doc_status, tax_year, s3_key, filename, created_at
+- Добавлен relationship `documents` в `User` (cascade all, delete-orphan)
+- Зарегистрировано в `backend/app/models/__init__.py`
+- Создана миграция Alembic `0011_document_model.py` (revision=0011, down_revision=0010)
+  - CREATE TYPE documenttype, documentstatus
+  - CREATE TABLE documents + индексы по user_id и (user_id, tax_year)
+  - downgrade: DROP TABLE + DROP TYPE
+
+**Разблокировано**:
+- TASK-021: Backend эндпоинт GET /api/v1/documents/stats?year={year} (теперь модель есть)
+- После TASK-021 → TASK-022 → TASK-014 → TASK-016 (критический путь)
+
+**Следующие задачи**:
+- TASK-021: создать эндпоинт /api/v1/documents/stats (depends on TASK-020=done теперь)
+- TASK-011: SmallGlass компонент (no deps, high priority, frontend)
+- TASK-010: BigGlass компонент (TASK-003+TASK-004 done, high priority)
+
+---
+
 ## 2026-04-03 — TASK-008: Страница /info/social-vychet
 
 **Статус**: DONE

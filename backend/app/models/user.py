@@ -32,3 +32,16 @@ class User(TimestampMixin, Base):
     prescriptions: Mapped[list["Prescription"]] = relationship(  # noqa: F821
         "Prescription", back_populates="user", cascade="all, delete-orphan"
     )
+    expenses: Mapped[list["Expense"]] = relationship(  # noqa: F821
+        "Expense", back_populates="user", cascade="all, delete-orphan"
+    )
+    income_records: Mapped[list["IncomeRecord"]] = relationship(  # noqa: F821
+        "IncomeRecord", back_populates="user", cascade="all, delete-orphan"
+    )
+    family_members: Mapped[list["FamilyMember"]] = relationship(  # noqa: F821
+        "FamilyMember", back_populates="user",
+        foreign_keys="FamilyMember.user_id", cascade="all, delete-orphan"
+    )
+    documents: Mapped[list["Document"]] = relationship(  # noqa: F821
+        "Document", back_populates="user", cascade="all, delete-orphan"
+    )

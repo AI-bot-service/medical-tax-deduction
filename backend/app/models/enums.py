@@ -42,3 +42,32 @@ class BatchSource(enum.StrEnum):
     TELEGRAM_BOT = "telegram_bot"
     WEB = "web"
     MINI_APP = "mini_app"
+
+
+class ExpenseCategory(enum.StrEnum):
+    MEDICINE = "medicine"
+    TREATMENT_REGULAR = "treatment_regular"
+    TREATMENT_EXPENSIVE = "treatment_expensive"
+    VHI = "vhi"
+    EDUCATION_SELF = "education_self"
+    EDUCATION_CHILD = "education_child"
+    EDUCATION_SPOUSE = "education_spouse"
+    FITNESS = "fitness"
+
+
+class FamilyRole(enum.StrEnum):
+    SPOUSE = "spouse"
+    CHILD = "child"
+
+
+class DocumentType(enum.StrEnum):
+    CLINIC_CERT = "clinic_cert"     # Справка об оплате мед. услуг КНД 1151156
+    VHI_CERT = "vhi_cert"           # Справка об оплате по ДМС КНД 1151159
+    NDFL_2 = "ndfl_2"               # Справка 2-НДФЛ
+    CONTRACT = "contract"           # Договор с клиникой / страховой
+
+
+class DocumentStatus(enum.StrEnum):
+    UPLOADED = "uploaded"           # Загружен пользователем
+    PENDING = "pending"             # Ожидает проверки
+    CONFIRMED = "confirmed"         # Подтверждён пользователем

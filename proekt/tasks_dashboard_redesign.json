@@ -421,7 +421,7 @@
         "Шаг 3: alembic downgrade -1 && alembic upgrade head — rollback и re-apply работают"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-021",
