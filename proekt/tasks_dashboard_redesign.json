@@ -281,7 +281,7 @@
         "Шаг 5: отрисовать с uploadedCount=5, pendingCount=0 — показывает [5]/0 и ✅"
       ],
       "dependencies": ["TASK-004"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-014",

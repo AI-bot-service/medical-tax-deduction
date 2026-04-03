@@ -1,3 +1,28 @@
+## 2026-04-03 — TASK-013: DocumentGroup (Панель 4)
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан компонент `frontend/src/components/ui/DocumentGroup.tsx`
+- Пропсы: `title`, `description`, `icon: LucideIcon`, `uploadedCount`, `pendingCount`, `groupKey`, `year`
+- Иконка — в квадрате с акцентным фоном `var(--accent-light)`, цвет `var(--accent)`
+- `uploadedCount > 0` → `<Link>` на `/receipts?type={groupKey}&status=confirmed&year={year}`, стиль акцентный
+- `pendingCount > 0` → `<Link>` на `/receipts?type={groupKey}&status=pending&year={year}`, стиль warning
+- При `count=0` → обычный `<span>` без ссылки
+- Статус-индикатор: ✅ (uploaded>0, pending=0) | ⚠️ (pending>0) | ○ (оба=0)
+- Все стили через CSS-переменные HEITKAMP: `var(--accent)`, `var(--text-muted)`, `var(--warning)` и т.д.
+
+**Разблокировано**:
+- TASK-014: DocumentsPanel (теперь TASK-013 done, TASK-009 done, TASK-022 done — все зависимости выполнены)
+- TASK-016: после TASK-014 + TASK-015 → финальная сборка дашборда
+
+**Следующие задачи**:
+- TASK-014: собрать DocumentsPanel из 5 групп (high, все зависимости done)
+- TASK-015: удалить старые панели StatusKanban, ReceiptsSchedule, SidePanel (medium, нет зависимостей)
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+
+---
+
 ## 2026-04-03 — TASK-012: LimitsPanel (Панель 3)
 
 **Статус**: DONE
