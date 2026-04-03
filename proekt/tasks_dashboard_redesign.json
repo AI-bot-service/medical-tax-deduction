@@ -236,7 +236,7 @@
         "Шаг 4: hover на стакане — tooltip с точными суммами"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-012",
@@ -467,7 +467,7 @@
         "Шаг 4: изменить year — React Query делает новый запрос (видно в Network DevTools)"
       ],
       "dependencies": ["TASK-019", "TASK-021"],
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

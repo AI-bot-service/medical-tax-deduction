@@ -1,3 +1,59 @@
+## 2026-04-03 — TASK-011: Компонент SmallGlass (Панель 3)
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан компонент `frontend/src/components/ui/SmallGlass.tsx`
+- Пропсы: `categoryName`, `color`, `spent`, `limit`, `refund`, `isUncapped`
+- Для `isUncapped=false`: двухслойная заливка (opacity фон + gradient) пропорционально `spent/limit`, с анимацией через CSS transition `height`
+- Для `isUncapped=true`: пустой стакан + анимированный символ ∞ (keyframe `smallGlassPulse`)
+- Над стаканом: процент заполнения (`Math.round(%)%`) или `—` для безлимитных
+- Под стаканом: название, лимит (форматирован в ₽ через `Intl.NumberFormat`) или ∞, макс. возврат
+- Hover-tooltip: название, потрачено, лимит/безлимит, макс. возврат. Стрелочка через CSS rotate
+- Все стили через CSS-переменные (`var(--accent)`, `var(--border-strong)`, и т.д.)
+- 54 deduction теста прошли, ruff errors — pre-existing, не связаны с изменением
+
+**Разблокировано**:
+- TASK-010: BigGlass (теперь TASK-011 done — оба компонента готовы к сборке в TASK-012)
+- Критический путь: TASK-010 → TASK-012 → TASK-016
+
+**Следующие задачи**:
+- TASK-010: BigGlass компонент (высокий приоритет, зависимости TASK-003+TASK-004 done)
+- TASK-013: DocumentGroup (высокий приоритет, TASK-004 done)
+- TASK-015: удалить старые панели (medium, нет зависимостей)
+
+---
+
+## 2026-04-03 — TASK-022: Frontend хуки useExpenseCategories и useDocumentStats
+
+**Статус**: DONE
+
+**Что сделано**:
+- Типы `CategoryBreakdown`, `ExpenseCategoryItem` добавлены в `frontend/src/types/api.ts` (были уже присутствовали)
+- Типы `DocumentStats`, `DocumentStatGroup` добавлены в `frontend/src/types/api.ts` (были уже присутствовали)
+- Создан хук `frontend/src/hooks/useExpenseCategories.ts`:
+  - `useExpenseCategories(year: number)` → React Query, `queryKey: ["expense-categories", year]`
+  - `staleTime: 60_000` (1 минута ≥ 60 сек)
+  - Запрашивает `GET /api/v1/expenses/categories?year={year}`
+- Создан хук `frontend/src/hooks/useDocumentStats.ts`:
+  - `useDocumentStats(year: number)` → React Query, `queryKey: ["document-stats", year]`
+  - `staleTime: 60_000`
+  - Запрашивает `GET /api/v1/documents/stats?year={year}`
+- Оба хука имеют `year` в `queryKey` — React Query автоматически перезапрашивает при смене года
+
+**Разблокировано**:
+- TASK-012: LimitsPanel (теперь TASK-022 done, осталось TASK-010 и TASK-011)
+- TASK-014: DocumentsPanel (теперь TASK-022 done, осталось TASK-013)
+- Критический путь: TASK-011 → TASK-010 → TASK-012 → TASK-016
+
+**Следующие задачи**:
+- TASK-011: SmallGlass компонент (нет зависимостей, high priority) — **рекомендуется следующей**
+- TASK-013: DocumentGroup компонент (TASK-004 done)
+- TASK-010: BigGlass компонент (все зависимости done)
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+
+---
+
 ## 2026-04-03 — TASK-021: Backend GET /api/v1/documents/stats
 
 **Статус**: DONE
