@@ -6,6 +6,7 @@ import { YearFilter } from "@/components/ui/YearFilter";
 import { LimitsPanel } from "@/components/ui/LimitsPanel";
 import { DocumentsPanel } from "@/components/ui/DocumentsPanel";
 import { useDashboardStore } from "@/lib/store";
+import { Pill, Calendar, Banknote, ReceiptText, ClipboardList, Download, type LucideIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,8 +63,8 @@ function HeroCard({ summary, totalCount, year }: { summary: Summary; totalCount:
             width: "72px", height: "72px", borderRadius: "18px",
             background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-mid) 100%)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "28px", boxShadow: "var(--shadow-accent)",
-          }}>💊</div>
+            boxShadow: "var(--shadow-accent)",
+          }}><Pill size={32} color="#fff" strokeWidth={1.75} /></div>
           <div style={{ marginTop: "8px", textAlign: "center" }}>
             <span className="badge badge-done" style={{ fontSize: "10px" }}>Активный</span>
           </div>
@@ -88,10 +89,10 @@ function HeroCard({ summary, totalCount, year }: { summary: Summary; totalCount:
           </div>
 
           <div style={{ display: "flex", gap: "20px", marginBottom: "16px", flexWrap: "wrap" }}>
-            <FieldInfo icon="📅" label="Налоговый период" value={`${year} год`} />
-            <FieldInfo icon="💰" label="Расходы на лекарства" value={fmt(summary.total_amount)} />
-            <FieldInfo icon="🧾" label="Чеков загружено" value={`${totalCount} шт.`} />
-            <FieldInfo icon="📋" label="Тип" value="Физ. лицо" />
+            <FieldInfo icon={Calendar} label="Налоговый период" value={`${year} год`} />
+            <FieldInfo icon={Banknote} label="Расходы на лекарства" value={fmt(summary.total_amount)} />
+            <FieldInfo icon={ReceiptText} label="Чеков загружено" value={`${totalCount} шт.`} />
+            <FieldInfo icon={ClipboardList} label="Тип" value="Физ. лицо" />
           </div>
 
           {/* Year timeline bar */}
@@ -133,8 +134,8 @@ function HeroCard({ summary, totalCount, year }: { summary: Summary; totalCount:
           <a href="/receipts" className="btn btn-primary btn-sm">
             + Загрузить чек
           </a>
-          <a href="/export" className="btn btn-secondary btn-sm">
-            📥 Скачать документы
+          <a href="/export" className="btn btn-secondary btn-sm" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Download size={14} /> Скачать документы
           </a>
 
           {/* NDFL highlight */}
@@ -190,10 +191,10 @@ function HeroCard({ summary, totalCount, year }: { summary: Summary; totalCount:
   );
 }
 
-function FieldInfo({ icon, label, value }: { icon: string; label: string; value: string }) {
+function FieldInfo({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <span style={{ fontSize: "13px" }}>{icon}</span>
+      <Icon size={15} color="var(--accent)" strokeWidth={1.75} />
       <div>
         <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" }}>
           {label}

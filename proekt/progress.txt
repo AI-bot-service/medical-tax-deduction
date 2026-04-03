@@ -1,3 +1,24 @@
+## 2026-04-03 — TASK-017: Замена эмодзи в HeroCard на Lucide Icons
+
+**Статус**: DONE
+
+**Что сделано**:
+- В `frontend/src/app/(cabinet)/dashboard/page.tsx` добавлен импорт `Pill, Calendar, Banknote, ReceiptText, ClipboardList, Download, LucideIcon` из `lucide-react`
+- Аватар-блок: `💊` → `<Pill size={32} color="#fff" strokeWidth={1.75} />`
+- Компонент `FieldInfo`: тип пропса `icon` изменён с `string` на `LucideIcon`, рендеринг `{icon}` → `<Icon size={15} color="var(--accent)" strokeWidth={1.75} />`
+- `📅` → `Calendar`, `💰` → `Banknote`, `🧾` → `ReceiptText`, `📋` → `ClipboardList`
+- Кнопка «Скачать документы»: `📥` → `<Download size={14} />`
+
+**Acceptance Criteria выполнены**:
+- ✅ Все эмодзи в HeroCard заменены на SVG-иконки из lucide-react
+- ✅ Иконки вписаны в существующий дизайн (accent цвет, размеры соответствуют)
+- ✅ Нет регрессий: структура компонента не изменилась, только тип иконки
+
+**Следующие задачи**:
+- TASK-018: unit-тест для GET /api/v1/tax-limits (low, depends on TASK-002=done)
+
+---
+
 ## 2026-04-03 — TASK-007: Расширяемый список вычетов в sidebar
 
 **Статус**: DONE
