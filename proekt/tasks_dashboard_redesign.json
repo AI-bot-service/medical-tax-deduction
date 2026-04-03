@@ -301,7 +301,7 @@
         "Шаг 4: кликнуть на кликабельный счётчик — переход на /receipts с правильными фильтрами"
       ],
       "dependencies": ["TASK-013", "TASK-009", "TASK-022"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-015",

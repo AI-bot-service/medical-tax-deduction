@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import type { Summary, MonthSummary, ReceiptListItem, ReceiptListResponse } from "@/types/api";
 import { YearFilter } from "@/components/ui/YearFilter";
 import { LimitsPanel } from "@/components/ui/LimitsPanel";
+import { DocumentsPanel } from "@/components/ui/DocumentsPanel";
 import { useDashboardStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
@@ -600,6 +601,9 @@ function DashboardContent({ summary }: { summary: Summary }) {
 
       {/* Panel 3: Limits */}
       <LimitsPanel />
+
+      {/* Panel 4: Documents */}
+      <DocumentsPanel />
 
       {/* Status Kanban */}
       <StatusKanban receipts={allReceipts} />

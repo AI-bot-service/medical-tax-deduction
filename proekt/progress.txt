@@ -1,3 +1,34 @@
+## 2026-04-03 — TASK-014: DocumentsPanel (Панель 4)
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан компонент `frontend/src/components/ui/DocumentsPanel.tsx`
+- 5 групп документов с иконками из lucide-react:
+  - `clinic_certs` — Справки из клиник (Stethoscope)
+  - `recipes` — Рецепты (ScrollText)
+  - `pharmacy_receipts` — Чеки из аптек (ShoppingBag)
+  - `vhi_docs` — Документы ДМС (ShieldCheck)
+  - `ndfl_certs` — Справки 2-НДФЛ (FileSpreadsheet)
+- Данные берутся из `useDocumentStats(selectedYear)` — запрос `/api/v1/documents/stats?year={year}`
+- `selectedYear` из `useDashboardStore` (Zustand) — при смене года React Query автоматически перезапрашивает через `queryKey: ["document-stats", year]`
+- Скелетон при загрузке (5 пульсирующих placeholders)
+- Заголовок: «Мои документы», год, бейдж «N на проверке» при `totalPending > 0`
+- Легенда: синий квадрат = Подтверждено, жёлтый = На проверке
+- Компонент добавлен в `DashboardContent` в `page.tsx` после `LimitsPanel`
+- `pytest tests/test_deduction/` — 54 passed
+
+**Разблокировано**:
+- TASK-016: финальная сборка дашборда (осталось TASK-015)
+- Критический путь: TASK-015 → TASK-016
+
+**Следующие задачи**:
+- TASK-015: удалить старые панели StatusKanban, ReceiptsSchedule, SidePanel (medium, нет зависимостей)
+- TASK-016: финальная сборка дашборда (critical, осталась зависимость TASK-015)
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+
+---
+
 ## 2026-04-03 — TASK-013: DocumentGroup (Панель 4)
 
 **Статус**: DONE
