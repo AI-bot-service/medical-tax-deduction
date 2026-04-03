@@ -321,7 +321,7 @@
         "Шаг 4: npm run lint && npm run tsc — без ошибок"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-016",

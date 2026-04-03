@@ -1,3 +1,27 @@
+## 2026-04-03 — TASK-015: Удалить старые панели из дашборда
+
+**Статус**: DONE
+
+**Что сделано**:
+- Удалены компоненты `StatusKanban`, `ReceiptsSchedule`, `SidePanel` из `frontend/src/app/(cabinet)/dashboard/page.tsx`
+- Удалены вспомогательные функции `fmtDate`, `fmtDateFull`, `fmtMonth` (использовались только в удалённых компонентах)
+- Удалена типизация `KanbanCard` interface
+- Из `DashboardContent` удалены: `useQuery` для receipts-list, переменные `allReceipts`, `recentReceipts`, а также JSX этих компонентов
+- Из импортов удалены: `useRouter`, `useQuery`, `api`, `MonthSummary`, `ReceiptListItem`, `ReceiptListResponse`
+- `DashboardContent` теперь содержит только: HeroCard, YearFilter, LimitsPanel, DocumentsPanel
+- `pytest tests/test_deduction/` — 54 passed
+- ruff ошибки в backend — pre-existing, не связаны с изменением
+
+**Разблокировано**:
+- TASK-016: финальная сборка дашборда — все зависимости теперь done (TASK-009 ✓, TASK-012 ✓, TASK-014 ✓, TASK-015 ✓)
+
+**Следующие задачи**:
+- TASK-016: финальная сборка дашборда (critical, ВСЕ зависимости done) — **следующий приоритет**
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+- TASK-006: кнопка «i» с tooltip (high, зависит от TASK-005)
+
+---
+
 ## 2026-04-03 — TASK-014: DocumentsPanel (Панель 4)
 
 **Статус**: DONE
