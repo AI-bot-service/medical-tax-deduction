@@ -113,7 +113,7 @@
         "Шаг 3: убедиться, что текст «МедВычет» нигде не присутствует на странице"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-006",
@@ -133,7 +133,7 @@
         "Шаг 4: кликнуть «Подробнее →» — должна открыться страница /info/social-vychet"
       ],
       "dependencies": ["TASK-005"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-007",
@@ -153,7 +153,7 @@
         "Шаг 4: npm run tsc — без ошибок"
       ],
       "dependencies": ["TASK-005"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-008",

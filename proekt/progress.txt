@@ -1,3 +1,88 @@
+## 2026-04-03 — TASK-007: Расширяемый список вычетов в sidebar
+
+**Статус**: DONE
+
+**Что сделано**:
+- В `frontend/src/app/(cabinet)/layout.tsx` добавлен интерфейс `DeductionType` и конфиг `DEDUCTION_TYPES: DeductionType[]`
+- Конфиг содержит один элемент: `{ key: "social", label: "Социальный вычет", href: "/dashboard", icon: <HeartPulse />, available: true }`
+- Создан компонент `DeductionNav({ activeKey })` — рендерит список из `DEDUCTION_TYPES`:
+  - Активный элемент (key === activeKey) выделен классом `nav-item active` + синяя точка справа
+  - Недоступные (available=false) — полупрозрачные, с бейджем «скоро», cursor: not-allowed
+  - Добавление нового типа = только добавление объекта в `DEDUCTION_TYPES[]`
+- Компонент вставлен в `Sidebar` между логотипом и основными nav-группами с заголовком «Тип вычета»
+- Импортирован `HeartPulse` из `lucide-react`
+- `pytest tests/test_deduction/` — 54 passed
+- ruff ошибки в backend — pre-existing, не связаны с изменением
+
+**Acceptance Criteria выполнены**:
+- ✅ Компонент навигации принимает массив типов вычетов через конфиг `DEDUCTION_TYPES`
+- ✅ Отображается только «Социальный вычет» (активный)
+- ✅ Добавление нового типа — только через элемент в конфиге
+- ✅ Активный тип визуально выделен (active класс + точка-индикатор)
+
+**Следующие задачи**:
+- TASK-017: заменить эмодзи в HeroCard на Lucide Icons (low)
+- TASK-018: unit-тест для GET /api/v1/tax-limits (low)
+
+---
+
+## 2026-04-03 — TASK-006: Кнопка «i» с popup в sidebar
+
+**Статус**: DONE
+
+**Что сделано**:
+- В `frontend/src/app/(cabinet)/layout.tsx` добавлен компонент `InfoPopup`
+- Импортированы: `Info` из `lucide-react`, `useEffect`, `useRef` из React, `Link` из Next.js
+- `InfoPopup` — кнопка с иконкой `<Info size={13}>` рядом с заголовком «Социальный вычет»
+- При клике открывается popup с описанием социального вычета (13% НДФЛ, лимит 150 000 ₽)
+- Popup закрывается при клике вне (обработчик через `document.addEventListener("mousedown", ...)`)
+- Внутри popup: ссылка «Подробнее →» ведёт на `/info/social-vychet` (страница из TASK-008=done)
+- `pytest tests/test_deduction/` — 54 passed
+
+**Acceptance Criteria выполнены**:
+- ✅ Иконка «i» (Info из Lucide) рядом с «Социальный вычет»
+- ✅ При клике popup с описанием НДФЛ и вычета
+- ✅ Ссылка «Подробнее →» на /info/social-vychet
+- ✅ Popup закрывается при клике вне
+
+**Разблокировано**:
+- TASK-007: расширяемый список вычетов (medium, depends on TASK-005=done)
+
+**Следующие задачи**:
+- TASK-007: расширяемый навигационный список вычетов (medium priority)
+- TASK-017: заменить эмодзи в HeroCard на Lucide Icons (low)
+- TASK-018: unit-тест для GET /api/v1/tax-limits (low)
+
+---
+
+## 2026-04-03 — TASK-005: Заменить «МедВычет» на «Социальный вычет» в sidebar
+
+**Статус**: DONE
+
+**Что сделано**:
+- В `frontend/src/app/(cabinet)/layout.tsx` импортирован `BadgePercent` из `lucide-react`
+- Заменён логотип: эмодзи 💊 → `<BadgePercent size={18} strokeWidth={2} />`
+- Заменён текст «МедВычет» → «Социальный вычет» в `logo-name`
+- Тег-линия «Налоговый вычет» оставлена (соответствует стилю)
+- `pytest tests/test_deduction/` — 54 passed
+
+**Acceptance Criteria выполнены**:
+- ✅ Текст «МедВычет» заменён на «Социальный вычет»
+- ✅ Иконка из Lucide Icons (BadgePercent) — не эмодзи
+- ✅ Визуально вписано в стиль sidebar (`.logo-icon` класс, те же размеры)
+
+**Разблокировано**:
+- TASK-006: кнопка «i» с tooltip (depends on TASK-005=done)
+- TASK-007: расширяемый список вычетов (depends on TASK-005=done)
+
+**Следующие задачи**:
+- TASK-006: добавить кнопку «i» с popup описания социального вычета (high priority)
+- TASK-007: расширяемый навигационный список вычетов (medium priority)
+- TASK-017: заменить эмодзи в HeroCard на Lucide Icons (low, depends on TASK-016=done)
+- TASK-018: unit-тест для GET /api/v1/tax-limits (low)
+
+---
+
 ## 2026-04-03 — TASK-016: Финальная сборка дашборда
 
 **Статус**: DONE

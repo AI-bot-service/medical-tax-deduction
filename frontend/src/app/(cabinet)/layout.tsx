@@ -1,9 +1,33 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { BadgePercent, Info, HeartPulse } from "lucide-react";
+import Link from "next/link";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
+
+// ---------------------------------------------------------------------------
+// Deduction types config — add new items here to extend the list
+// ---------------------------------------------------------------------------
+
+interface DeductionType {
+  key:       string;
+  label:     string;
+  href:      string;
+  icon:      React.ReactNode;
+  available: boolean; // false = shown grayed-out (coming soon)
+}
+
+const DEDUCTION_TYPES: DeductionType[] = [
+  {
+    key:       "social",
+    label:     "Социальный вычет",
+    href:      "/dashboard",
+    icon:      <HeartPulse size={13} strokeWidth={2} />,
+    available: true,
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Nav config — HEITKAMP section groups
@@ -65,6 +89,161 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 // ---------------------------------------------------------------------------
+// InfoPopup — описание социального вычета
+// ---------------------------------------------------------------------------
+
+function InfoPopup() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        aria-label="Информация о социальном вычете"
+        title="Что такое социальный вычет?"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "none",
+          border: "none",
+          padding: "2px",
+          cursor: "pointer",
+          color: "var(--text-muted)",
+          borderRadius: "4px",
+          transition: "color 0.15s, background 0.15s",
+          lineHeight: 1,
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)";
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-light)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+          (e.currentTarget as HTMLButtonElement).style.background = "none";
+        }}
+      >
+        <Info size={13} strokeWidth={2} />
+      </button>
+
+      {open && (
+        <div
+          role="tooltip"
+          style={{
+            position: "absolute",
+            left: "calc(100% + 8px)",
+            top: "-8px",
+            zIndex: 200,
+            width: "260px",
+            background: "var(--surface, #fff)",
+            border: "1px solid var(--border, #e0e0e8)",
+            borderRadius: "10px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            padding: "14px 16px",
+            fontSize: "12px",
+            color: "var(--text-secondary)",
+            lineHeight: "1.55",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: "13px", color: "var(--text-primary)", marginBottom: "6px" }}>
+            Социальный вычет
+          </div>
+          <p style={{ margin: "0 0 8px" }}>
+            Возврат 13% НДФЛ с расходов на лечение и лекарства (ст.&nbsp;219 НК&nbsp;РФ).
+            Лимит — до&nbsp;150&nbsp;000&nbsp;₽ в год, максимальный возврат — 19&nbsp;500&nbsp;₽.
+          </p>
+          <p style={{ margin: "0 0 10px" }}>
+            Сохраняйте чеки из аптек и справки от врачей — система сформирует
+            пакет документов для ИФНС автоматически.
+          </p>
+          <Link
+            href="/info/social-vychet"
+            onClick={() => setOpen(false)}
+            style={{
+              color: "var(--accent)",
+              fontWeight: 600,
+              fontSize: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "3px",
+            }}
+          >
+            Подробнее →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DeductionNav — expandable list of deduction types (config-driven)
+// ---------------------------------------------------------------------------
+
+function DeductionNav({ activeKey }: { activeKey: string }) {
+  const router = useRouter();
+
+  return (
+    <div style={{ padding: "8px 0 4px" }}>
+      <span className="sidebar-section-label">Тип вычета</span>
+      <div className="nav-items-group">
+        {DEDUCTION_TYPES.map((type) => {
+          const isActive = type.key === activeKey;
+          return (
+            <button
+              key={type.key}
+              className={`nav-item ${isActive ? "active" : ""}`}
+              onClick={() => type.available && router.push(type.href)}
+              disabled={!type.available}
+              title={type.available ? undefined : "Скоро"}
+              style={!type.available ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">{type.icon}</span>
+              <span style={{ flex: 1, textAlign: "left" }}>{type.label}</span>
+              {isActive && (
+                <span
+                  style={{
+                    width: "6px", height: "6px",
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    flexShrink: 0,
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+              {!type.available && (
+                <span
+                  style={{
+                    fontSize: "9px", color: "var(--text-muted)",
+                    background: "var(--bg)", border: "1px solid var(--border)",
+                    borderRadius: "4px", padding: "1px 5px", fontWeight: 600, flexShrink: 0,
+                  }}
+                >
+                  скоро
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sidebar
 // ---------------------------------------------------------------------------
 
@@ -94,9 +273,14 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
 
         {/* ── Logo ── */}
         <div className="sidebar-logo">
-          <div className="logo-icon" aria-hidden="true" style={{ fontSize: "17px" }}>💊</div>
+          <div className="logo-icon" aria-hidden="true" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <BadgePercent size={18} strokeWidth={2} />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="logo-name">МедВычет</div>
+            <div className="logo-name" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              Социальный вычет
+              <InfoPopup />
+            </div>
             <div className="logo-tagline">Налоговый вычет</div>
           </div>
           <button className="sidebar-collapse-btn" aria-label="Свернуть меню" title="Свернуть">
@@ -105,6 +289,9 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
             </svg>
           </button>
         </div>
+
+        {/* ── Deduction type selector ── */}
+        <DeductionNav activeKey="social" />
 
         {/* ── Nav groups ── */}
         <nav style={{ flex: 1 }}>
