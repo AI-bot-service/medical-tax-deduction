@@ -1,0 +1,473 @@
+{
+  "agent_instructions": {
+    "before_start": [
+      "Прочитай этот файл и git log --oneline -20",
+      "Выбери ОДНУ задачу со статусом pending и наивысшим приоритетом",
+      "Проверь, что все dependencies этой задачи имеют статус done"
+    ],
+    "during_work": [
+      "Работай только над выбранной задачей",
+      "Делай коммиты после каждого логического изменения",
+      "Не трогай код, не связанный с текущей задачей"
+    ],
+    "before_finish": [
+      "Выполни ВСЕ test_steps из задачи",
+      "Меняй status на done ТОЛЬКО после успешного прохождения всех тестов",
+      "Напиши summary в progress_dashboard_redesign.md",
+      "ЗАПРЕЩЕНО удалять или редактировать задачи — только менять status"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Backend: создать роутер tax_limits.py с эндпоинтом GET /api/v1/tax-limits?year={year}",
+      "acceptance_criteria": [
+        "Файл backend/app/routers/tax_limits.py создан",
+        "GET /api/v1/tax-limits?year=2024 возвращает JSON с полями year, combined_limit, limits[]",
+        "Каждый элемент limits[] содержит: type_key, type_name, limit_amount, refund_amount (или refund_percent), is_uncapped, is_separate",
+        "Для treatment_expensive: limit_amount=null, is_uncapped=true, refund_percent=13",
+        "Эндпоинт не требует авторизации",
+        "Данные берутся из limits.py и ndfl.py — новая таблица БД не создаётся"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить backend (uvicorn app.main:app --reload)",
+        "Шаг 2: GET /api/v1/tax-limits?year=2024 — ожидать 200, combined_limit=150000, 4 элемента в limits",
+        "Шаг 3: GET /api/v1/tax-limits?year=2023 — ожидать combined_limit=120000",
+        "Шаг 4: GET /api/v1/tax-limits?year=2025 — ожидать 200 с актуальными данными",
+        "Шаг 5: GET /api/v1/tax-limits без year — ожидать 422 (validation error)"
+      ],
+      "dependencies": [],
+      "status": "done"
+    },
+    {
+      "id": "TASK-002",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Backend: зарегистрировать роутер tax_limits в app/main.py",
+      "acceptance_criteria": [
+        "Роутер tax_limits подключён к FastAPI app в main.py",
+        "Эндпоинт /api/v1/tax-limits доступен после перезапуска сервера",
+        "В OpenAPI документации (/docs) эндпоинт отображается"
+      ],
+      "test_steps": [
+        "Шаг 1: перезапустить backend",
+        "Шаг 2: открыть /docs — убедиться, что эндпоинт tax-limits присутствует",
+        "Шаг 3: выполнить GET /api/v1/tax-limits?year=2024 через браузер — ожидать JSON"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "done"
+    },
+    {
+      "id": "TASK-003",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Frontend: создать хук useTaxLimits(year) через React Query",
+      "acceptance_criteria": [
+        "Хук frontend/src/hooks/useTaxLimits.ts создан",
+        "Хук принимает year: number, возвращает данные из GET /api/v1/tax-limits?year={year}",
+        "Используется React Query (useQuery), staleTime не менее 5 минут",
+        "Типы ответа описаны в frontend/src/types/api.ts"
+      ],
+      "test_steps": [
+        "Шаг 1: импортировать хук в любой тестовый компонент",
+        "Шаг 2: вызвать useTaxLimits(2024) — убедиться, что данные загружаются без ошибок",
+        "Шаг 3: проверить TypeScript — npm run tsc без ошибок"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-004",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Frontend: добавить глобальный year state для дашборда (Zustand или React context)",
+      "acceptance_criteria": [
+        "Стейт selectedYear доступен всем компонентам дашборда",
+        "По умолчанию selectedYear = текущий год",
+        "Изменение selectedYear перерисовывает все компоненты, подписанные на него",
+        "React Query invalidation происходит при смене года"
+      ],
+      "test_steps": [
+        "Шаг 1: убедиться, что store/хук создан и экспортирован",
+        "Шаг 2: проверить TypeScript — npm run tsc без ошибок",
+        "Шаг 3: временно вывести selectedYear в любом компоненте — значение по умолчанию равно текущему году"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-005",
+      "category": "ui",
+      "priority": "high",
+      "description": "Панель 1: заменить надпись «МедВычет» на «Социальный вычет» с иконкой в sidebar",
+      "acceptance_criteria": [
+        "Текст «МедВычет» заменён на «Социальный вычет»",
+        "Рядом с текстом — иконка из Lucide Icons (не эмодзи)",
+        "Визуально соответствует остальному стилю sidebar"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд в браузере",
+        "Шаг 2: убедиться, что в sidebar отображается «Социальный вычет» с иконкой",
+        "Шаг 3: убедиться, что текст «МедВычет» нигде не присутствует на странице"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-006",
+      "category": "ui",
+      "priority": "high",
+      "description": "Панель 1: добавить кнопку «i» с tooltip/popup описания социального вычета и ссылкой «Подробнее →»",
+      "acceptance_criteria": [
+        "Иконка «i» (Info из Lucide) отображается рядом с заголовком «Социальный вычет»",
+        "При hover или клике появляется popup с текстом об НДФЛ и социальном вычете",
+        "Внутри popup — ссылка «Подробнее →», ведущая на /info/social-vychet",
+        "Popup закрывается при клике вне его или повторном клике"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд",
+        "Шаг 2: навести / кликнуть на иконку «i» — popup должен появиться",
+        "Шаг 3: прочитать текст в popup — должен содержать описание социального вычета",
+        "Шаг 4: кликнуть «Подробнее →» — должна открыться страница /info/social-vychet"
+      ],
+      "dependencies": ["TASK-005"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-007",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Панель 1: сделать навигационный список вычетов расширяемым (подготовка к нескольким типам вычетов)",
+      "acceptance_criteria": [
+        "Компонент навигации в sidebar принимает массив типов вычетов как пропс или конфиг",
+        "Сейчас отображается только «Социальный вычет» (активный)",
+        "Добавление нового типа вычета — только через добавление элемента в конфиг, без переписывания компонента",
+        "Активный тип визуально выделен"
+      ],
+      "test_steps": [
+        "Шаг 1: найти конфиг/массив типов вычетов в коде",
+        "Шаг 2: временно добавить второй тип вычета в конфиг — он должен отобразиться в списке",
+        "Шаг 3: убрать тестовый тип — список вернулся к одному элементу",
+        "Шаг 4: npm run tsc — без ошибок"
+      ],
+      "dependencies": ["TASK-005"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-008",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Создать страницу /info/social-vychet с полным описанием социального вычета",
+      "acceptance_criteria": [
+        "Страница frontend/src/app/info/social-vychet/page.tsx создана",
+        "Страница доступна по URL /info/social-vychet",
+        "Содержимое основано на материалах о социальном налоговом вычете (ст. 219 НК РФ)",
+        "Оформление соответствует дизайн-системе Heitkamp"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть /info/social-vychet в браузере",
+        "Шаг 2: убедиться, что страница отображается без ошибок",
+        "Шаг 3: убедиться, что на странице есть информация о возврате НДФЛ и условиях вычета"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-009",
+      "category": "ui",
+      "priority": "critical",
+      "description": "Панель 2: создать компонент YearFilter (4 кнопки-года, динамически от текущего года)",
+      "acceptance_criteria": [
+        "Компонент отображает 4 года: текущий и 3 предыдущих",
+        "Список лет формируется динамически (не хардкод)",
+        "Активный год визуально выделен (цвет, подчёркивание или фон)",
+        "При клике на год вызывается setSelectedYear из глобального стейта (TASK-004)"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — убедиться, что отображаются 4 года",
+        "Шаг 2: текущий год должен быть активным по умолчанию",
+        "Шаг 3: кликнуть на другой год — он должен стать активным",
+        "Шаг 4: через год 2030 список должен автоматически показать 2027-2030 (логика не хардкодит годы)"
+      ],
+      "dependencies": ["TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-010",
+      "category": "ui",
+      "priority": "high",
+      "description": "Панель 3: создать компонент BigGlass — большой общий стакан с двумя цветными зонами",
+      "acceptance_criteria": [
+        "Компонент принимает пропсы: totalLimit, treatmentAmount, educationAmount",
+        "Визуально шире и выше малых стаканов",
+        "Заливка разделена на две зоны: синяя (лечение) и зелёная (обучение своё)",
+        "Высота каждой зоны пропорциональна сумме расходов относительно общего лимита",
+        "Над стаканом: подпись «Общий лимит», сумма потрачено / лимит, процент заполнения",
+        "Hover-tooltip: разбивка по зонам — лечение / обучение"
+      ],
+      "test_steps": [
+        "Шаг 1: отрисовать компонент с тестовыми данными (treatmentAmount=60000, educationAmount=40000, totalLimit=150000)",
+        "Шаг 2: синяя зона занимает ~40% высоты, зелёная ~27% — итого ~67% заполнено",
+        "Шаг 3: навести мышь — tooltip показывает разбивку",
+        "Шаг 4: при нулевых суммах — стакан пустой"
+      ],
+      "dependencies": ["TASK-003", "TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-011",
+      "category": "ui",
+      "priority": "high",
+      "description": "Панель 3: создать компонент SmallGlass — малый стакан для отдельной категории",
+      "acceptance_criteria": [
+        "Компонент принимает пропсы: categoryName, color, spent, limit, refund, isUncapped",
+        "Для isUncapped=false: заливка пропорционально spent/limit, цвет согласно color",
+        "Для isUncapped=true: заливки нет, внутри анимированный символ ∞",
+        "Над стаканом: процент заполнения (или «—» для безлимитных)",
+        "Под стаканом: название, лимит (или ∞), максимальный возврат",
+        "Hover-tooltip: потрачено / лимит / возможный возврат"
+      ],
+      "test_steps": [
+        "Шаг 1: отрисовать стакан с spent=70000, limit=150000 — заливка ~47%, показывает «47%»",
+        "Шаг 2: отрисовать стакан с isUncapped=true — символ ∞, заливки нет",
+        "Шаг 3: отрисовать стакан с spent=0 — стакан пустой, показывает «0%»",
+        "Шаг 4: hover на стакане — tooltip с точными суммами"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-012",
+      "category": "integration",
+      "priority": "high",
+      "description": "Панель 3: собрать LimitsPanel из BigGlass + 4 SmallGlass, подключить к API",
+      "acceptance_criteria": [
+        "LimitsPanel отображает BigGlass (общий лимит) и 4 SmallGlass (по категориям)",
+        "Данные лимитов берутся из useTaxLimits(selectedYear)",
+        "Расходы пользователя берутся из useExpenseCategories(selectedYear) с разбивкой по категориям",
+        "Цветовая схема: лечение=синий, обучение своё=зелёный, обучение ребёнка=фиолетовый, дорогостоящее=нейтральный синий",
+        "Цвета зон BigGlass совпадают с цветами соответствующих SmallGlass",
+        "При смене года (selectedYear) все стаканы перерисовываются"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — LimitsPanel отображается с большим и 4 малыми стаканами",
+        "Шаг 2: переключить год — данные в стаканах обновляются без перезагрузки страницы",
+        "Шаг 3: для 2023 года combined_limit должен быть 120000 (BigGlass показывает 120 000 ₽)",
+        "Шаг 4: проверить цветовую согласованность зон BigGlass и малых стаканов"
+      ],
+      "dependencies": ["TASK-003", "TASK-009", "TASK-010", "TASK-011", "TASK-022"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-013",
+      "category": "ui",
+      "priority": "high",
+      "description": "Панель 4: создать компонент DocumentGroup — горизонтальная карточка группы документов",
+      "acceptance_criteria": [
+        "Компонент принимает: title, description, icon, uploadedCount, pendingCount, groupKey",
+        "Отображает иконку, название, пояснение, два счётчика и статусный индикатор",
+        "Счётчик uploadedCount > 0 — кликабельная ссылка на /receipts?type={groupKey}&status=confirmed&year={year}",
+        "Счётчик pendingCount > 0 — кликабельная ссылка на /receipts?type={groupKey}&status=pending&year={year}",
+        "Счётчик = 0 — обычный текст, без ссылки",
+        "Статус ✅ если pendingCount=0 и uploadedCount>0, ⚠️ если pendingCount>0, ○ если оба=0"
+      ],
+      "test_steps": [
+        "Шаг 1: отрисовать карточку с uploadedCount=3, pendingCount=1 — показывает [3]/[1] и ⚠️",
+        "Шаг 2: кликнуть на [3] — переход на /receipts с фильтрами confirmed",
+        "Шаг 3: кликнуть на [1] — переход на /receipts с фильтром pending",
+        "Шаг 4: отрисовать с uploadedCount=0, pendingCount=0 — показывает 0/0 и ○, цифры не кликабельны",
+        "Шаг 5: отрисовать с uploadedCount=5, pendingCount=0 — показывает [5]/0 и ✅"
+      ],
+      "dependencies": ["TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-014",
+      "category": "integration",
+      "priority": "high",
+      "description": "Панель 4: собрать DocumentsPanel из 5 групп, подключить к данным backend",
+      "acceptance_criteria": [
+        "Отображаются 5 групп: Справки из клиник, Рецепты, Чеки из аптек, Документы ДМС, Справки 2-НДФЛ",
+        "Счётчики берутся из useDocumentStats(selectedYear)",
+        "Фильтрация по selectedYear работает",
+        "При смене года счётчики обновляются"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — панель «Мои документы» отображается с 5 группами",
+        "Шаг 2: загрузить тестовый документ типа «чек» — счётчик «Чеки из аптек» увеличивается",
+        "Шаг 3: переключить год — счётчики обновляются под выбранный год",
+        "Шаг 4: кликнуть на кликабельный счётчик — переход на /receipts с правильными фильтрами"
+      ],
+      "dependencies": ["TASK-013", "TASK-009", "TASK-022"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-015",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Удалить старые панели StatusKanban, ReceiptsSchedule и SidePanel (быстрые действия) из дашборда",
+      "acceptance_criteria": [
+        "Компоненты StatusKanban, ReceiptsSchedule, SidePanel удалены из DashboardContent",
+        "Код неиспользуемых компонентов удалён из page.tsx или вынесен в архив",
+        "Дашборд не показывает «Канбан статусов», «Последние чеки» и «Быстрые действия»",
+        "Нет console ошибок, npm run tsc без ошибок"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — убедиться, что канбан-блок с 4 статусами отсутствует",
+        "Шаг 2: убедиться, что список «Последние чеки» отсутствует",
+        "Шаг 3: убедиться, что «Быстрые действия» отсутствуют",
+        "Шаг 4: npm run lint && npm run tsc — без ошибок"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-016",
+      "category": "integration",
+      "priority": "critical",
+      "description": "Собрать обновлённый дашборд: интегрировать все новые панели в DashboardContent",
+      "acceptance_criteria": [
+        "DashboardContent включает: HeroCard, YearFilter (панель 2), LimitsPanel (панель 3), DocumentsPanel (панель 4)",
+        "Все компоненты используют единый selectedYear из глобального стейта",
+        "Смена года в YearFilter перерисовывает HeroCard, LimitsPanel и DocumentsPanel",
+        "Нет лишних компонентов от старой версии"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — видны все 4 панели",
+        "Шаг 2: выбрать 2023 год — HeroCard показывает данные за 2023, LimitsPanel показывает лимит 120000",
+        "Шаг 3: выбрать 2024 год — LimitsPanel показывает лимит 150000",
+        "Шаг 4: npm run tsc && npm run lint — без ошибок",
+        "Шаг 5: открыть Network в DevTools — нет лишних запросов при каждом рендере"
+      ],
+      "dependencies": ["TASK-009", "TASK-012", "TASK-014", "TASK-015"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-017",
+      "category": "ui",
+      "priority": "low",
+      "description": "Заменить эмодзи в HeroCard на иконки Lucide Icons согласно принципу UI из PRD",
+      "acceptance_criteria": [
+        "В HeroCard: 💊, 📅, 💰, 🧾, 📋, 📸, 📥 заменены на компоненты из lucide-react",
+        "Иконки визуально вписаны в существующий дизайн",
+        "Нет регрессий в отображении HeroCard"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть дашборд — в HeroCard нет эмодзи, только SVG-иконки",
+        "Шаг 2: визуально сравнить с прежним видом — не хуже",
+        "Шаг 3: npm run tsc — без ошибок"
+      ],
+      "dependencies": ["TASK-016"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-018",
+      "category": "infrastructure",
+      "priority": "low",
+      "description": "Backend: добавить unit-тест для эндпоинта GET /api/v1/tax-limits",
+      "acceptance_criteria": [
+        "Тест в backend/tests/ проверяет ответ для year=2023 (combined_limit=120000)",
+        "Тест проверяет ответ для year=2024 (combined_limit=150000)",
+        "Тест проверяет наличие treatment_expensive с is_uncapped=true",
+        "pytest проходит без ошибок"
+      ],
+      "test_steps": [
+        "Шаг 1: cd backend && pytest tests/ -k tax_limits",
+        "Шаг 2: все тесты должны быть зелёными"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-019",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Backend: создать эндпоинт GET /api/v1/expenses/categories?year={year} — разбивка расходов по категориям",
+      "acceptance_criteria": [
+        "Эндпоинт возвращает расходы пользователя сгруппированные по ExpenseCategory за указанный год",
+        "Формат ответа: { year, categories: [ { category_key, amount } ] }",
+        "Категории: treatment_regular, treatment_expensive, education_self, education_child, vhi, medicine, fitness",
+        "Если расходов по категории нет — amount=0 (категория всё равно присутствует в ответе)",
+        "Эндпоинт требует авторизации (текущий пользователь)",
+        "Используется существующая таблица Expense — миграция не нужна"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить backend, авторизоваться",
+        "Шаг 2: GET /api/v1/expenses/categories?year=2024 — ожидать 200, все категории в ответе",
+        "Шаг 3: добавить тестовый Expense(category=TREATMENT_REGULAR, amount=50000, tax_year=2024)",
+        "Шаг 4: повторить запрос — treatment_regular.amount=50000",
+        "Шаг 5: GET /api/v1/expenses/categories?year=2023 — отдельный набор данных, не пересекается с 2024"
+      ],
+      "dependencies": [],
+      "status": "done"
+    },
+    {
+      "id": "TASK-020",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Backend: создать модель Document (справки из клиник, ДМС, 2-НДФЛ) и миграцию БД",
+      "acceptance_criteria": [
+        "Модель Document в backend/app/models/ с полями: id, user_id, doc_type, doc_status, tax_year, s3_key, created_at, filename",
+        "doc_type: CLINIC_CERT (справка КНД 1151156), VHI_CERT (справка ДМС КНД 1151159), NDFL_2 (справка 2-НДФЛ), CONTRACT (договор с клиникой/страховой)",
+        "doc_status: UPLOADED (загружен пользователем), PENDING (ожидает проверки), CONFIRMED (подтверждён пользователем)",
+        "Миграция Alembic создана и применяется без ошибок",
+        "Модель зарегистрирована в alembic env"
+      ],
+      "test_steps": [
+        "Шаг 1: cd backend && alembic upgrade head — миграция проходит без ошибок",
+        "Шаг 2: в psql убедиться, что таблица documents создана с нужными колонками",
+        "Шаг 3: alembic downgrade -1 && alembic upgrade head — rollback и re-apply работают"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-021",
+      "category": "functional",
+      "priority": "high",
+      "description": "Backend: создать эндпоинт GET /api/v1/documents/stats?year={year} — статистика по документам для панели 4",
+      "acceptance_criteria": [
+        "Эндпоинт возвращает количество документов по 5 группам панели 4 за указанный год",
+        "Формат ответа: { year, groups: [ { group_key, uploaded_count, pending_count } ] }",
+        "Группы: clinic_certs (справки КНД + Prescription.doc_type=DOC_*), recipes (Prescription.doc_type=RECIPE_107/RECIPE_EGISZ), pharmacy_receipts (Receipt), vhi_docs (CLINIC_CERT/VHI_CERT), ndfl_certs (Document.doc_type=NDFL_2)",
+        "uploaded_count — все документы группы за год",
+        "pending_count — документы со статусом PENDING или REVIEW",
+        "Эндпоинт требует авторизации"
+      ],
+      "test_steps": [
+        "Шаг 1: GET /api/v1/documents/stats?year=2024 — ожидать 200, все 5 групп в ответе",
+        "Шаг 2: загрузить тестовый Receipt — pharmacy_receipts.uploaded_count увеличился на 1",
+        "Шаг 3: загрузить тестовый Prescription(doc_type=RECIPE_107) — recipes.uploaded_count увеличился",
+        "Шаг 4: у Receipt с ocr_status=REVIEW — recipes или pharmacy_receipts.pending_count увеличился",
+        "Шаг 5: GET с year=2023 — данные не пересекаются с 2024"
+      ],
+      "dependencies": ["TASK-020"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-022",
+      "category": "integration",
+      "priority": "high",
+      "description": "Frontend: создать типы и хуки useExpenseCategories(year) и useDocumentStats(year)",
+      "acceptance_criteria": [
+        "Тип CategoryBreakdown добавлен в frontend/src/types/api.ts",
+        "Тип DocumentStats с группами добавлен в frontend/src/types/api.ts",
+        "Хук useExpenseCategories(year) в frontend/src/hooks/ — запрашивает /api/v1/expenses/categories?year={year}",
+        "Хук useDocumentStats(year) в frontend/src/hooks/ — запрашивает /api/v1/documents/stats?year={year}",
+        "Оба хука используют React Query, staleTime не менее 60 секунд",
+        "При смене year React Query делает новый запрос автоматически",
+        "npm run tsc без ошибок"
+      ],
+      "test_steps": [
+        "Шаг 1: npm run tsc — без ошибок",
+        "Шаг 2: временно использовать useExpenseCategories(2024) в любом компоненте — данные загружаются",
+        "Шаг 3: временно использовать useDocumentStats(2024) — данные загружаются",
+        "Шаг 4: изменить year — React Query делает новый запрос (видно в Network DevTools)"
+      ],
+      "dependencies": ["TASK-019", "TASK-021"],
+      "status": "pending"
+    }
+  ]
+}
