@@ -1,3 +1,33 @@
+## 2026-04-03 — TASK-012: LimitsPanel (Панель 3)
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан компонент `frontend/src/components/ui/LimitsPanel.tsx`
+- Компонент берёт `selectedYear` из `useDashboardStore`
+- Данные лимитов: `useTaxLimits(selectedYear)` — `TaxLimitsResponse`
+- Данные расходов: `useExpenseCategories(selectedYear)` — `CategoryBreakdown`
+- Отображает `BigGlass` (общий лимит, синяя+зелёная зоны) + 4 `SmallGlass` (по категориям)
+- Цветовая схема: treatment_regular=#4A8FE2 (синий), treatment_expensive=#7B9FD4 (нейтральный синий), education_self=#3BAB72 (зелёный), education_child=#9B7FD4 (фиолетовый)
+- Цвета зон BigGlass совпадают с цветами соответствующих SmallGlass (treatment=#4A8FE2, education=#3BAB72)
+- При смене года React Query автоматически перезапрашивает через `queryKey: ["tax-limits", year]` и `["expense-categories", year]`
+- LimitsPanel добавлена в DashboardContent после YearFilter
+- Заголовок панели: «Налоговые лимиты» + год + суммарный лимит
+- Скелетон при загрузке (пульсирующий placeholder)
+- Для безлимитных (treatment_expensive): возврат = spent × 13% (динамический расчёт)
+- pytest tests/test_deduction/ — 54 passed
+
+**Разблокировано**:
+- TASK-016: сборка дашборда (осталось TASK-013, TASK-014, TASK-015)
+- Критический путь: TASK-013 → TASK-014 → TASK-016
+
+**Следующие задачи**:
+- TASK-013: DocumentGroup компонент (high, TASK-004 done)
+- TASK-015: удалить старые панели (medium, нет зависимостей)
+- TASK-005: заменить «МедВычет» на «Социальный вычет» в sidebar (high, нет зависимостей)
+
+---
+
 ## 2026-04-03 — TASK-010: Компонент BigGlass (Панель 3)
 
 **Статус**: DONE

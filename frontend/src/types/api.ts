@@ -181,6 +181,35 @@ export interface TaxLimitsResponse {
   limits: TaxLimitItem[];
 }
 
+// ---------------------------------------------------------------------------
+// Expense Categories
+// ---------------------------------------------------------------------------
+
+export interface ExpenseCategoryItem {
+  category_key: string;
+  amount: number;
+}
+
+export interface CategoryBreakdown {
+  year: number;
+  categories: ExpenseCategoryItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Document Stats
+// ---------------------------------------------------------------------------
+
+export interface DocumentStatGroup {
+  group_key: string;
+  uploaded_count: number;
+  pending_count: number;
+}
+
+export interface DocumentStats {
+  year: number;
+  groups: DocumentStatGroup[];
+}
+
 // SSE event payload from sse_publisher.py
 export interface BatchSSEEvent {
   batch_id: string;

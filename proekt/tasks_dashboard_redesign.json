@@ -258,7 +258,7 @@
         "Шаг 4: проверить цветовую согласованность зон BigGlass и малых стаканов"
       ],
       "dependencies": ["TASK-003", "TASK-009", "TASK-010", "TASK-011", "TASK-022"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-013",
