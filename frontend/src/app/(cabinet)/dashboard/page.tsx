@@ -5,6 +5,8 @@ import { useSummary } from "@/hooks/useSummary";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Summary, MonthSummary, ReceiptListItem, ReceiptListResponse } from "@/types/api";
+import { YearFilter } from "@/components/ui/YearFilter";
+import { useDashboardStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -592,6 +594,9 @@ function DashboardContent({ summary }: { summary: Summary }) {
       {/* Hero */}
       <HeroCard summary={summary} totalCount={totalCount} />
 
+      {/* Panel 2: Year Filter */}
+      <YearFilter />
+
       {/* Status Kanban */}
       <StatusKanban receipts={allReceipts} />
 
@@ -609,7 +614,7 @@ function DashboardContent({ summary }: { summary: Summary }) {
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
-  const year = new Date().getFullYear();
+  const year = useDashboardStore((s) => s.selectedYear);
   const { data: summary, isLoading, isError } = useSummary(year);
 
   return (

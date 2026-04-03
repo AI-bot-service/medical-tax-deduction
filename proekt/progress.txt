@@ -16,6 +16,25 @@
 
 ---
 
+## 2026-04-03 — TASK-009: Компонент YearFilter (Панель 2)
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан компонент `frontend/src/components/ui/YearFilter.tsx`
+- Отображает 4 года динамически: `[currentYear, currentYear-1, currentYear-2, currentYear-3]`
+- Активный год — акцентный фон `var(--accent)` + белый текст; неактивный — hover-эффект `var(--accent-light)`
+- При клике вызывает `setSelectedYear` из `useDashboardStore` (TASK-004)
+- Добавлен в `DashboardPage`: `DashboardContent` рендерит `<YearFilter />` после HeroCard
+- `DashboardPage` теперь берёт `year` из `useDashboardStore` вместо `new Date().getFullYear()` — смена года перезапрашивает summary через React Query (queryKey `["summary", year]`)
+
+**Следующие задачи (разблокированы)**:
+- TASK-012: LimitsPanel — теперь TASK-009 done (нужны ещё TASK-010, TASK-011, TASK-022)
+- TASK-013: DocumentGroup — зависит от TASK-004 (done), готов к реализации
+- TASK-014: DocumentsPanel — зависит от TASK-013, TASK-009 (теперь done), TASK-022
+
+---
+
 ## 2026-04-03 — TASK-004: Глобальный year state (Zustand)
 
 **Статус**: DONE
