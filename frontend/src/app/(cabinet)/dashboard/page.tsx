@@ -33,8 +33,7 @@ function yearProgress(year: number): number {
 // Section 1 — Hero Card (HEITKAMP CRM profile card)
 // ---------------------------------------------------------------------------
 
-function HeroCard({ summary, totalCount }: { summary: Summary; totalCount: number }) {
-  const year    = new Date().getFullYear();
+function HeroCard({ summary, totalCount, year }: { summary: Summary; totalCount: number; year: number }) {
   const pct     = yearProgress(year);
   const ndfl    = Math.round(parseFloat(summary.deduction_amount || "0") * NDFL_RATE);
   const limit   = Math.min(summary.limit_used_pct ?? 0, 100);
@@ -228,13 +227,13 @@ function Skeleton() {
 // Dashboard Content
 // ---------------------------------------------------------------------------
 
-function DashboardContent({ summary }: { summary: Summary }) {
+function DashboardContent({ summary, year }: { summary: Summary; year: number }) {
   const totalCount = summary.months.reduce((s, m) => s + m.receipts_count, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Hero */}
-      <HeroCard summary={summary} totalCount={totalCount} />
+      <HeroCard summary={summary} totalCount={totalCount} year={year} />
 
       {/* Panel 2: Year Filter */}
       <YearFilter />
@@ -269,7 +268,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {summary && <DashboardContent summary={summary} />}
+      {summary && <DashboardContent summary={summary} year={year} />}
     </>
   );
 }
