@@ -206,7 +206,7 @@ function MonthAccordion({
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: 96 }} />
-              <col style={{ width: 180 }} />
+              <col style={{ width: 270 }} />
               <col />
               <col style={{ width: 110 }} />
               <col style={{ width: 52 }} />
@@ -305,7 +305,7 @@ function MonthAccordion({
                       {deleteCell}
                     </tr>,
                     <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "13px", color: "var(--text-muted)", borderTop: "none" }}>Итого:</td>
+                      <td style={{ ...sharedCellStyle, padding: "8px 4px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
                       <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                     </tr>,
                   ];
@@ -347,7 +347,7 @@ function MonthAccordion({
                     </tr>
                   )),
                   <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", borderTop: "none" }}>Итого:</td>
+                    <td style={{ ...sharedCellStyle, padding: "6px 4px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
                     <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                   </tr>,
                 ];
