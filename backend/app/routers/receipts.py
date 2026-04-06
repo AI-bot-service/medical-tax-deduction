@@ -20,7 +20,7 @@ from sqlalchemy import extract, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db_rls
 from app.models.enums import OCRStatus
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
@@ -86,7 +86,7 @@ def _validate_upload(file: UploadFile) -> str:
 @router.post("/upload", response_model=ReceiptUploadResponse, status_code=201)
 async def upload_receipt(
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptUploadResponse:
     """Upload a receipt image/PDF, save to S3, create DB record, enqueue OCR."""
@@ -135,19 +135,22 @@ async def upload_receipt(
 # GET /receipts/summary
 # ---------------------------------------------------------------------------
 
-_DEDUCTION_RATE = Decimal("0.13")
-_DEDUCTION_LIMIT = Decimal("150000")
 _COUNTED_STATUSES = {OCRStatus.DONE, OCRStatus.REVIEW}
 
 
 @router.get("/summary", response_model=SummaryResponse)
 async def get_summary(
     year: int | None = Query(default=None, description="Год (по умолчанию текущий)"),
-    db: AsyncSession = Depends(get_db),
+    annual_income: Decimal | None = Query(default=None, description="Годовой доход для расчёта ставки НДФЛ"),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> SummaryResponse:
     """Return yearly summary: monthly breakdown, deduction amount, limit usage."""
     from datetime import datetime
+
+    from app.services.deduction.calculator import calculate_deduction
+    from app.services.deduction.limits import get_aggregate_limit
+    from app.services.deduction.types import ExpenseCategory, ExpenseItem, PersonIncome
 
     if year is None:
         year = datetime.now().year
@@ -165,41 +168,58 @@ async def get_summary(
     receipts = result.scalars().all()
 
     # Group by month
-    from collections import defaultdict
-
     groups: dict[str, list[Receipt]] = defaultdict(list)
     for r in receipts:
         month_key = r.created_at.strftime("%Y-%m")
         groups[month_key].append(r)
 
+    # Рассчитываем месячные итоги — для деталей по месяцам используем упрощённый расчёт
+    # (доход за год неизвестен на уровне месяца, используем расчёт на основе суммы)
+    income_val = annual_income or Decimal("2000000")  # дефолт если не указан
+    income = PersonIncome(annual_income=income_val, tax_year=year)
+
     months: list[MonthSummary] = []
+    all_expenses: list[ExpenseItem] = []
+
     for month_key in sorted(groups.keys()):
         group = groups[month_key]
         month_total = sum(
             Decimal(str(r.total_amount)) for r in group if r.total_amount is not None
         )
-        month_deduction = (month_total * _DEDUCTION_RATE).quantize(Decimal("0.01"))
         has_missing = any(r.needs_prescription for r in group)
+
+        # Временные расходы для расчёта вычета по месяцу
+        month_expenses = [
+            ExpenseItem(ExpenseCategory.MEDICINE, Decimal(str(r.total_amount)), year)
+            for r in group if r.total_amount is not None
+        ]
+        month_result = calculate_deduction(month_expenses, income)
+
         months.append(
             MonthSummary(
                 month=month_key,
                 receipts_count=len(group),
                 total_amount=month_total,
-                deduction_amount=month_deduction,
+                deduction_amount=month_result.deduction_amount,
                 has_missing_prescriptions=has_missing,
             )
         )
+        all_expenses.extend(month_expenses)
 
-    total = sum(m.total_amount for m in months)
-    deduction = (total * _DEDUCTION_RATE).quantize(Decimal("0.01"))
-    limit_pct = min(float(total / _DEDUCTION_LIMIT * 100), 100.0)
+    # Годовой расчёт через движок — учитывает реальные лимиты и ставку НДФЛ
+    year_result = calculate_deduction(all_expenses, income)
+    limit = get_aggregate_limit(year)
+    limit_pct = min(float(year_result.limit_used / limit * 100), 100.0) if limit else 0.0
 
     return SummaryResponse(
         year=year,
         months=months,
-        total_amount=total,
-        deduction_amount=deduction,
+        total_amount=year_result.total_expenses,
+        deduction_amount=year_result.deduction_amount,
         limit_used_pct=round(limit_pct, 2),
+        ndfl_rate=year_result.ndfl_rate,
+        uncapped_amount=year_result.uncapped_amount,
+        warnings=year_result.warnings or None,
     )
 
 
@@ -213,7 +233,7 @@ async def list_receipts(
     year: int | None = Query(default=None, description="Фильтр по году"),
     month: int | None = Query(default=None, ge=1, le=12, description="Фильтр по месяцу"),
     batch_id: uuid.UUID | None = Query(default=None, description="Фильтр по batch_id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptListResponse:
     """Return receipts grouped by month, optionally filtered by year/month/batch_id."""
@@ -261,7 +281,7 @@ async def list_receipts(
 @router.get("/{receipt_id}", response_model=ReceiptDetail)
 async def get_receipt(
     receipt_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptDetail:
     """Return receipt detail including presigned image URL and items."""
@@ -298,7 +318,7 @@ async def get_receipt(
 async def patch_receipt(
     receipt_id: uuid.UUID,
     body: ReceiptPatch,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptDetail:
     """Partially update receipt fields and/or its items."""
@@ -375,7 +395,7 @@ async def patch_receipt(
 @router.get("/{receipt_id}/duplicate-original", response_model=ReceiptDetail)
 async def get_duplicate_original(
     receipt_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptDetail:
     """Вернуть детали оригинального чека, который является источником дубликата."""
@@ -419,7 +439,7 @@ async def get_duplicate_original(
 async def resolve_duplicate(
     receipt_id: uuid.UUID,
     body: ReceiptResolveDuplicate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> ReceiptDetail:
     """Разрешить дубликат: проверить актуальность и сохранить или вернуть 409.
@@ -521,7 +541,7 @@ async def resolve_duplicate(
 @router.delete("/{receipt_id}", status_code=204)
 async def delete_receipt(
     receipt_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> None:
     """Delete receipt: remove from DB (cascade removes items) and S3."""

@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db, get_redis
+from app.dependencies import get_current_user, get_db_rls, get_redis
 from app.models.batch_job import BatchJob
 from app.models.enums import BatchSource, BatchStatus
 from app.schemas.batch import BatchJobDetail, BatchJobResponse
@@ -50,7 +50,7 @@ def _ext_from_upload(file: UploadFile) -> str:
 @router.post("", response_model=BatchJobResponse, status_code=201)
 async def create_batch(
     files: list[UploadFile] = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> BatchJobResponse:
     """Accept N files, create a BatchJob, enqueue batch_task for each file."""
@@ -127,7 +127,7 @@ async def create_batch(
 @router.get("/{batch_id}", response_model=BatchJobDetail)
 async def get_batch(
     batch_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> BatchJobDetail:
     result = await db.execute(
@@ -161,7 +161,7 @@ async def get_batch(
 @router.get("/{batch_id}/stream")
 async def stream_batch(
     batch_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> StreamingResponse:
     """SSE stream for batch progress. Reads from Redis PubSub channel batch:{id}."""

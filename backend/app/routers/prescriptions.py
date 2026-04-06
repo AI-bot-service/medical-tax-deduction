@@ -1,11 +1,18 @@
 """Prescriptions Router (E-03).
 
 Endpoints:
-  POST /prescriptions          — create prescription (optional photo to S3)
-  GET  /prescriptions          — list with doc_type / status filter
-  GET  /prescriptions/{id}     — detail
-  DELETE /prescriptions/{id}   — soft-delete (status → deleted)
-  POST /prescriptions/link     — link prescription to receipt_item
+  POST /prescriptions                        — create prescription
+  POST /prescriptions/{id}/photo             — attach photo
+  GET  /prescriptions/{id}/image             — presigned URL for photo
+  GET  /prescriptions/{id}/pdf-blank         — 107-1/u PDF blank
+  GET  /prescriptions                        — list with filters
+  GET  /prescriptions/{id}                   — detail
+  PATCH /prescriptions/{id}                  — update prescription metadata
+  POST  /prescriptions/{id}/items            — add drug item
+  PATCH /prescriptions/{id}/items/{item_id}  — update specific drug item
+  DELETE /prescriptions/{id}/items/{item_id} — remove drug item
+  DELETE /prescriptions/{id}                 — soft-delete
+  POST /prescriptions/link                   — link to receipt_item
 """
 from __future__ import annotations
 
@@ -13,17 +20,19 @@ import logging
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db_rls
 from app.models.enums import DocType, RiskLevel
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 from app.models.receipt_item import ReceiptItem
 from app.schemas.prescription import (
     LinkPrescriptionRequest,
     PrescriptionCreate,
+    PrescriptionItemPatch,
+    PrescriptionItemSchema,
     PrescriptionListResponse,
     PrescriptionPatch,
     PrescriptionResponse,
@@ -50,10 +59,13 @@ def _risk_level_for(doc_type: DocType) -> RiskLevel:
 @router.post("", response_model=PrescriptionResponse, status_code=201)
 async def create_prescription(
     body: PrescriptionCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> PrescriptionResponse:
-    """Create a prescription record (without photo). Photo can be added separately."""
+    """Create a prescription record with drug items."""
+    if not body.items:
+        raise HTTPException(status_code=422, detail="Необходимо указать хотя бы один препарат")
+
     risk_level = _risk_level_for(body.doc_type)
 
     prescription = Prescription(
@@ -64,13 +76,21 @@ async def create_prescription(
         clinic_name=body.clinic_name,
         issue_date=body.issue_date,
         expires_at=body.expires_at,
-        drug_name=body.drug_name,
-        drug_inn=body.drug_inn,
-        dosage=body.dosage,
         risk_level=risk_level,
         status="active",
     )
     db.add(prescription)
+    await db.flush()  # получаем prescription.id до добавления items
+
+    for item_data in body.items:
+        db.add(PrescriptionItem(
+            prescription_id=prescription.id,
+            drug_name=item_data.drug_name,
+            drug_inn=item_data.drug_inn,
+            dosage=item_data.dosage,
+            is_rx=True,
+        ))
+
     await db.commit()
     await db.refresh(prescription)
     return PrescriptionResponse.model_validate(prescription)
@@ -85,7 +105,7 @@ async def create_prescription(
 async def upload_prescription_photo(
     prescription_id: uuid.UUID,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> PrescriptionResponse:
     """Attach a photo/scan to an existing prescription."""
@@ -128,7 +148,7 @@ async def upload_prescription_photo(
 @router.get("/{prescription_id}/image")
 async def get_prescription_image(
     prescription_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> dict:
     """Return presigned S3 URL for prescription photo."""
@@ -148,7 +168,6 @@ async def get_prescription_image(
 
     try:
         s3 = S3Client()
-        # Файлы из batch-загрузки лежат в BUCKET_RECEIPTS, вручную загруженные — в BUCKET_PRESCRIPTIONS
         bucket = BUCKET_RECEIPTS if prescription.s3_key.startswith("receipts/") else BUCKET_PRESCRIPTIONS
         url = s3.generate_presigned_url(bucket, prescription.s3_key)
     except Exception:
@@ -165,16 +184,12 @@ async def get_prescription_image(
 @router.get("/{prescription_id}/pdf-blank")
 async def get_prescription_pdf_blank(
     prescription_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> dict:
-    """Generate (or return cached) 107-1/u PDF blank for a prescription.
-
-    Returns {"url": "<presigned_s3_url>", "prescription_id": "<uuid>"}.
-    """
+    """Generate (or return cached) 107-1/u PDF blank for a prescription."""
     from app.services.prescriptions.pdf_blank import generate_107_blank
 
-    # Verify ownership
     result = await db.execute(
         select(Prescription).where(
             Prescription.id == prescription_id,
@@ -209,7 +224,7 @@ async def list_prescriptions(
     doc_type: DocType | None = Query(default=None),
     status: str | None = Query(default=None, description="active | expired | deleted"),
     batch_id: uuid.UUID | None = Query(default=None, description="Фильтр по batch_id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> PrescriptionListResponse:
     """List prescriptions with optional doc_type, status and batch_id filters."""
@@ -228,7 +243,6 @@ async def list_prescriptions(
     elif status == "deleted":
         stmt = stmt.where(Prescription.status == "deleted")
     else:
-        # Default: exclude deleted
         stmt = stmt.where(Prescription.status != "deleted")
 
     stmt = stmt.order_by(Prescription.created_at.desc())
@@ -249,7 +263,7 @@ async def list_prescriptions(
 @router.get("/{prescription_id}", response_model=PrescriptionResponse)
 async def get_prescription(
     prescription_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> PrescriptionResponse:
     result = await db.execute(
@@ -266,7 +280,7 @@ async def get_prescription(
 
 
 # ---------------------------------------------------------------------------
-# PATCH /prescriptions/{id}
+# PATCH /prescriptions/{id}  — обновить метаданные документа
 # ---------------------------------------------------------------------------
 
 
@@ -274,10 +288,10 @@ async def get_prescription(
 async def patch_prescription(
     prescription_id: uuid.UUID,
     body: PrescriptionPatch,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> PrescriptionResponse:
-    """Partial update of a prescription (date, drug name, validity, doctor, clinic)."""
+    """Partial update of prescription metadata (date, doctor, clinic, validity)."""
     result = await db.execute(
         select(Prescription).where(
             Prescription.id == prescription_id,
@@ -291,12 +305,6 @@ async def patch_prescription(
 
     if body.issue_date is not None:
         prescription.issue_date = body.issue_date
-    if body.drug_name is not None:
-        prescription.drug_name = body.drug_name
-    if body.drug_inn is not None:
-        prescription.drug_inn = body.drug_inn
-    if body.dosage is not None:
-        prescription.dosage = body.dosage
     if body.doctor_name is not None:
         prescription.doctor_name = body.doctor_name
     if body.clinic_name is not None:
@@ -312,6 +320,124 @@ async def patch_prescription(
 
 
 # ---------------------------------------------------------------------------
+# PATCH /prescriptions/{id}/items/{item_id}  — обновить препарат
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{prescription_id}/items/{item_id}", response_model=PrescriptionItemSchema)
+async def patch_prescription_item(
+    prescription_id: uuid.UUID,
+    item_id: uuid.UUID,
+    body: PrescriptionItemPatch,
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> PrescriptionItemSchema:
+    """Update drug_name, drug_inn or dosage for a specific prescription item."""
+    result = await db.execute(
+        select(PrescriptionItem)
+        .join(Prescription, Prescription.id == PrescriptionItem.prescription_id)
+        .where(
+            PrescriptionItem.id == item_id,
+            PrescriptionItem.prescription_id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Препарат не найден")
+
+    if body.drug_name is not None:
+        item.drug_name = body.drug_name
+    if body.drug_inn is not None:
+        item.drug_inn = body.drug_inn
+    if body.dosage is not None:
+        item.dosage = body.dosage
+
+    await db.commit()
+    await db.refresh(item)
+    return PrescriptionItemSchema.model_validate(item)
+
+
+# ---------------------------------------------------------------------------
+# POST /prescriptions/{id}/items  — добавить препарат
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{prescription_id}/items", response_model=PrescriptionItemSchema, status_code=201)
+async def add_prescription_item(
+    prescription_id: uuid.UUID,
+    body: PrescriptionItemCreate,
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> PrescriptionItemSchema:
+    """Add a drug item to an existing prescription."""
+    result = await db.execute(
+        select(Prescription).where(
+            Prescription.id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Рецепт не найден")
+
+    item = PrescriptionItem(
+        prescription_id=prescription_id,
+        drug_name=body.drug_name,
+        drug_inn=body.drug_inn,
+        dosage=body.dosage,
+        is_rx=True,
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return PrescriptionItemSchema.model_validate(item)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /prescriptions/{id}/items/{item_id}  — удалить препарат
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{prescription_id}/items/{item_id}", status_code=204)
+async def delete_prescription_item(
+    prescription_id: uuid.UUID,
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> None:
+    """Remove a drug item from a prescription. At least one item must remain."""
+    result = await db.execute(
+        select(PrescriptionItem)
+        .join(Prescription, Prescription.id == PrescriptionItem.prescription_id)
+        .where(
+            PrescriptionItem.id == item_id,
+            PrescriptionItem.prescription_id == prescription_id,
+            Prescription.user_id == current_user.id,
+            Prescription.status != "deleted",
+        )
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Препарат не найден")
+
+    # Убеждаемся, что останется хотя бы один препарат
+    count_result = await db.execute(
+        select(Prescription).where(Prescription.id == prescription_id)
+    )
+    prescription = count_result.scalar_one()
+    if len(prescription.items) <= 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Нельзя удалить последний препарат из рецепта",
+        )
+
+    await db.delete(item)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
 # DELETE /prescriptions/{id}
 # ---------------------------------------------------------------------------
 
@@ -319,7 +445,7 @@ async def patch_prescription(
 @router.delete("/{prescription_id}", status_code=204)
 async def delete_prescription(
     prescription_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> None:
     result = await db.execute(
@@ -344,11 +470,10 @@ async def delete_prescription(
 @router.post("/link", status_code=200)
 async def link_prescription(
     body: LinkPrescriptionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
 ) -> dict:
     """Link a prescription to a receipt_item. Validates user ownership of both."""
-    # Verify prescription belongs to current user
     rx_result = await db.execute(
         select(Prescription).where(
             Prescription.id == body.prescription_id,
@@ -359,7 +484,6 @@ async def link_prescription(
     if prescription is None:
         raise HTTPException(status_code=403, detail="Рецепт не найден или нет доступа")
 
-    # Verify receipt_item belongs to current user (via receipt.user_id join)
     from app.models.receipt import Receipt
 
     item_result = await db.execute(
