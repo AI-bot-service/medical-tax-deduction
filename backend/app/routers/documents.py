@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db_rls
 from app.models.document import Document
 from app.models.enums import DocType, DocumentStatus, DocumentType, OCRStatus
 from app.models.prescription import Prescription
@@ -38,7 +38,7 @@ class DocumentStatsResponse(BaseModel):
 @router.get("/stats", response_model=DocumentStatsResponse)
 async def get_document_stats(
     year: int = Query(..., ge=2000, le=2100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_rls),
     current_user: User = Depends(get_current_user),
 ) -> DocumentStatsResponse:
     """Статистика документов пользователя по 5 группам панели 4 за указанный год.
