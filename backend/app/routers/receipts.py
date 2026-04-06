@@ -16,7 +16,7 @@ from decimal import Decimal
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import extract, select
+from sqlalchemy import Date, cast, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -155,22 +155,24 @@ async def get_summary(
     if year is None:
         year = datetime.now().year
 
+    summary_date_col = func.coalesce(Receipt.purchase_date, cast(Receipt.created_at, Date))
     stmt = (
         select(Receipt)
         .where(
             Receipt.user_id == current_user.id,
-            extract("year", Receipt.created_at) == year,
+            extract("year", summary_date_col) == year,
             Receipt.ocr_status.in_([OCRStatus.DONE, OCRStatus.REVIEW]),
         )
-        .order_by(Receipt.created_at)
+        .order_by(summary_date_col)
     )
     result = await db.execute(stmt)
     receipts = result.scalars().all()
 
-    # Group by month
+    # Group by month (по дате покупки, иначе дате загрузки)
     groups: dict[str, list[Receipt]] = defaultdict(list)
     for r in receipts:
-        month_key = r.created_at.strftime("%Y-%m")
+        d = r.purchase_date or r.created_at.date()
+        month_key = d.strftime("%Y-%m")
         groups[month_key].append(r)
 
     # Рассчитываем месячные итоги — для деталей по месяцам используем упрощённый расчёт
@@ -239,21 +241,25 @@ async def list_receipts(
     """Return receipts grouped by month, optionally filtered by year/month/batch_id."""
     stmt = select(Receipt).where(Receipt.user_id == current_user.id)
 
+    # Фильтрация и сортировка по дате покупки; если она не указана — по дате загрузки
+    date_col = func.coalesce(Receipt.purchase_date, cast(Receipt.created_at, Date))
+
     if year is not None:
-        stmt = stmt.where(extract("year", Receipt.created_at) == year)
+        stmt = stmt.where(extract("year", date_col) == year)
     if month is not None:
-        stmt = stmt.where(extract("month", Receipt.created_at) == month)
+        stmt = stmt.where(extract("month", date_col) == month)
     if batch_id is not None:
         stmt = stmt.where(Receipt.batch_id == batch_id)
 
-    stmt = stmt.order_by(Receipt.created_at.desc())
+    stmt = stmt.order_by(date_col.desc())
     result = await db.execute(stmt)
     receipts = result.scalars().all()
 
-    # Group by month key "YYYY-MM"
+    # Group by month key "YYYY-MM" (по дате покупки, иначе дате загрузки)
     groups: dict[str, list[Receipt]] = defaultdict(list)
     for r in receipts:
-        month_key = r.created_at.strftime("%Y-%m")
+        d = r.purchase_date or r.created_at.date()
+        month_key = d.strftime("%Y-%m")
         groups[month_key].append(r)
 
     months: list[MonthGroup] = []
