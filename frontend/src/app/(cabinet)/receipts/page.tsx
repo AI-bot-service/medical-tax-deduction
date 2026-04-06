@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -462,98 +462,263 @@ function ReceiptSidePanel({
   receiptId: string;
   onNavigate: () => void;
 }) {
+  const qc = useQueryClient();
+  const [editDate, setEditDate] = useState("");
+  const [editPharmacy, setEditPharmacy] = useState("");
+  const [synced, setSynced] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   const { data, isLoading } = useQuery<import("@/types/api").ReceiptDetail>({
     queryKey: ["receipt-detail", receiptId],
     queryFn: () => api.get<import("@/types/api").ReceiptDetail>(`/api/v1/receipts/${receiptId}`),
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    if (data && !synced) {
+      setEditDate(data.purchase_date ?? "");
+      setEditPharmacy(data.pharmacy_name ?? "");
+      setSynced(true);
+    }
+  }, [data, synced]);
+
+  useEffect(() => {
+    setSynced(false);
+    setEditDate("");
+    setEditPharmacy("");
+    setSaved(false);
+  }, [receiptId]);
+
+  const hasLowConf = !!data && data.ocr_confidence != null && data.ocr_confidence < 0.7;
+
+  const fieldInputStyle: React.CSSProperties = {
+    width: "100%",
+    borderRadius: "var(--r-sm)",
+    border: `1px solid ${hasLowConf ? "var(--yellow)" : "var(--border)"}`,
+    background: hasLowConf ? "var(--yellow-bg)" : "var(--surface)",
+    padding: "7px 10px",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    outline: "none",
+    fontFamily: "Urbanist, sans-serif",
+    boxSizing: "border-box",
+  };
+
+  const fieldLabelStyle: React.CSSProperties = {
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    marginBottom: 4,
+    display: "block",
+  };
+
+  async function handleSave() {
+    if (!data) return;
+    setSaving(true);
+    try {
+      await api.patch(`/api/v1/receipts/${data.id}`, {
+        purchase_date: editDate || null,
+        pharmacy_name: editPharmacy || null,
+      });
+      setSaved(true);
+      void qc.invalidateQueries({ queryKey: ["receipt-detail", receiptId] });
+      void qc.invalidateQueries({ queryKey: ["receipts-list"] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <div style={{
-      flex: 1, display: "flex", flexDirection: "column", gap: 12,
-      background: "var(--surface)", borderRadius: "var(--r-md)",
-      border: "1px solid var(--border)", padding: "16px 18px",
-      overflow: "hidden", minWidth: 0,
-    }}>
-      {isLoading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[80, 60, 100, 60].map((w, i) => (
-            <div key={i} style={{ height: 14, borderRadius: 4, background: "var(--bg)", width: `${w}%` }} />
-          ))}
+    <div style={{ flex: 1, display: "flex", gap: 12, minWidth: 0, overflow: "hidden" }}>
+
+      {/* Photo column */}
+      {!isLoading && data?.image_url && (
+        <div style={{
+          width: 160, flexShrink: 0,
+          borderRadius: "var(--r-md)",
+          overflow: "hidden",
+          border: "1px solid var(--border)",
+          background: "var(--bg)",
+          cursor: "pointer",
+        }}
+          onClick={onNavigate}
+          title="Открыть чек"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={data.image_url}
+            alt="Фото чека"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
         </div>
       )}
 
-      {data && (
-        <>
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {data.pharmacy_name ?? "Аптека"}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: 2 }}>
-                {formatDate(data.purchase_date)}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <StatusBadge status={data.ocr_status} confidence={data.ocr_confidence} />
-              <button
-                onClick={onNavigate}
-                style={{
-                  padding: "5px 10px", fontSize: "11px", fontWeight: 600,
-                  background: "var(--accent-light)", color: "var(--accent)",
-                  border: "1px solid var(--accent-mid)", borderRadius: "var(--r-sm)",
-                  cursor: "pointer", whiteSpace: "nowrap",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-mid)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "var(--accent-light)")}
-              >
-                Открыть →
-              </button>
-            </div>
+      {/* Data card */}
+      <div style={{
+        flex: 1, minWidth: 0,
+        background: "var(--surface)",
+        borderRadius: "var(--r-md)",
+        border: "2px solid var(--border-strong)",
+        padding: "16px 18px",
+        display: "flex", flexDirection: "column", gap: 14,
+        overflow: "hidden",
+      }}>
+        {isLoading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[80, 60, 100, 60].map((w, i) => (
+              <div key={i} style={{ height: 14, borderRadius: 4, background: "var(--bg)", width: `${w}%` }} />
+            ))}
           </div>
+        )}
 
-          {/* Photo */}
-          {data.image_url && (
-            <div style={{ borderRadius: "var(--r-md)", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-              <img
-                src={data.image_url}
-                alt="Фото чека"
-                style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }}
-              />
-            </div>
-          )}
-
-          {/* Items */}
-          {data.items.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0, flex: 1, overflow: "auto" }}>
-              {data.items.map((item, idx) => (
-                <div key={item.id} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "baseline",
-                  gap: 8, padding: "5px 0",
-                  borderTop: idx === 0 ? "1px solid var(--border-light)" : "none",
-                  borderBottom: "1px solid var(--border-light)",
-                }}>
-                  <span style={{ fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {item.drug_name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}
-                    {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
-                  </span>
-                  <span style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                    {formatRub(item.total_price)}
-                  </span>
-                </div>
-              ))}
-              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-                <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Итого</span>
-                <span style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>{formatRub(data.total_amount)}</span>
+        {data && (
+          <>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>Данные чека</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {saved && (
+                  <span style={{ fontSize: "12px", color: "var(--green-text)", fontWeight: 600 }}>✓ Сохранено</span>
+                )}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="btn btn-primary btn-sm"
+                  style={saving ? { opacity: 0.55, cursor: "not-allowed" } : {}}
+                >
+                  {saving ? "..." : "Сохранить"}
+                </button>
               </div>
             </div>
-          ) : (
-            <div style={{ fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</div>
-          )}
-        </>
-      )}
+
+            {/* Editable fields */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={fieldLabelStyle}>Дата покупки</label>
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={e => setEditDate(e.target.value)}
+                  style={fieldInputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+                />
+              </div>
+              <div>
+                <label style={fieldLabelStyle}>Аптека</label>
+                <input
+                  type="text"
+                  value={editPharmacy}
+                  onChange={e => setEditPharmacy(e.target.value)}
+                  placeholder="Аптека"
+                  style={fieldInputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+                />
+              </div>
+            </div>
+
+            {/* Items section */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Лекарства</span>
+                <button
+                  onClick={onNavigate}
+                  style={{
+                    fontSize: "12px", fontWeight: 600,
+                    color: "var(--accent)", background: "none",
+                    border: "none", cursor: "pointer", padding: 0,
+                    fontFamily: "Urbanist, sans-serif",
+                  }}
+                >
+                  + Добавить
+                </button>
+              </div>
+
+              {data.items.length > 0 ? (
+                <>
+                  <div style={{ overflowX: "auto", flex: 1 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "var(--bg)" }}>
+                          {["Название", "МНН", "Кол-во", "Цена"].map((h, i) => (
+                            <th key={h} style={{
+                              padding: "6px 10px",
+                              fontSize: "10px", fontWeight: 700,
+                              color: "var(--text-muted)",
+                              letterSpacing: "0.05em", textTransform: "uppercase",
+                              textAlign: i >= 2 ? "center" : "left",
+                              whiteSpace: "nowrap",
+                            }}>
+                              {h}
+                            </th>
+                          ))}
+                          <th style={{ width: 28 }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.items.map(item => (
+                          <tr key={item.id} style={{ borderTop: "1px solid var(--border-light)" }}>
+                            <td style={{ padding: "8px 10px", fontSize: "13px", color: "var(--text-primary)", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {item.drug_name}
+                              {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "10px" }}>💊</span>}
+                            </td>
+                            <td style={{ padding: "8px 10px", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                              {item.drug_inn ?? "—"}
+                            </td>
+                            <td style={{ padding: "8px 10px", fontSize: "13px", textAlign: "center", color: "var(--text-primary)" }}>
+                              {item.quantity}
+                            </td>
+                            <td style={{ padding: "8px 10px", fontSize: "13px", textAlign: "right", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                              {formatRub(item.total_price)}
+                            </td>
+                            <td style={{ padding: "8px 4px 8px 0", textAlign: "center" }}>
+                              <button
+                                onClick={onNavigate}
+                                title="Редактировать в полном виде"
+                                style={{
+                                  background: "none", border: "none", cursor: "pointer",
+                                  padding: 3, borderRadius: "var(--r-sm)",
+                                  color: "var(--text-disabled)", lineHeight: 0,
+                                  transition: "color 0.15s, background 0.15s",
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-disabled)"; e.currentTarget.style.background = "none"; }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                  <path d="M10 11v6M14 11v6"/>
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, paddingTop: 8, borderTop: "1px solid var(--border-light)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Итого</span>
+                    <span style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+                      {formatRub(data.total_amount)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic", padding: "8px 0" }}>
+                  нет данных о препаратах
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
