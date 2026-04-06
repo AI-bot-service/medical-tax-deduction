@@ -23,23 +23,6 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("""
-        CREATE TYPE documenttype AS ENUM (
-            'clinic_cert',
-            'vhi_cert',
-            'ndfl_2',
-            'contract'
-        )
-    """)
-
-    op.execute("""
-        CREATE TYPE documentstatus AS ENUM (
-            'uploaded',
-            'pending',
-            'confirmed'
-        )
-    """)
-
     op.create_table(
         "documents",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
@@ -48,10 +31,10 @@ def upgrade() -> None:
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column("doc_type", sa.Enum(name="documenttype"), nullable=False),
+        sa.Column("doc_type", sa.Enum("clinic_cert", "vhi_cert", "ndfl_2", "contract", name="documenttype"), nullable=False),
         sa.Column(
             "doc_status",
-            sa.Enum(name="documentstatus"),
+            sa.Enum("uploaded", "pending", "confirmed", name="documentstatus"),
             nullable=False,
             server_default="uploaded",
         ),
