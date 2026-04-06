@@ -113,15 +113,16 @@ function SortTh({
 // ---------------------------------------------------------------------------
 
 function MonthAccordion({
-  group, sortField, sortDir, onSort, defaultOpen, onDelete,
+  group, sortField, sortDir, onSort, defaultOpen, onDelete, selectedReceiptId, onSelectReceipt,
 }: {
   group: MonthGroup;
   sortField: SortField; sortDir: SortDir;
   onSort: (f: SortField) => void;
   defaultOpen: boolean;
   onDelete: (id: string) => Promise<void>;
+  selectedReceiptId?: string | null;
+  onSelectReceipt?: (id: string) => void;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
@@ -222,8 +223,9 @@ function MonthAccordion({
             </thead>
             <tbody>
               {sorted.map((r, i) => {
-                const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
-                const hoverBg = "rgba(123,111,212,0.04)";
+                const isSelected = selectedReceiptId === r.id;
+                const rowBg = isSelected ? "rgba(123,111,212,0.10)" : (i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)");
+                const hoverBg = isSelected ? "rgba(123,111,212,0.14)" : "rgba(123,111,212,0.04)";
                 const isHovered = hoveredId === r.id;
                 const bg = isHovered && confirmId !== r.id && animatingId !== r.id ? hoverBg : rowBg;
                 const isDeleting = animatingId === r.id;
@@ -235,6 +237,7 @@ function MonthAccordion({
                   background: bg,
                   transition: isDeleting ? "none" : "background 0.12s",
                   verticalAlign: "top" as const,
+                  boxShadow: isSelected ? "inset 3px 0 0 var(--accent)" : "none",
                 };
 
                 const deleteCell = (
@@ -277,7 +280,7 @@ function MonthAccordion({
                 const handleRowEvents = {
                   onMouseEnter: () => { if (!isDeleting) setHoveredId(r.id); },
                   onMouseLeave: () => setHoveredId(null),
-                  onClick: () => (!isDeleting && confirmId !== r.id) ? router.push(`/receipts/${r.id}`) : undefined,
+                  onClick: () => { if (!isDeleting && confirmId !== r.id) onSelectReceipt?.(r.id); },
                 };
 
                 if (!hasItems) {
@@ -449,6 +452,113 @@ function SkeletonList() {
 }
 
 // ---------------------------------------------------------------------------
+// Receipt Side Panel
+// ---------------------------------------------------------------------------
+
+function ReceiptSidePanel({
+  receiptId,
+  onNavigate,
+}: {
+  receiptId: string;
+  onNavigate: () => void;
+}) {
+  const { data, isLoading } = useQuery<import("@/types/api").ReceiptDetail>({
+    queryKey: ["receipt-detail", receiptId],
+    queryFn: () => api.get<import("@/types/api").ReceiptDetail>(`/api/v1/receipts/${receiptId}`),
+    staleTime: 60_000,
+  });
+
+  return (
+    <div style={{
+      flex: 1, display: "flex", flexDirection: "column", gap: 12,
+      background: "var(--surface)", borderRadius: "var(--r-md)",
+      border: "1px solid var(--border)", padding: "16px 18px",
+      overflow: "hidden", minWidth: 0,
+    }}>
+      {isLoading && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[80, 60, 100, 60].map((w, i) => (
+            <div key={i} style={{ height: 14, borderRadius: 4, background: "var(--bg)", width: `${w}%` }} />
+          ))}
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {data.pharmacy_name ?? "Аптека"}
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: 2 }}>
+                {formatDate(data.purchase_date)}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <StatusBadge status={data.ocr_status} confidence={data.ocr_confidence} />
+              <button
+                onClick={onNavigate}
+                style={{
+                  padding: "5px 10px", fontSize: "11px", fontWeight: 600,
+                  background: "var(--accent-light)", color: "var(--accent)",
+                  border: "1px solid var(--accent-mid)", borderRadius: "var(--r-sm)",
+                  cursor: "pointer", whiteSpace: "nowrap",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-mid)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--accent-light)")}
+              >
+                Открыть →
+              </button>
+            </div>
+          </div>
+
+          {/* Photo */}
+          {data.image_url && (
+            <div style={{ borderRadius: "var(--r-md)", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+              <img
+                src={data.image_url}
+                alt="Фото чека"
+                style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }}
+              />
+            </div>
+          )}
+
+          {/* Items */}
+          {data.items.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, flex: 1, overflow: "auto" }}>
+              {data.items.map((item, idx) => (
+                <div key={item.id} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "baseline",
+                  gap: 8, padding: "5px 0",
+                  borderTop: idx === 0 ? "1px solid var(--border-light)" : "none",
+                  borderBottom: "1px solid var(--border-light)",
+                }}>
+                  <span style={{ fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.drug_name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}
+                    {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
+                  </span>
+                  <span style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {formatRub(item.total_price)}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Итого</span>
+                <span style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>{formatRub(data.total_amount)}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Processing Pipeline
 // ---------------------------------------------------------------------------
 
@@ -547,7 +657,7 @@ function StepCircle({
 
 /* ── Single step node ── */
 function PipelineStep({
-  kind, label, sublabel, icon, onClick, progress, spinning,
+  kind, label, sublabel, icon, onClick, progress, spinning, vertical,
 }: {
   kind: StepKind;
   label: string;
@@ -556,6 +666,7 @@ function PipelineStep({
   onClick?: () => void;
   progress?: number;
   spinning?: boolean;
+  vertical?: boolean;
 }) {
   const labelColor =
     kind === "done"    ? "#16A34A" :
@@ -563,6 +674,31 @@ function PipelineStep({
     kind === "active"  ? "var(--accent)" :
     kind === "idle"    ? "var(--text-primary)" :
     "var(--text-muted)";
+
+  if (vertical) {
+    return (
+      <div
+        onClick={onClick}
+        style={{
+          display: "flex", alignItems: "center", gap: 14,
+          cursor: onClick ? "pointer" : "default",
+          userSelect: "none",
+        }}
+      >
+        <StepCircle kind={kind} progress={progress} spinning={spinning}>
+          {icon}
+        </StepCircle>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "-0.01em", color: labelColor, transition: "color 0.3s" }}>
+            {label}
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: 2 }}>
+            {sublabel}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -599,7 +735,27 @@ function PipelineStep({
 }
 
 /* ── Arrow connector ── */
-function StepConnector({ filled }: { filled: boolean }) {
+function StepConnector({ filled, vertical }: { filled: boolean; vertical?: boolean }) {
+  if (vertical) {
+    return (
+      <div style={{ display: "flex", paddingLeft: 38, height: 30 }}>
+        <div style={{ position: "relative", width: 2, height: "100%" }}>
+          <div style={{ position: "absolute", inset: 0, borderRadius: 1, background: "var(--border-strong)" }} />
+          {filled && (
+            <div style={{ position: "absolute", inset: 0, borderRadius: 1, background: "#22C55E", transformOrigin: "top", animation: "ppLineFill 0.55s var(--ease-spring) both" }} />
+          )}
+          <div style={{
+            position: "absolute", bottom: -3, left: "50%",
+            width: 6, height: 6,
+            borderBottom: `2px solid ${filled ? "#22C55E" : "var(--border-strong)"}`,
+            borderRight: `2px solid ${filled ? "#22C55E" : "var(--border-strong)"}`,
+            transform: "translateX(-50%) rotate(45deg)",
+            transition: "border-color 0.5s",
+          }} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{
       flexShrink: 0, width: 52,
@@ -825,12 +981,13 @@ function ProcessingPipeline({
   return (
     <div
       className="card"
-      style={{ padding: "22px 28px", marginBottom: 20 }}
+      style={{ padding: "22px 28px" }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
 
         {/* ── Step 1: Upload ── */}
         <PipelineStep
+          vertical
           kind={step1Kind}
           label="Загрузить"
           sublabel={step1Sub}
@@ -840,20 +997,22 @@ function ProcessingPipeline({
           spinning={uploadState === "uploading"}
         />
 
-        <StepConnector filled={step1Kind === "done"} />
+        <StepConnector vertical filled={step1Kind === "done"} />
 
         {/* ── Step 2: OCR ── */}
         <PipelineStep
+          vertical
           kind={step2Kind}
           label="Распознавание"
           sublabel={step2Sub}
           icon={<IconScan />}
         />
 
-        <StepConnector filled={step2Kind === "done"} />
+        <StepConnector vertical filled={step2Kind === "done"} />
 
         {/* ── Step 3: Operator review ── */}
         <PipelineStep
+          vertical
           kind={step3Kind}
           label="Проверка"
           sublabel={step3Sub}
@@ -919,6 +1078,7 @@ export default function ReceiptsPage() {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [sortField, setSortField]         = useState<SortField>("purchase_date");
   const [sortDir, setSortDir]             = useState<SortDir>("desc");
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
   // pipeline ref so EmptyState can trigger upload
   const pipelineUploadRef = useRef<(() => void) | null>(null);
@@ -958,6 +1118,15 @@ export default function ReceiptsPage() {
     queryFn:  () => api.get<ReceiptListResponse>(`/api/v1/receipts?year=${selectedYear}`),
     staleTime: 30_000,
   });
+
+  // Автоматически выбираем первый чек при загрузке данных
+  useEffect(() => {
+    if (!data || selectedReceiptId) return;
+    const firstDone = data.months
+      .flatMap(m => m.receipts)
+      .find(r => r.ocr_status === "DONE");
+    if (firstDone) setSelectedReceiptId(firstDone.id);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -999,10 +1168,18 @@ export default function ReceiptsPage() {
         <SummaryStrip data={doneData} filter={selectedMonth} />
       )}
 
-      {/* ── Processing Pipeline (replaces old header + upload button) ── */}
-      <ProcessingPipeline
-        onRefetch={() => void refetch()}
-      />
+      {/* ── Processing Pipeline + Side Panel ── */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 20, alignItems: "stretch" }}>
+        <ProcessingPipeline
+          onRefetch={() => void refetch()}
+        />
+        {selectedReceiptId && (
+          <ReceiptSidePanel
+            receiptId={selectedReceiptId}
+            onNavigate={() => router.push(`/receipts/${selectedReceiptId}`)}
+          />
+        )}
+      </div>
 
       {/* ── Duplicate alert banner ── */}
       {activeBatch && completed && reviewCount > 0 && (
@@ -1088,6 +1265,8 @@ export default function ReceiptsPage() {
                   onSort={handleSort}
                   defaultOpen={i === 0}
                   onDelete={handleDelete}
+                  selectedReceiptId={selectedReceiptId}
+                  onSelectReceipt={setSelectedReceiptId}
                 />
               ))
             )}
