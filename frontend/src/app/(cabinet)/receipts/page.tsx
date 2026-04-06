@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { uploadWithProgress } from "@/components/ui/UploadZone";
 import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
-import { useBatchStore } from "@/lib/store";
+import { useBatchStore, useDashboardStore } from "@/lib/store";
 import { useBatchSSE } from "@/hooks/useBatchSSE";
 import type {
   ReceiptListResponse, ReceiptListItem, MonthGroup, OCRStatus, BatchJob,
@@ -855,9 +855,10 @@ export default function ReceiptsPage() {
   // pipeline ref so EmptyState can trigger upload
   const pipelineUploadRef = useRef<(() => void) | null>(null);
 
-  const activeBatch = useBatchStore(s => s.activeBatch);
-  const completed   = useBatchStore(s => s.completed);
-  const reviewCount = useBatchStore(s => s.reviewCount);
+  const selectedYear = useDashboardStore(s => s.selectedYear);
+  const activeBatch  = useBatchStore(s => s.activeBatch);
+  const completed    = useBatchStore(s => s.completed);
+  const reviewCount  = useBatchStore(s => s.reviewCount);
 
   // Очередь ID чеков со статусом DUPLICATE_REVIEW для показа модалки
   const [duplicateQueue, setDuplicateQueue] = useState<string[]>([]);
@@ -885,8 +886,8 @@ export default function ReceiptsPage() {
   }
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
-    queryKey: ["receipts-list"],
-    queryFn:  () => api.get<ReceiptListResponse>("/api/v1/receipts"),
+    queryKey: ["receipts-list", selectedYear],
+    queryFn:  () => api.get<ReceiptListResponse>(`/api/v1/receipts?year=${selectedYear}`),
     staleTime: 30_000,
   });
 

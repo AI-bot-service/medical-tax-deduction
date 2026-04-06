@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useDashboardStore } from "@/lib/store";
 import type { PrescriptionListResponse, Prescription, DocType } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -91,12 +92,14 @@ function RiskBadge({ risk }: { risk: string }) {
 export default function PrescriptionsPage() {
   const router = useRouter();
   const [docTypeFilter, setDocTypeFilter] = useState<string>("all");
+  const selectedYear = useDashboardStore(s => s.selectedYear);
 
   const { data, isLoading, isError } = useQuery<PrescriptionListResponse>({
-    queryKey: ["prescriptions", docTypeFilter],
+    queryKey: ["prescriptions", docTypeFilter, selectedYear],
     queryFn: () => {
-      const qs = docTypeFilter !== "all" ? `?doc_type=${docTypeFilter}` : "";
-      return api.get<PrescriptionListResponse>(`/api/v1/prescriptions${qs}`);
+      const params = new URLSearchParams({ year: String(selectedYear) });
+      if (docTypeFilter !== "all") params.set("doc_type", docTypeFilter);
+      return api.get<PrescriptionListResponse>(`/api/v1/prescriptions?${params}`);
     },
     staleTime: 30_000,
   });

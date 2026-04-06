@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useSummary } from "@/hooks/useSummary";
+import { useDashboardStore } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,11 +29,6 @@ interface ExportStatusResponse {
 // ---------------------------------------------------------------------------
 
 const POLL_INTERVAL = 2000;
-
-function getYears(): number[] {
-  const current = new Date().getFullYear();
-  return [current, current - 1, current - 2];
-}
 
 // ---------------------------------------------------------------------------
 // ExportPreview
@@ -72,8 +68,7 @@ function ExportPreview({ year }: ExportPreviewProps) {
 // ---------------------------------------------------------------------------
 
 export default function ExportPage() {
-  const years = getYears();
-  const [selectedYear, setSelectedYear] = useState(years[0]);
+  const selectedYear = useDashboardStore(s => s.selectedYear);
   const [exportJob, setExportJob] = useState<ExportCreateResponse | null>(null);
   const [status, setStatus] = useState<ExportStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -129,34 +124,6 @@ export default function ExportPage() {
       <h1 className="mb-6 text-xl font-bold text-gray-900">Экспорт для ИФНС</h1>
 
       <div className="space-y-5">
-        {/* Year Selector */}
-        <div className="rounded-xl bg-white border border-gray-100 p-5 shadow-sm">
-          <label className="mb-2 block text-sm font-medium text-gray-700">
-            Налоговый год
-          </label>
-          <div className="flex gap-3">
-            {years.map((y) => (
-              <button
-                key={y}
-                onClick={() => {
-                  setSelectedYear(y);
-                  setExportJob(null);
-                  setStatus(null);
-                  stopPolling();
-                }}
-                className={[
-                  "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors",
-                  selectedYear === y
-                    ? "border-blue-500 bg-blue-600 text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-blue-300",
-                ].join(" ")}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Preview */}
         <ExportPreview year={selectedYear} />
 

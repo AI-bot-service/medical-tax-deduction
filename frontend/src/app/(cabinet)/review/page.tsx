@@ -8,7 +8,7 @@ import {
   ZoomInIcon, XIcon, ImageOffIcon, LoaderCircleIcon, StarIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useReviewStore } from "@/lib/store";
+import { useReviewStore, useDashboardStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
@@ -434,10 +434,11 @@ export default function ReviewPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { queue, currentIdx, loadQueue, approve, skip } = useReviewStore();
+  const selectedYear = useDashboardStore(s => s.selectedYear);
 
   const { data, isLoading } = useQuery<ReceiptListResponse>({
-    queryKey: ["receipts-review"],
-    queryFn: () => api.get<ReceiptListResponse>("/api/v1/receipts?status=REVIEW"),
+    queryKey: ["receipts-review", selectedYear],
+    queryFn: () => api.get<ReceiptListResponse>(`/api/v1/receipts?status=REVIEW&year=${selectedYear}`),
     staleTime: 30_000,
   });
 

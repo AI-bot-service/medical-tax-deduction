@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import { YearFilter } from "@/components/ui/YearFilter";
 import { BadgePercent, Info, HeartPulse } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store";
@@ -404,54 +405,42 @@ function SettingsIcon() {
   );
 }
 
-function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
+function Topbar({ onMenuToggle: _onMenuToggle }: { onMenuToggle: () => void }) {
   const pathname = usePathname();
-  const year = new Date().getFullYear();
-
-  const title =
-    Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ?? "Кабинет";
+  const isDashboard = pathname === "/dashboard" || pathname === "/";
 
   return (
     <header className="topbar">
-      {/* Burger — mobile only */}
-      <button
-        className="topbar-icon-btn"
-        onClick={onMenuToggle}
-        aria-label="Меню"
-        style={{ display: "flex", flexShrink: 0 }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-      </button>
-
-      {/* Title */}
-      <span className="topbar-title">{title}</span>
-
-      {/* Search */}
-      <div className="topbar-search" style={{ marginLeft: "20px" }}>
-        <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
-          <SearchIcon />
+      {/* Left: YearFilter always visible + page title on non-dashboard pages */}
+      <YearFilter />
+      {!isDashboard && (
+        <span className="topbar-title" style={{ marginLeft: "4px" }}>
+          {Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ?? "Кабинет"}
         </span>
-        <input
-          type="text"
-          placeholder="Поиск по аптеке, дате..."
-          style={{
-            background: "none", border: "none", outline: "none",
-            fontSize: "13px", color: "var(--text-primary)", width: "100%",
-            fontFamily: "inherit",
-          }}
-        />
-        <span style={{
-          fontSize: "10px", color: "var(--text-muted)",
-          background: "var(--bg)", border: "1px solid var(--border)",
-          borderRadius: "4px", padding: "1px 6px", fontWeight: 700, flexShrink: 0,
-        }}>⌘K</span>
-      </div>
+      )}
 
-      {/* Right */}
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "6px" }}>
-        <span className="pill-year">{year}</span>
+      {/* Right: search + actions */}
+      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px" }}>
+        {/* Search */}
+        <div className="topbar-search">
+          <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+            <SearchIcon />
+          </span>
+          <input
+            type="text"
+            placeholder="Поиск по аптеке, дате..."
+            style={{
+              background: "none", border: "none", outline: "none",
+              fontSize: "13px", color: "var(--text-primary)", width: "100%",
+              fontFamily: "inherit",
+            }}
+          />
+          <span style={{
+            fontSize: "10px", color: "var(--text-muted)",
+            background: "var(--bg)", border: "1px solid var(--border)",
+            borderRadius: "4px", padding: "1px 6px", fontWeight: 700, flexShrink: 0,
+          }}>⌘K</span>
+        </div>
 
         <button className="topbar-icon-btn" aria-label="Настройки" style={{ display: "flex" }}>
           <SettingsIcon />
@@ -462,7 +451,6 @@ function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           <span className="notif-dot" aria-hidden="true" />
         </button>
 
-        {/* Avatar */}
         <div className="avatar avatar-sm" style={{ cursor: "pointer", fontSize: "11px" }}>
           МВ
         </div>
