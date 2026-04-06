@@ -378,7 +378,7 @@
         "Шаг 2: все тесты должны быть зелёными"
       ],
       "dependencies": ["TASK-002"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-019",

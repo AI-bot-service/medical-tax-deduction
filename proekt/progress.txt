@@ -1,3 +1,26 @@
+## 2026-04-06 — TASK-018: Unit-тест для GET /api/v1/tax-limits
+
+**Статус**: DONE
+
+**Что сделано**:
+- Создан тест-файл `backend/tests/test_tax_limits/test_tax_limits_router.py` (7 тестов)
+- Тест использует минимальное FastAPI-приложение с только роутером tax_limits (без импорта app.main — избегает цепочки тяжёлых зависимостей)
+- Исправлен баг в `app/routers/tax_limits.py`: `str(category)` заменён на `category.value` для корректной работы на Python 3.10/3.11
+- Исправлен импорт в роутере (ruff --fix): Optional → `int | None`, порядок импортов
+
+**Acceptance Criteria выполнены**:
+- ✅ year=2023 → combined_limit=120000
+- ✅ year=2024 → combined_limit=150000, 4 категории в limits[]
+- ✅ treatment_expensive: is_uncapped=true, limit_amount=null, refund_percent=13
+- ✅ year=2025 → 200 OK, combined_limit=150000
+- ✅ без year → 422
+- ✅ 7 passed, 0 failed
+
+**Следующие задачи**:
+- Все TASK-001..TASK-022 теперь done — redesign дашборда завершён
+
+---
+
 ## 2026-04-03 — TASK-017: Замена эмодзи в HeroCard на Lucide Icons
 
 **Статус**: DONE
