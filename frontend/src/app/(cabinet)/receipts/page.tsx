@@ -994,6 +994,11 @@ export default function ReceiptsPage() {
         />
       )}
 
+      {/* ── Summary strip — сразу после панели с годами ── */}
+      {doneData && doneData.total_count > 0 && (
+        <SummaryStrip data={doneData} filter={selectedMonth} />
+      )}
+
       {/* ── Processing Pipeline (replaces old header + upload button) ── */}
       <ProcessingPipeline
         onRefetch={() => void refetch()}
@@ -1060,7 +1065,6 @@ export default function ReceiptsPage() {
 
       {doneData && doneData.total_count > 0 && (
         <>
-          <SummaryStrip data={doneData} filter={selectedMonth} />
           <div style={{ marginBottom: 16 }}>
             <MonthFilterPills months={allMonths} value={selectedMonth} onChange={setSelectedMonth} />
           </div>
