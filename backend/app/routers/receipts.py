@@ -239,7 +239,7 @@ async def list_receipts(
     current_user=Depends(get_current_user),
 ) -> ReceiptListResponse:
     """Return receipts grouped by month, optionally filtered by year/month/batch_id."""
-    stmt = select(Receipt).where(Receipt.user_id == current_user.id)
+    stmt = select(Receipt).where(Receipt.user_id == current_user.id).options(selectinload(Receipt.items))
 
     # Фильтрация и сортировка по дате покупки; если она не указана — по дате загрузки
     date_col = func.coalesce(Receipt.purchase_date, cast(Receipt.created_at, Date))

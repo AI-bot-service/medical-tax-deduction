@@ -67,6 +67,7 @@ export interface ReceiptListItem {
   ocr_confidence: number | null;
   needs_prescription: boolean;
   created_at: string; // ISO datetime
+  items: ReceiptItem[];
 }
 
 export interface MonthGroup {

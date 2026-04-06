@@ -55,6 +55,7 @@ class ReceiptListItem(BaseModel):
     ocr_confidence: float | None = None
     needs_prescription: bool
     created_at: datetime
+    items: list[ReceiptItemSchema] = Field(default_factory=list)
 
 
 class MonthGroup(BaseModel):
@@ -126,6 +127,10 @@ class SummaryResponse(BaseModel):
     total_amount: Decimal
     deduction_amount: Decimal
     limit_used_pct: float  # capped at 100.0
+    # Новые поля (обратная совместимость — все optional)
+    ndfl_rate: Decimal | None = None
+    uncapped_amount: Decimal | None = None
+    warnings: list[str] | None = None
 
 
 class ReceiptPatch(BaseModel):
