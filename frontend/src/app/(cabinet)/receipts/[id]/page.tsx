@@ -364,17 +364,28 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
     })),
   );
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [focusedCell, setFocusedCell] = useState<string | null>(null); // "itemId-field"
+  const focusedCellRef = useRef<string | null>(null);
+
+  function setFocused(val: string | null) {
+    focusedCellRef.current = val;
+    setFocused(val);
+  }
 
   useEffect(() => {
-    setRows(
-      items.map((item) => ({
-        ...item,
-        _name: item.drug_name,
-        _qty: String(item.quantity),
-        _price: item.unit_price ?? "0",
-      })),
+    setRows((prevRows) =>
+      items.map((item) => {
+        const prev = prevRows.find((r) => r.id === item.id);
+        const isEditing = focusedCellRef.current?.startsWith(`${item.id}-`);
+        return {
+          ...item,
+          _name: isEditing && prev ? prev._name : item.drug_name,
+          _qty: isEditing && prev ? prev._qty : String(item.quantity),
+          _price: isEditing && prev ? prev._price : (item.unit_price ?? "0"),
+        };
+      }),
     );
   }, [items]);
 
@@ -410,13 +421,17 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
         `/api/v1/receipts/${receiptId}`,
         { items: [{ id: itemId, ...patch }] },
       );
-      setRows(
-        updated.items.map((item) => ({
-          ...item,
-          _name: item.drug_name,
-          _qty: String(item.quantity),
-          _price: item.unit_price ?? "0",
-        })),
+      setRows((prevRows) =>
+        updated.items.map((item) => {
+          const prev = prevRows.find((r) => r.id === item.id);
+          const isEditing = focusedCellRef.current?.startsWith(`${item.id}-`);
+          return {
+            ...item,
+            _name: isEditing && prev ? prev._name : item.drug_name,
+            _qty: isEditing && prev ? prev._qty : String(item.quantity),
+            _price: isEditing && prev ? prev._price : (item.unit_price ?? "0"),
+          };
+        }),
       );
       onLinked();
     } catch {
@@ -437,6 +452,19 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
     const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
     const total = (qty * price).toFixed(2);
     await patchItem(row.id, { quantity: qty, total_price: total });
+  }
+
+  async function deleteItem(itemId: string) {
+    setDeleting(itemId);
+    try {
+      await api.delete(`/api/v1/receipts/${receiptId}/items/${itemId}`);
+      setRows((prev) => prev.filter((r) => r.id !== itemId));
+      onLinked();
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(null);
+    }
   }
 
   async function handlePriceBlur(row: EditableRow) {
@@ -486,11 +514,18 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <colgroup>
+            <col />
+            <col style={{ width: 140 }} />
+            <col style={{ width: 72 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 36 }} />
+          </colgroup>
           <thead>
             <tr style={{ background: "var(--bg)" }}>
-              {["Название", "МНН", "Кол-во", "Цена"].map((h, i) => (
-                <th key={h} style={{
+              {(["Название", "МНН", "Кол-во", "Цена", ""] as const).map((h, i) => (
+                <th key={i} style={{
                   padding: "6px 10px",
                   fontSize: "10px", fontWeight: 700,
                   color: "var(--text-muted)",
@@ -498,6 +533,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   textTransform: "uppercase",
                   textAlign: i >= 2 ? "center" : "left",
                   whiteSpace: "nowrap",
+                  overflow: "hidden",
                 }}>
                   {h}
                 </th>
@@ -507,13 +543,15 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
           <tbody>
             {rows.map((row) => {
               const isSaving = saving === row.id;
+              const isDeleting = deleting === row.id;
               return (
                 <tr
                   key={row.id}
                   style={{
                     borderTop: "1px solid var(--border-light)",
-                    background: isSaving ? "var(--yellow-bg)" : undefined,
+                    background: isSaving ? "var(--yellow-bg)" : isDeleting ? "var(--red-bg)" : undefined,
                     transition: "background 0.2s",
+                    opacity: isDeleting ? 0.5 : 1,
                   }}
                 >
                   {/* Название — editable */}
@@ -521,9 +559,9 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                     <input
                       value={row._name}
                       onChange={(e) => updateRow(row.id, "_name", e.target.value)}
-                      onFocus={() => setFocusedCell(`${row.id}-name`)}
+                      onFocus={() => setFocused(`${row.id}-name`)}
                       onBlur={() => {
-                        setFocusedCell(null);
+                        setFocused(null);
                         void handleNameBlur(row);
                       }}
                       style={{
@@ -557,9 +595,9 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                       step="1"
                       value={row._qty}
                       onChange={(e) => updateRow(row.id, "_qty", e.target.value)}
-                      onFocus={() => setFocusedCell(`${row.id}-qty`)}
+                      onFocus={() => setFocused(`${row.id}-qty`)}
                       onBlur={() => {
-                        setFocusedCell(null);
+                        setFocused(null);
                         void handleQtyBlur(row);
                       }}
                       style={{
@@ -574,8 +612,8 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         outline: "none",
                         textAlign: "center",
                         boxSizing: "border-box",
+                        opacity: isSaving ? 0.6 : 1,
                       }}
-                      disabled={isSaving}
                     />
                   </td>
 
@@ -587,9 +625,9 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                       step="0.01"
                       value={row._price}
                       onChange={(e) => updateRow(row.id, "_price", e.target.value)}
-                      onFocus={() => setFocusedCell(`${row.id}-price`)}
+                      onFocus={() => setFocused(`${row.id}-price`)}
                       onBlur={() => {
-                        setFocusedCell(null);
+                        setFocused(null);
                         void handlePriceBlur(row);
                       }}
                       style={{
@@ -607,6 +645,46 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                       }}
                       disabled={isSaving}
                     />
+                  </td>
+
+                  {/* Удалить */}
+                  <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                    <button
+                      onClick={() => { void deleteItem(row.id); }}
+                      disabled={isSaving || isDeleting}
+                      title="Удалить позицию"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 26,
+                        height: 26,
+                        borderRadius: "var(--r-sm)",
+                        border: "1px solid transparent",
+                        background: "transparent",
+                        cursor: isSaving || isDeleting ? "not-allowed" : "pointer",
+                        color: "var(--text-muted)",
+                        padding: 0,
+                        transition: "color 0.15s, background 0.15s, border-color 0.15s",
+                        opacity: isSaving || isDeleting ? 0.4 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSaving && !isDeleting) {
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--red-text)";
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--red-bg)";
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--red-text)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+                      }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5 3.5l.5 8M7 3.5v8M9 3.5l-.5 8M3.5 3.5l.5 8.5a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5l.5-8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               );

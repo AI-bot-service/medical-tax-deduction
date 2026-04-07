@@ -347,8 +347,9 @@ async def patch_receipt(
     if body.total_amount is not None:
         receipt.total_amount = float(body.total_amount)
 
-    # Пользователь явно подтвердил данные — помечаем как DONE
+    # Пользователь явно подтвердил данные — помечаем как DONE и выставляем 100% уверенности
     receipt.ocr_status = OCRStatus.DONE
+    receipt.ocr_confidence = 1.0
 
     # Update items if provided
     if body.items is not None:
@@ -576,6 +577,38 @@ async def add_receipt_item(
     await db.commit()
     await db.refresh(item)
     return ReceiptItemSchema.model_validate(item)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /receipts/{id}/items/{item_id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{receipt_id}/items/{item_id}", status_code=204)
+async def delete_receipt_item(
+    receipt_id: uuid.UUID,
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> None:
+    """Delete a specific item from a receipt."""
+    stmt = select(Receipt).where(Receipt.id == receipt_id, Receipt.user_id == current_user.id)
+    result = await db.execute(stmt)
+    receipt = result.scalar_one_or_none()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+
+    item_stmt = select(ReceiptItem).where(
+        ReceiptItem.id == item_id,
+        ReceiptItem.receipt_id == receipt_id,
+    )
+    item_result = await db.execute(item_stmt)
+    item = item_result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Позиция не найдена")
+
+    await db.delete(item)
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------

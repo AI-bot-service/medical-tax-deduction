@@ -64,6 +64,9 @@ export async function apiRequest<T = unknown>(
       }
       throw new ApiError(res.status, message);
     }
+    if (res.status === 204 || res.status === 205) {
+      return undefined as T;
+    }
     return res.json() as Promise<T>;
   }
 
@@ -99,6 +102,9 @@ export async function apiRequest<T = unknown>(
       // ignore
     }
     throw new ApiError(retry.status, message);
+  }
+  if (retry.status === 204 || retry.status === 205) {
+    return undefined as T;
   }
   return retry.json() as Promise<T>;
 }
