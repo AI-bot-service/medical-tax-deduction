@@ -246,7 +246,7 @@ const inputStyle = (highlight: boolean): React.CSSProperties => ({
   width: "100%",
   borderRadius: "var(--r-sm)",
   border: `1px solid ${highlight ? "var(--yellow)" : "var(--border)"}`,
-  background: highlight ? "var(--yellow-bg)" : "var(--surface)",
+  background: "var(--surface)",
   padding: "9px 12px",
   fontSize: "13px",
   color: "var(--text-primary)",
@@ -277,6 +277,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Жёлтая рамка только пока данные не подтверждены сохранением
+  const showUncertain = hasLowConf && !saved;
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -302,7 +305,7 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
         <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
           Данные чека
         </h2>
-        {hasLowConf && (
+        {showUncertain && (
           <span style={{
             display: "flex", alignItems: "center", gap: 5,
             fontSize: "11px", color: "var(--yellow-text)",
@@ -322,9 +325,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            style={inputStyle(hasLowConf)}
+            style={inputStyle(showUncertain)}
             onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+            onBlur={(e) => { e.target.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
           />
         </Field>
 
@@ -334,9 +337,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             value={pharmacy}
             onChange={(e) => setPharmacy(e.target.value)}
             placeholder="Название аптеки"
-            style={inputStyle(hasLowConf)}
+            style={inputStyle(showUncertain)}
             onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+            onBlur={(e) => { e.target.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
           />
         </Field>
 
@@ -347,9 +350,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.00"
-            style={inputStyle(hasLowConf)}
+            style={inputStyle(showUncertain)}
             onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => { e.target.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+            onBlur={(e) => { e.target.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
           />
         </Field>
       </div>

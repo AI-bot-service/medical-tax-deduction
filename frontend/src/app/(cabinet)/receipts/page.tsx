@@ -492,12 +492,13 @@ function ReceiptSidePanel({
   }, [receiptId]);
 
   const hasLowConf = !!data && data.ocr_confidence != null && data.ocr_confidence < 0.7;
+  const showUncertain = hasLowConf && !saved;
 
   const fieldInputStyle: React.CSSProperties = {
     width: "100%",
     borderRadius: "var(--r-sm)",
-    border: `1px solid ${hasLowConf ? "var(--yellow)" : "var(--border)"}`,
-    background: hasLowConf ? "var(--yellow-bg)" : "var(--surface)",
+    border: `1px solid ${showUncertain ? "var(--yellow)" : "var(--border)"}`,
+    background: "var(--surface)",
     padding: "7px 10px",
     fontSize: "13px",
     color: "var(--text-primary)",
@@ -687,7 +688,7 @@ function ReceiptSidePanel({
                   onChange={e => setEditDate(e.target.value)}
                   style={fieldInputStyle}
                   onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
                 />
               </div>
               <div>
@@ -699,7 +700,7 @@ function ReceiptSidePanel({
                   placeholder="Аптека"
                   style={fieldInputStyle}
                   onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = hasLowConf ? "var(--yellow)" : "var(--border)"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
                 />
               </div>
             </div>
