@@ -222,8 +222,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   const [pharmacy, setPharmacy] = useState(receipt.pharmacy_name ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [userEdited, setUserEdited] = useState(false);
 
-  const showUncertain = hasLowConf && !saved;
+  const showUncertain = hasLowConf && !saved && !userEdited;
 
   // Sync if receipt data changes (e.g. after invalidate)
   useEffect(() => {
@@ -258,6 +259,7 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     setSaving(true);
     try {
       await api.patch(`/api/v1/receipts/${receipt.id}`, fields);
+      setUserEdited(true);
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
