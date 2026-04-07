@@ -455,6 +455,20 @@ function SkeletonList() {
 // Receipt Side Panel
 // ---------------------------------------------------------------------------
 
+interface EditableItem {
+  id: string;
+  drug_name: string;
+  drug_inn: string | null;
+  quantity: number;
+  unit_price: string | null;
+  total_price: string | null;
+  is_rx: boolean;
+  prescription_id: string | null;
+  _name: string;
+  _qty: string;
+  _price: string;
+}
+
 function ReceiptSidePanel({
   receiptId,
   onNavigate,
@@ -469,6 +483,10 @@ function ReceiptSidePanel({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
+  const [itemsSynced, setItemsSynced] = useState(false);
+  const [savingItem, setSavingItem] = useState<string | null>(null);
+  const [focusedCell, setFocusedCell] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<import("@/types/api").ReceiptDetail>({
     queryKey: ["receipt-detail", receiptId],
@@ -485,11 +503,88 @@ function ReceiptSidePanel({
   }, [data, synced]);
 
   useEffect(() => {
+    if (data && !itemsSynced) {
+      setEditableItems(
+        data.items.map(item => ({
+          id: item.id,
+          drug_name: item.drug_name,
+          drug_inn: item.drug_inn ?? null,
+          quantity: item.quantity,
+          unit_price: item.unit_price ?? null,
+          total_price: item.total_price ?? null,
+          is_rx: item.is_rx,
+          prescription_id: item.prescription_id ?? null,
+          _name: item.drug_name,
+          _qty: String(item.quantity),
+          _price: item.unit_price ?? "0",
+        }))
+      );
+      setItemsSynced(true);
+    }
+  }, [data, itemsSynced]);
+
+  useEffect(() => {
     setSynced(false);
+    setItemsSynced(false);
     setEditDate("");
     setEditPharmacy("");
     setSaved(false);
+    setEditableItems([]);
   }, [receiptId]);
+
+  function updateItem(id: string, field: "_name" | "_qty" | "_price", value: string) {
+    setEditableItems(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } : r)));
+  }
+
+  async function patchItem(itemId: string, patch: Record<string, unknown>) {
+    setSavingItem(itemId);
+    try {
+      const updated = await api.patch<{ items: import("@/types/api").ReceiptItem[] }>(
+        `/api/v1/receipts/${receiptId}`,
+        { items: [{ id: itemId, ...patch }] },
+      );
+      setEditableItems(
+        updated.items.map(item => ({
+          id: item.id,
+          drug_name: item.drug_name,
+          drug_inn: item.drug_inn ?? null,
+          quantity: item.quantity,
+          unit_price: item.unit_price ?? null,
+          total_price: item.total_price ?? null,
+          is_rx: item.is_rx,
+          prescription_id: item.prescription_id ?? null,
+          _name: item.drug_name,
+          _qty: String(item.quantity),
+          _price: item.unit_price ?? "0",
+        }))
+      );
+      void qc.invalidateQueries({ queryKey: ["receipt-detail", receiptId] });
+      void qc.invalidateQueries({ queryKey: ["receipts-list"] });
+    } catch {
+      // ignore
+    } finally {
+      setSavingItem(null);
+    }
+  }
+
+  async function handleItemNameBlur(row: EditableItem) {
+    if (row._name.trim() === row.drug_name) return;
+    await patchItem(row.id, { drug_name: row._name.trim() });
+  }
+
+  async function handleItemQtyBlur(row: EditableItem) {
+    const qty = parseFloat(row._qty);
+    if (isNaN(qty) || qty === row.quantity) return;
+    const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
+    await patchItem(row.id, { quantity: qty, total_price: (qty * price).toFixed(2) });
+  }
+
+  async function handleItemPriceBlur(row: EditableItem) {
+    const price = parseFloat(row._price);
+    if (isNaN(price) || row._price === row.unit_price) return;
+    const qty = parseFloat(row._qty) || row.quantity;
+    await patchItem(row.id, { unit_price: row._price, total_price: (qty * price).toFixed(2) });
+  }
 
   const hasLowConf = !!data && data.ocr_confidence != null && data.ocr_confidence < 0.7;
   const showUncertain = hasLowConf && !saved;
@@ -722,7 +817,7 @@ function ReceiptSidePanel({
                 </button>
               </div>
 
-              {data.items.length > 0 ? (
+              {editableItems.length > 0 ? (
                 <>
                   <div style={{ overflowX: "auto", flex: 1 }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -740,47 +835,92 @@ function ReceiptSidePanel({
                               {h}
                             </th>
                           ))}
-                          <th style={{ width: 28 }} />
                         </tr>
                       </thead>
                       <tbody>
-                        {data.items.map(item => (
-                          <tr key={item.id} style={{ borderTop: "1px solid var(--border-light)" }}>
-                            <td style={{ padding: "8px 10px", fontSize: "13px", color: "var(--text-primary)", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {item.drug_name}
-                              {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "10px" }}>💊</span>}
-                            </td>
-                            <td style={{ padding: "8px 10px", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                              {item.drug_inn ?? "—"}
-                            </td>
-                            <td style={{ padding: "8px 10px", fontSize: "13px", textAlign: "center", color: "var(--text-primary)" }}>
-                              {item.quantity}
-                            </td>
-                            <td style={{ padding: "8px 10px", fontSize: "13px", textAlign: "right", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                              {formatRub(item.total_price)}
-                            </td>
-                            <td style={{ padding: "8px 4px 8px 0", textAlign: "center" }}>
-                              <button
-                                onClick={onNavigate}
-                                title="Редактировать в полном виде"
-                                style={{
-                                  background: "none", border: "none", cursor: "pointer",
-                                  padding: 3, borderRadius: "var(--r-sm)",
-                                  color: "var(--text-disabled)", lineHeight: 0,
-                                  transition: "color 0.15s, background 0.15s",
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-disabled)"; e.currentTarget.style.background = "none"; }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6"/>
-                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                  <path d="M10 11v6M14 11v6"/>
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {editableItems.map(item => {
+                          const isSaving = savingItem === item.id;
+                          return (
+                            <tr key={item.id} style={{ borderTop: "1px solid var(--border-light)", background: isSaving ? "var(--yellow-bg)" : undefined, transition: "background 0.2s" }}>
+                              <td style={{ padding: "4px 6px", maxWidth: 160 }}>
+                                <input
+                                  value={item._name}
+                                  onChange={e => updateItem(item.id, "_name", e.target.value)}
+                                  onFocus={() => setFocusedCell(`${item.id}-name`)}
+                                  onBlur={() => { setFocusedCell(null); void handleItemNameBlur(item); }}
+                                  disabled={isSaving}
+                                  style={{
+                                    width: "100%",
+                                    background: focusedCell === `${item.id}-name` ? "var(--surface)" : "transparent",
+                                    border: `1px solid ${focusedCell === `${item.id}-name` ? "var(--accent)" : "transparent"}`,
+                                    borderRadius: "var(--r-sm)",
+                                    padding: "3px 6px",
+                                    fontSize: "12px",
+                                    fontFamily: "Urbanist, sans-serif",
+                                    color: "var(--text-primary)",
+                                    outline: "none",
+                                    fontWeight: 600,
+                                    boxSizing: "border-box" as const,
+                                  }}
+                                  title="Нажмите для редактирования"
+                                />
+                              </td>
+                              <td style={{ padding: "4px 10px", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                {isSaving ? <span style={{ opacity: 0.5 }}>…</span> : (item.drug_inn ?? "—")}
+                              </td>
+                              <td style={{ padding: "4px 6px", textAlign: "center", width: 60 }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={item._qty}
+                                  onChange={e => updateItem(item.id, "_qty", e.target.value)}
+                                  onFocus={() => setFocusedCell(`${item.id}-qty`)}
+                                  onBlur={() => { setFocusedCell(null); void handleItemQtyBlur(item); }}
+                                  disabled={isSaving}
+                                  style={{
+                                    width: 52,
+                                    background: focusedCell === `${item.id}-qty` ? "var(--surface)" : "transparent",
+                                    border: `1px solid ${focusedCell === `${item.id}-qty` ? "var(--accent)" : "transparent"}`,
+                                    borderRadius: "var(--r-sm)",
+                                    padding: "3px 6px",
+                                    fontSize: "12px",
+                                    fontFamily: "Urbanist, sans-serif",
+                                    color: "var(--text-primary)",
+                                    outline: "none",
+                                    textAlign: "center" as const,
+                                    boxSizing: "border-box" as const,
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "4px 6px", textAlign: "right", width: 80 }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item._price}
+                                  onChange={e => updateItem(item.id, "_price", e.target.value)}
+                                  onFocus={() => setFocusedCell(`${item.id}-price`)}
+                                  onBlur={() => { setFocusedCell(null); void handleItemPriceBlur(item); }}
+                                  disabled={isSaving}
+                                  style={{
+                                    width: 72,
+                                    background: focusedCell === `${item.id}-price` ? "var(--surface)" : "transparent",
+                                    border: `1px solid ${focusedCell === `${item.id}-price` ? "var(--accent)" : "transparent"}`,
+                                    borderRadius: "var(--r-sm)",
+                                    padding: "3px 6px",
+                                    fontSize: "12px",
+                                    fontFamily: "Urbanist, sans-serif",
+                                    color: "var(--text-secondary)",
+                                    outline: "none",
+                                    textAlign: "right" as const,
+                                    boxSizing: "border-box" as const,
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
