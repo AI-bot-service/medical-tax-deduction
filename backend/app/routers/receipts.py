@@ -373,14 +373,22 @@ async def patch_receipt(
                 db_item.quantity = patch_item.quantity
             if patch_item.unit_price is not None:
                 db_item.unit_price = float(patch_item.unit_price)
-            if patch_item.total_price is not None:
-                db_item.total_price = float(patch_item.total_price)
             if patch_item.is_rx is not None:
                 db_item.is_rx = patch_item.is_rx
+            # Пересчитываем total_price из quantity * unit_price, если изменилось одно из них.
+            # Если нет — принимаем total_price явно от клиента (например, при ручном вводе).
+            if patch_item.quantity is not None or patch_item.unit_price is not None:
+                db_item.total_price = round(
+                    float(db_item.unit_price or 0) * float(db_item.quantity or 0), 2
+                )
+            elif patch_item.total_price is not None:
+                db_item.total_price = float(patch_item.total_price)
 
-        # Пересчитываем total_amount чека как сумму total_price всех позиций
+        # Пересчитываем total_amount чека как сумму total_price всех позиций.
+        # Приводим к float, чтобы избежать TypeError при смешивании Decimal (из БД)
+        # и float (только что присвоенных значений) в одном sum().
         receipt.total_amount = sum(
-            item.total_price for item in receipt.items if item.total_price is not None
+            float(item.total_price) for item in receipt.items if item.total_price is not None
         )
 
     await db.commit()

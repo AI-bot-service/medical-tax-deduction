@@ -451,7 +451,8 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
   async function handleQtyBlur(row: EditableRow) {
     const qty = parseFloat(row._qty);
     if (isNaN(qty) || qty === row.quantity) return;
-    const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
+    const parsedPrice = parseFloat(row._price);
+    const price = isNaN(parsedPrice) ? parseFloat(row.unit_price ?? "0") : parsedPrice;
     const total = (qty * price).toFixed(2);
     await patchItem(row.id, { quantity: qty, total_price: total });
   }
@@ -472,7 +473,8 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
   async function handlePriceBlur(row: EditableRow) {
     const price = parseFloat(row._price);
     if (isNaN(price) || price === parseFloat(row.unit_price ?? "0")) return;
-    const qty = parseFloat(row._qty) || row.quantity;
+    const parsedQty = parseFloat(row._qty);
+    const qty = isNaN(parsedQty) ? row.quantity : parsedQty;
     const total = (qty * price).toFixed(2);
     await patchItem(row.id, { unit_price: row._price, total_price: total });
   }
@@ -482,8 +484,10 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
   }
 
   const total = rows.reduce((acc, row) => {
-    const qty = parseFloat(row._qty) || row.quantity;
-    const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
+    const parsedQty = parseFloat(row._qty);
+    const qty = isNaN(parsedQty) ? row.quantity : parsedQty;
+    const parsedPrice = parseFloat(row._price);
+    const price = isNaN(parsedPrice) ? parseFloat(row.unit_price ?? "0") : parsedPrice;
     return acc + qty * price;
   }, 0);
 
