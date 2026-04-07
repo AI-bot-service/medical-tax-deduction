@@ -85,7 +85,7 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
             background: "var(--bg)",
             overflow: "hidden",
             cursor: "zoom-in",
-            maxHeight: "55vh",
+            height: 480,
             position: "relative",
           }}
           title="Нажмите чтобы открыть"
@@ -94,7 +94,7 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
           <img
             src={imageUrl}
             alt="Фото чека"
-            style={{ display: "block", width: "100%", objectFit: "contain" }}
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
           />
           <div style={{
             position: "absolute", inset: 0,
@@ -665,16 +665,16 @@ export default function ReceiptDetailPage() {
         </div>
       )}
 
-      {/* Vertical layout: photo on top, data below */}
+      {/* Horizontal layout: photo left, data right */}
       {receipt && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Top: Photo */}
-          <div style={{ maxWidth: 560 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+          {/* Left: Photo — fixed size */}
+          <div style={{ flexShrink: 0, width: 360 }}>
             <PresignedImage receiptId={id} />
           </div>
 
-          {/* Bottom: Editor + Table */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Right: Editor + Table */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
             <OCREditor receipt={receipt} onSaved={invalidate} />
             <ItemsTable items={receipt.items} receiptId={id} onLinked={invalidate} />
           </div>
