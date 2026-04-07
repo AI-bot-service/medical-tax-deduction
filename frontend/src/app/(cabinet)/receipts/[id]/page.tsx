@@ -373,7 +373,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
 
   function setFocused(val: string | null) {
     focusedCellRef.current = val;
-    setFocused(val);
+    setFocusedCell(val);
   }
 
   useEffect(() => {
@@ -471,7 +471,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
 
   async function handlePriceBlur(row: EditableRow) {
     const price = parseFloat(row._price);
-    if (isNaN(price) || row._price === row.unit_price) return;
+    if (isNaN(price) || price === parseFloat(row.unit_price ?? "0")) return;
     const qty = parseFloat(row._qty) || row.quantity;
     const total = (qty * price).toFixed(2);
     await patchItem(row.id, { unit_price: row._price, total_price: total });
