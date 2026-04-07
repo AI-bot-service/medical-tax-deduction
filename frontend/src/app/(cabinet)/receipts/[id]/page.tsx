@@ -44,7 +44,7 @@ interface PresignedImageProps {
 function PresignedImage({ receiptId }: PresignedImageProps) {
   const REFRESH_MS = 14 * 60 * 1000;
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function fetchUrl() {
@@ -86,39 +86,132 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div
-        onClick={() => setZoom((v) => !v)}
-        style={{
-          borderRadius: "var(--r-md)",
-          border: "1px solid var(--border)",
-          background: "var(--bg)",
-          overflow: "auto",
-          cursor: zoom ? "zoom-out" : "zoom-in",
-          maxHeight: zoom ? "70vh" : "55vh",
-          transition: "max-height 0.3s ease",
-          position: "relative",
-        }}
-        title={zoom ? "Нажмите чтобы уменьшить" : "Нажмите чтобы увеличить"}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageUrl}
-          alt="Фото чека"
+    <>
+      {/* Thumbnail */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          onClick={() => setModalOpen(true)}
           style={{
-            display: "block",
-            width: zoom ? "auto" : "100%",
-            maxWidth: zoom ? "none" : "100%",
-            height: zoom ? "auto" : "auto",
-            maxHeight: zoom ? "none" : "100%",
-            objectFit: zoom ? "none" : "contain",
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--border)",
+            background: "var(--bg)",
+            overflow: "hidden",
+            cursor: "zoom-in",
+            maxHeight: "55vh",
+            position: "relative",
           }}
-        />
+          title="Нажмите чтобы открыть"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt="Фото чека"
+            style={{ display: "block", width: "100%", objectFit: "contain" }}
+          />
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0)",
+            transition: "background 0.2s",
+          }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0.18)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0)"; }}
+          >
+            <span style={{
+              fontSize: "12px", fontWeight: 700,
+              color: "#fff",
+              background: "rgba(0,0,0,0.45)",
+              padding: "4px 12px",
+              borderRadius: "var(--r-pill)",
+              pointerEvents: "none",
+            }}>
+              🔍 Открыть
+            </span>
+          </div>
+        </div>
+        <p style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
+          Нажмите на фото чтобы увеличить
+        </p>
       </div>
-      <p style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
-        {zoom ? "🔍 Нажмите чтобы уменьшить" : "🔍 Нажмите чтобы увеличить"}
-      </p>
-    </div>
+
+      {/* Modal — fixed on the left */}
+      {modalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "clamp(320px, 46vw, 680px)",
+            height: "100vh",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            background: "var(--surface)",
+            borderRight: "1px solid var(--border)",
+            boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+              🧾 Фото чека
+            </span>
+            <button
+              onClick={() => setModalOpen(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                cursor: "pointer",
+                fontSize: "16px",
+                color: "var(--text-secondary)",
+                fontFamily: "Urbanist, sans-serif",
+                lineHeight: 1,
+                flexShrink: 0,
+              }}
+              title="Закрыть"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Image scroll area */}
+          <div style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "12px",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt="Фото чека"
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                borderRadius: "var(--r-md)",
+                border: "1px solid var(--border)",
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
