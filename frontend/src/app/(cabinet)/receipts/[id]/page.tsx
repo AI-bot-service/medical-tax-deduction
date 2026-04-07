@@ -225,6 +225,12 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
 
   const showUncertain = hasLowConf && !saved;
 
+  // Sync if receipt data changes (e.g. after invalidate)
+  useEffect(() => {
+    setDate(receipt.purchase_date ?? "");
+    setPharmacy(receipt.pharmacy_name ?? "");
+  }, [receipt.purchase_date, receipt.pharmacy_name]);
+
   const fieldInputStyle: React.CSSProperties = {
     width: "100%",
     borderRadius: "var(--r-sm)",
@@ -248,21 +254,28 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     display: "block",
   };
 
-  async function handleSave() {
+  async function saveFields(fields: { purchase_date?: string | null; pharmacy_name?: string | null }) {
     setSaving(true);
     try {
-      await api.patch(`/api/v1/receipts/${receipt.id}`, {
-        purchase_date: date || null,
-        pharmacy_name: pharmacy || null,
-      });
+      await api.patch(`/api/v1/receipts/${receipt.id}`, fields);
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
     } catch {
-      // error handling omitted for brevity
+      // ignore
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleDateBlur() {
+    if ((date || null) === (receipt.purchase_date ?? null)) return;
+    await saveFields({ purchase_date: date || null });
+  }
+
+  async function handlePharmacyBlur() {
+    if ((pharmacy || null) === (receipt.pharmacy_name ?? null)) return;
+    await saveFields({ pharmacy_name: pharmacy || null });
   }
 
   return (
@@ -284,14 +297,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
           {saved && (
             <span style={{ fontSize: "12px", color: "var(--green-text)", fontWeight: 600 }}>✓ Сохранено</span>
           )}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn btn-primary btn-sm"
-            style={saving ? { opacity: 0.55, cursor: "not-allowed" } : {}}
-          >
-            {saving ? "..." : "Сохранить"}
-          </button>
+          {saving && (
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Сохранение…</span>
+          )}
         </div>
       </div>
 
@@ -305,7 +313,10 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             onChange={(e) => setDate(e.target.value)}
             style={fieldInputStyle}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
+              void handleDateBlur();
+            }}
           />
         </div>
         <div>
@@ -317,7 +328,10 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             placeholder="Аптека"
             style={fieldInputStyle}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)"; }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
+              void handlePharmacyBlur();
+            }}
           />
         </div>
       </div>
@@ -350,6 +364,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
     })),
   );
   const [saving, setSaving] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const [focusedCell, setFocusedCell] = useState<string | null>(null); // "itemId-field"
 
   useEffect(() => {
@@ -362,6 +377,31 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
       })),
     );
   }, [items]);
+
+  async function addItem() {
+    setAdding(true);
+    try {
+      const newItem = await api.post<ReceiptItem>(`/api/v1/receipts/${receiptId}/items`, {
+        drug_name: "Новое лекарство",
+        quantity: 1,
+        unit_price: 0,
+      });
+      setRows((prev) => [
+        ...prev,
+        {
+          ...newItem,
+          _name: newItem.drug_name,
+          _qty: String(newItem.quantity),
+          _price: String(newItem.unit_price ?? "0"),
+        },
+      ]);
+      onLinked();
+    } catch {
+      // ignore
+    } finally {
+      setAdding(false);
+    }
+  }
 
   async function patchItem(itemId: string, patch: Record<string, unknown>) {
     setSaving(itemId);
@@ -433,13 +473,15 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
         <button
           style={{
             fontSize: "12px", fontWeight: 600,
-            color: "var(--accent)", background: "none",
-            border: "none", cursor: "pointer", padding: 0,
+            color: adding ? "var(--text-muted)" : "var(--accent)",
+            background: "none",
+            border: "none", cursor: adding ? "not-allowed" : "pointer", padding: 0,
             fontFamily: "Urbanist, sans-serif",
           }}
-          onClick={() => {/* TODO: add item */}}
+          onClick={() => { void addItem(); }}
+          disabled={adding}
         >
-          + Добавить
+          {adding ? "…" : "+ Добавить"}
         </button>
       </div>
 

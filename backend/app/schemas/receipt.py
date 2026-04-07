@@ -133,6 +133,12 @@ class SummaryResponse(BaseModel):
     warnings: list[str] | None = None
 
 
+class ReceiptItemCreate(BaseModel):
+    drug_name: str = "Новое лекарство"
+    quantity: float = 1.0
+    unit_price: Decimal = Decimal("0.00")
+
+
 class ReceiptPatch(BaseModel):
     purchase_date: date | None = None
     pharmacy_name: str | None = None

@@ -28,6 +28,7 @@ from app.schemas.receipt import (
     MonthGroup,
     MonthSummary,
     ReceiptDetail,
+    ReceiptItemCreate,
     ReceiptItemPatch,
     ReceiptItemSchema,
     ReceiptListItem,
@@ -537,6 +538,44 @@ async def resolve_duplicate(
     detail = ReceiptDetail.model_validate(receipt)
     detail.items = [ReceiptItemSchema.model_validate(item) for item in receipt.items]
     return detail
+
+
+# ---------------------------------------------------------------------------
+# POST /receipts/{id}/items  — add new item to receipt
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{receipt_id}/items", response_model=ReceiptItemSchema, status_code=201)
+async def add_receipt_item(
+    receipt_id: uuid.UUID,
+    body: ReceiptItemCreate,
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> ReceiptItemSchema:
+    """Add a new item to an existing receipt."""
+    stmt = select(Receipt).where(Receipt.id == receipt_id, Receipt.user_id == current_user.id)
+    result = await db.execute(stmt)
+    receipt = result.scalar_one_or_none()
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+
+    normalizer = get_drug_normalizer()
+    match = normalizer.normalize(body.drug_name)
+    total = float(body.unit_price) * body.quantity
+
+    item = ReceiptItem(
+        receipt_id=receipt_id,
+        drug_name=body.drug_name,
+        drug_inn=match.drug_inn if match else None,
+        quantity=body.quantity,
+        unit_price=float(body.unit_price),
+        total_price=total,
+        is_rx=match.is_rx if match else False,
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return ReceiptItemSchema.model_validate(item)
 
 
 # ---------------------------------------------------------------------------
