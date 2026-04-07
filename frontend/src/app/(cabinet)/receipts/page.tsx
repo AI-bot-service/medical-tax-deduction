@@ -468,6 +468,7 @@ function ReceiptSidePanel({
   const [synced, setSynced] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery<import("@/types/api").ReceiptDetail>({
     queryKey: ["receipt-detail", receiptId],
@@ -535,20 +536,89 @@ function ReceiptSidePanel({
   }
 
   return (
+    <>
+      {/* Image zoom modal — fixed on the left */}
+      {imageModalOpen && data?.image_url && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "clamp(320px, 46vw, 680px)",
+            height: "100vh",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            background: "var(--surface)",
+            borderRight: "1px solid var(--border)",
+            boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+          }}
+        >
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+              🧾 Фото чека
+            </span>
+            <button
+              onClick={() => setImageModalOpen(false)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 32, height: 32,
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                cursor: "pointer",
+                fontSize: "16px",
+                color: "var(--text-secondary)",
+                fontFamily: "Urbanist, sans-serif",
+                lineHeight: 1,
+                flexShrink: 0,
+              }}
+              title="Закрыть"
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{
+            flex: 1, overflow: "auto", padding: "12px",
+            display: "flex", alignItems: "flex-start", justifyContent: "center",
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={data.image_url}
+              alt="Фото чека"
+              style={{
+                display: "block", width: "100%", height: "auto",
+                borderRadius: "var(--r-md)",
+                border: "1px solid var(--border)",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
     <div style={{ flex: 1, display: "flex", gap: 12, minWidth: 0, overflow: "hidden" }}>
 
       {/* Photo column */}
       {!isLoading && data?.image_url && (
-        <div style={{
-          width: 160, flexShrink: 0,
-          borderRadius: "var(--r-md)",
-          overflow: "hidden",
-          border: "1px solid var(--border)",
-          background: "var(--bg)",
-          cursor: "pointer",
-        }}
-          onClick={onNavigate}
-          title="Открыть чек"
+        <div
+          style={{
+            width: 160, flexShrink: 0,
+            borderRadius: "var(--r-md)",
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            background: "var(--bg)",
+            cursor: "zoom-in",
+            position: "relative",
+          }}
+          onClick={() => setImageModalOpen(true)}
+          title="Нажмите чтобы увеличить"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -556,6 +626,16 @@ function ReceiptSidePanel({
             alt="Фото чека"
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            background: "rgba(0,0,0,0.45)",
+            color: "#fff",
+            fontSize: "10px", fontWeight: 700,
+            textAlign: "center",
+            padding: "4px 0",
+          }}>
+            🔍 Увеличить
+          </div>
         </div>
       )}
 
@@ -720,6 +800,7 @@ function ReceiptSidePanel({
         )}
       </div>
     </div>
+    </>
   );
 }
 
