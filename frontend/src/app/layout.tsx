@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Providers } from "./providers";
-import { CookieBanner } from "@/components/ui/CookieBanner";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,6 @@ export default function RootLayout({
       <body>
         <Providers>
           {children}
-          <CookieBanner />
         </Providers>
       </body>
     </html>

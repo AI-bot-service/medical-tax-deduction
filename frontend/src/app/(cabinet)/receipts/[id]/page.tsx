@@ -665,20 +665,15 @@ export default function ReceiptDetailPage() {
         </div>
       )}
 
-      {/* 2-column layout */}
+      {/* Vertical layout: photo on top, data below */}
       {receipt && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 420px) 1fr",
-          gap: 20,
-          alignItems: "start",
-        }}>
-          {/* Left: Photo */}
-          <div style={{ position: "sticky", top: 80 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Top: Photo */}
+          <div style={{ maxWidth: 560 }}>
             <PresignedImage receiptId={id} />
           </div>
 
-          {/* Right: Editor + Table */}
+          {/* Bottom: Editor + Table */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <OCREditor receipt={receipt} onSaved={invalidate} />
             <ItemsTable items={receipt.items} receiptId={id} onLinked={invalidate} />
