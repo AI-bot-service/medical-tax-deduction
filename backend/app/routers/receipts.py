@@ -378,6 +378,11 @@ async def patch_receipt(
             if patch_item.is_rx is not None:
                 db_item.is_rx = patch_item.is_rx
 
+        # Пересчитываем total_amount чека как сумму total_price всех позиций
+        receipt.total_amount = sum(
+            item.total_price for item in receipt.items if item.total_price is not None
+        )
+
     await db.commit()
     await db.refresh(receipt)
 
