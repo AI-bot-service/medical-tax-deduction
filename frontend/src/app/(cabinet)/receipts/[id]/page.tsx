@@ -524,19 +524,116 @@ function PrescriptionLinker({ item, receiptId, onLinked }: PrescriptionLinkerPro
 // ItemsTable
 // ---------------------------------------------------------------------------
 
+interface EditableRow extends ReceiptItem {
+  _name: string;
+  _qty: string;
+  _price: string;
+}
+
+const cellInputStyle = (focused: boolean): React.CSSProperties => ({
+  width: "100%",
+  background: focused ? "var(--surface)" : "transparent",
+  border: `1px solid ${focused ? "var(--accent)" : "transparent"}`,
+  borderRadius: "var(--r-sm)",
+  padding: "4px 6px",
+  fontSize: "13px",
+  fontFamily: "Urbanist, sans-serif",
+  color: "var(--text-primary)",
+  outline: "none",
+  transition: "border-color 0.15s, background 0.15s",
+  boxSizing: "border-box",
+});
+
 interface ItemsTableProps {
   items: ReceiptItem[];
   receiptId: string;
   onLinked: () => void;
 }
 function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
-  if (!items.length) {
+  const [rows, setRows] = useState<EditableRow[]>(() =>
+    items.map((item) => ({
+      ...item,
+      _name: item.drug_name,
+      _qty: String(item.quantity),
+      _price: item.unit_price ?? "0",
+    })),
+  );
+  const [saving, setSaving] = useState<string | null>(null);
+  const [focusedCell, setFocusedCell] = useState<string | null>(null); // "itemId-field"
+
+  useEffect(() => {
+    setRows(
+      items.map((item) => ({
+        ...item,
+        _name: item.drug_name,
+        _qty: String(item.quantity),
+        _price: item.unit_price ?? "0",
+      })),
+    );
+  }, [items]);
+
+  async function patchItem(itemId: string, patch: Record<string, unknown>) {
+    setSaving(itemId);
+    try {
+      const updated = await api.patch<{ items: ReceiptItem[] }>(
+        `/api/v1/receipts/${receiptId}`,
+        { items: [{ id: itemId, ...patch }] },
+      );
+      setRows(
+        updated.items.map((item) => ({
+          ...item,
+          _name: item.drug_name,
+          _qty: String(item.quantity),
+          _price: item.unit_price ?? "0",
+        })),
+      );
+      onLinked();
+    } catch {
+      // ignore
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleNameBlur(row: EditableRow) {
+    if (row._name.trim() === row.drug_name) return;
+    await patchItem(row.id, { drug_name: row._name.trim() });
+  }
+
+  async function handleQtyBlur(row: EditableRow) {
+    const qty = parseFloat(row._qty);
+    if (isNaN(qty) || qty === row.quantity) return;
+    const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
+    const total = (qty * price).toFixed(2);
+    await patchItem(row.id, { quantity: qty, total_price: total });
+  }
+
+  async function handlePriceBlur(row: EditableRow) {
+    const price = parseFloat(row._price);
+    if (isNaN(price) || row._price === row.unit_price) return;
+    const qty = parseFloat(row._qty) || row.quantity;
+    const total = (qty * price).toFixed(2);
+    await patchItem(row.id, { unit_price: row._price, total_price: total });
+  }
+
+  function updateRow(id: string, field: "_name" | "_qty" | "_price", value: string) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  }
+
+  const total = rows.reduce((acc, row) => {
+    const qty = parseFloat(row._qty) || row.quantity;
+    const price = parseFloat(row._price) || parseFloat(row.unit_price ?? "0");
+    return acc + qty * price;
+  }, 0);
+
+  if (!rows.length) {
     return (
       <div className="card" style={{ padding: "16px 20px", textAlign: "center" }}>
         <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Позиции не найдены</span>
       </div>
     );
   }
+
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       <div className="card-header">
@@ -545,7 +642,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
           fontSize: "11px", fontWeight: 600, color: "var(--text-muted)",
           background: "var(--bg)", padding: "2px 8px", borderRadius: "var(--r-pill)",
         }}>
-          {items.length} поз.
+          {rows.length} поз.
         </span>
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -568,52 +665,151 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {items.map((item, i) => (
-              <tr
-                key={item.id}
-                style={{
-                  borderTop: "1px solid var(--border-light)",
-                  background: i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)",
-                }}
-              >
-                <td style={{ padding: "11px 14px", fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.drug_name}
-                </td>
-                <td style={{ padding: "11px 14px", fontSize: "11px", color: "var(--text-muted)" }}>
-                  {item.drug_inn ?? "—"}
-                </td>
-                <td style={{ padding: "11px 14px", textAlign: "center", fontSize: "13px", color: "var(--text-primary)" }}>
-                  {item.quantity}
-                </td>
-                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", color: "var(--text-secondary)" }}>
-                  {formatRub(item.unit_price)}
-                </td>
-                <td style={{ padding: "11px 14px", textAlign: "right", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
-                  {formatRub(item.total_price)}
-                </td>
-                <td style={{ padding: "11px 14px", textAlign: "center" }}>
-                  {item.is_rx ? (
-                    <span style={{
-                      fontSize: "10px", fontWeight: 700,
-                      padding: "2px 8px", borderRadius: "var(--r-pill)",
-                      background: "var(--purple-bg)", color: "var(--purple-text)",
-                    }}>
-                      Rx
-                    </span>
-                  ) : (
-                    <span style={{ color: "var(--text-disabled)" }}>—</span>
-                  )}
-                </td>
-                <td style={{ padding: "11px 14px", textAlign: "center" }}>
-                  {item.is_rx ? (
-                    <PrescriptionLinker item={item} receiptId={receiptId} onLinked={onLinked} />
-                  ) : (
-                    <span style={{ color: "var(--text-disabled)" }}>—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const isSaving = saving === row.id;
+              const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
+              return (
+                <tr
+                  key={row.id}
+                  style={{
+                    borderTop: "1px solid var(--border-light)",
+                    background: isSaving ? "var(--yellow-bg)" : rowBg,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  {/* Название — editable */}
+                  <td style={{ padding: "8px 10px", maxWidth: 180 }}>
+                    <input
+                      value={row._name}
+                      onChange={(e) => updateRow(row.id, "_name", e.target.value)}
+                      onFocus={() => setFocusedCell(`${row.id}-name`)}
+                      onBlur={() => {
+                        setFocusedCell(null);
+                        void handleNameBlur(row);
+                      }}
+                      style={{
+                        ...cellInputStyle(focusedCell === `${row.id}-name`),
+                        fontWeight: 600,
+                      }}
+                      disabled={isSaving}
+                      title="Нажмите чтобы редактировать"
+                    />
+                  </td>
+
+                  {/* МНН — read-only, auto-filled after name save */}
+                  <td style={{ padding: "8px 14px", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                    {isSaving && focusedCell === null ? (
+                      <span style={{ opacity: 0.5 }}>…</span>
+                    ) : (
+                      row.drug_inn ?? "—"
+                    )}
+                  </td>
+
+                  {/* Кол-во — editable */}
+                  <td style={{ padding: "8px 10px", textAlign: "center", width: 72 }}>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={row._qty}
+                      onChange={(e) => updateRow(row.id, "_qty", e.target.value)}
+                      onFocus={() => setFocusedCell(`${row.id}-qty`)}
+                      onBlur={() => {
+                        setFocusedCell(null);
+                        void handleQtyBlur(row);
+                      }}
+                      style={{
+                        ...cellInputStyle(focusedCell === `${row.id}-qty`),
+                        textAlign: "center",
+                        width: 64,
+                      }}
+                      disabled={isSaving}
+                    />
+                  </td>
+
+                  {/* Цена — editable */}
+                  <td style={{ padding: "8px 10px", textAlign: "right", width: 96 }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={row._price}
+                      onChange={(e) => updateRow(row.id, "_price", e.target.value)}
+                      onFocus={() => setFocusedCell(`${row.id}-price`)}
+                      onBlur={() => {
+                        setFocusedCell(null);
+                        void handlePriceBlur(row);
+                      }}
+                      style={{
+                        ...cellInputStyle(focusedCell === `${row.id}-price`),
+                        textAlign: "right",
+                        width: 88,
+                      }}
+                      disabled={isSaving}
+                    />
+                  </td>
+
+                  {/* Сумма — calculated, read-only */}
+                  <td style={{ padding: "8px 14px", textAlign: "right", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                    {formatRub(
+                      String(
+                        (parseFloat(row._qty) || row.quantity) *
+                        (parseFloat(row._price) || parseFloat(row.unit_price ?? "0"))
+                      )
+                    )}
+                  </td>
+
+                  {/* Rx */}
+                  <td style={{ padding: "8px 14px", textAlign: "center" }}>
+                    {row.is_rx ? (
+                      <span style={{
+                        fontSize: "10px", fontWeight: 700,
+                        padding: "2px 8px", borderRadius: "var(--r-pill)",
+                        background: "var(--purple-bg)", color: "var(--purple-text)",
+                      }}>
+                        Rx
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--text-disabled)" }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Рецепт */}
+                  <td style={{ padding: "8px 14px", textAlign: "center" }}>
+                    {row.is_rx ? (
+                      <PrescriptionLinker item={row} receiptId={receiptId} onLinked={onLinked} />
+                    ) : (
+                      <span style={{ color: "var(--text-disabled)" }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid var(--border)", background: "var(--bg)" }}>
+              <td colSpan={4} style={{
+                padding: "10px 14px",
+                fontSize: "12px", fontWeight: 700,
+                color: "var(--text-secondary)",
+                textAlign: "right",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}>
+                Итого
+              </td>
+              <td style={{
+                padding: "10px 14px",
+                textAlign: "right",
+                fontSize: "14px", fontWeight: 800,
+                color: "var(--accent)",
+                whiteSpace: "nowrap",
+              }}>
+                {formatRub(String(total))}
+              </td>
+              <td colSpan={2} />
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
