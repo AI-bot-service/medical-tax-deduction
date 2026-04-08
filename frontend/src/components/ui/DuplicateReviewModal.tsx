@@ -397,9 +397,11 @@ interface DuplicateReviewModalProps {
   receiptId: string;
   onSaved: () => void;
   onCancelled: () => void;
+  /** Если true — рендерить как inline-блок (без modal-оверлея), для использования на странице */
+  asPage?: boolean;
 }
 
-export function DuplicateReviewModal({ receiptId, onSaved, onCancelled }: DuplicateReviewModalProps) {
+export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage = false }: DuplicateReviewModalProps) {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [editItems, setEditItems] = useState<EditItem[]>([]);
   const [itemsInitialized, setItemsInitialized] = useState(false);
@@ -490,24 +492,15 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled }: Duplic
     </div>
   );
 
-  return (
-    <>
-      {zoomedImage && <ImageLightbox src={zoomedImage} onClose={() => setZoomedImage(null)} />}
-
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(0,0,0,0.55)",
-        display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "20px 16px", overflowY: "auto",
-      }}>
-        <div style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--r-lg)",
-          width: "100%", maxWidth: 1020,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
-          overflow: "hidden",
-        }}>
+  const inner = (
+    <div style={{
+      background: "var(--surface)",
+      border: "1px solid var(--border)",
+      borderRadius: "var(--r-lg)",
+      width: "100%", maxWidth: asPage ? "none" : 1020,
+      boxShadow: asPage ? "none" : "0 24px 64px rgba(0,0,0,0.22)",
+      overflow: "hidden",
+    }}>
 
           {/* ── Шапка ── */}
           <div style={{
@@ -707,8 +700,24 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled }: Duplic
               </button>
             )}
           </div>
+    </div>
+  );
+
+  return (
+    <>
+      {zoomedImage && <ImageLightbox src={zoomedImage} onClose={() => setZoomedImage(null)} />}
+      {asPage ? (
+        inner
+      ) : (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.55)",
+          display: "flex", alignItems: "flex-start", justifyContent: "center",
+          padding: "20px 16px", overflowY: "auto",
+        }}>
+          {inner}
         </div>
-      </div>
+      )}
     </>
   );
 }

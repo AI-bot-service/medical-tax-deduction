@@ -470,29 +470,33 @@ export default function ReviewPage() {
     if (currentIdx + 1 >= queue.length) router.push("/dashboard");
   }
 
+  const isDuplicateView = !isLoading && currentItem != null && currentIdx < queue.length && currentItem.ocr_status === "DUPLICATE_REVIEW";
+
   return (
-    <div style={{ maxWidth: "1100px" }}>
-      {/* Заголовок */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>
-            Очередь проверки
-          </h1>
+    <div style={{ maxWidth: isDuplicateView ? "none" : "1100px" }}>
+      {/* Заголовок — скрываем при просмотре дубликата */}
+      {!isDuplicateView && (
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px" }}>
+          <div>
+            <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>
+              Очередь проверки
+            </h1>
+            {!isLoading && queue.length > 0 && (
+              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
+                {remaining > 0
+                  ? `Осталось ${remaining} чек${remaining === 1 ? "" : remaining < 5 ? "а" : "ов"} для проверки`
+                  : "Все чеки просмотрены"}
+              </p>
+            )}
+          </div>
           {!isLoading && queue.length > 0 && (
-            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
-              {remaining > 0
-                ? `Осталось ${remaining} чек${remaining === 1 ? "" : remaining < 5 ? "а" : "ов"} для проверки`
-                : "Все чеки просмотрены"}
-            </p>
+            <Badge variant="secondary" className="h-auto px-3 py-1 text-[12px] font-semibold shrink-0"
+              style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
+              {queue.length} на проверке
+            </Badge>
           )}
         </div>
-        {!isLoading && queue.length > 0 && (
-          <Badge variant="secondary" className="h-auto px-3 py-1 text-[12px] font-semibold shrink-0"
-            style={{ background: "var(--yellow-bg)", color: "var(--yellow-text)" }}>
-            {queue.length} на проверке
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Скелетон загрузки */}
       {isLoading && (
@@ -522,17 +526,18 @@ export default function ReviewPage() {
         />
       )}
 
-      {/* Карточка дубликата */}
-      {!isLoading && currentItem && currentIdx < queue.length && currentItem.ocr_status === "DUPLICATE_REVIEW" && (
+      {/* Сравнение дубликата — полностраничный инлайн-вид */}
+      {isDuplicateView && (
         <DuplicateReviewModal
-          receiptId={currentItem.id}
+          receiptId={currentItem!.id}
           onSaved={handleDuplicateResolved}
           onCancelled={handleDuplicateResolved}
+          asPage
         />
       )}
 
-      {/* Карточка проверки */}
-      {!isLoading && currentItem && currentIdx < queue.length && currentItem.ocr_status !== "DUPLICATE_REVIEW" && (
+      {/* Карточка проверки (только для не-дубликатов) */}
+      {!isLoading && !isDuplicateView && currentItem && currentIdx < queue.length && currentItem.ocr_status !== "DUPLICATE_REVIEW" && (
         <ReviewCard
           item={currentItem}
           total={queue.length}
