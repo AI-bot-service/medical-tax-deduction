@@ -113,15 +113,13 @@ function SortTh({
 // ---------------------------------------------------------------------------
 
 function MonthAccordion({
-  group, sortField, sortDir, onSort, defaultOpen, onDelete, selectedReceiptId, onSelectReceipt,
+  group, sortField, sortDir, onSort, defaultOpen, onDelete,
 }: {
   group: MonthGroup;
   sortField: SortField; sortDir: SortDir;
   onSort: (f: SortField) => void;
   defaultOpen: boolean;
   onDelete: (id: string) => Promise<void>;
-  selectedReceiptId?: string | null;
-  onSelectReceipt?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -223,9 +221,8 @@ function MonthAccordion({
             </thead>
             <tbody>
               {sorted.map((r, i) => {
-                const isSelected = selectedReceiptId === r.id;
-                const rowBg = isSelected ? "rgba(123,111,212,0.10)" : (i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)");
-                const hoverBg = isSelected ? "rgba(123,111,212,0.14)" : "rgba(123,111,212,0.04)";
+                const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
+                const hoverBg = "rgba(123,111,212,0.04)";
                 const isHovered = hoveredId === r.id;
                 const bg = isHovered && confirmId !== r.id && animatingId !== r.id ? hoverBg : rowBg;
                 const isDeleting = animatingId === r.id;
@@ -237,7 +234,6 @@ function MonthAccordion({
                   background: bg,
                   transition: isDeleting ? "none" : "background 0.12s",
                   verticalAlign: "top" as const,
-                  boxShadow: isSelected ? "inset 3px 0 0 var(--accent)" : "none",
                 };
 
                 const deleteCell = (
@@ -280,7 +276,6 @@ function MonthAccordion({
                 const handleRowEvents = {
                   onMouseEnter: () => { if (!isDeleting) setHoveredId(r.id); },
                   onMouseLeave: () => setHoveredId(null),
-                  onClick: () => { if (!isDeleting && confirmId !== r.id) onSelectReceipt?.(r.id); },
                 };
 
                 if (!hasItems) {
@@ -1370,11 +1365,10 @@ function ProcessingPipeline({
       className="card"
       style={{ padding: "22px 28px" }}
     >
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start" }}>
 
         {/* ── Step 1: Upload ── */}
         <PipelineStep
-          vertical
           kind={step1Kind}
           label="Загрузить"
           sublabel={step1Sub}
@@ -1384,22 +1378,20 @@ function ProcessingPipeline({
           spinning={uploadState === "uploading"}
         />
 
-        <StepConnector vertical filled={step1Kind === "done"} />
+        <StepConnector filled={step1Kind === "done"} />
 
         {/* ── Step 2: OCR ── */}
         <PipelineStep
-          vertical
           kind={step2Kind}
           label="Распознавание"
           sublabel={step2Sub}
           icon={<IconScan />}
         />
 
-        <StepConnector vertical filled={step2Kind === "done"} />
+        <StepConnector filled={step2Kind === "done"} />
 
         {/* ── Step 3: Operator review ── */}
         <PipelineStep
-          vertical
           kind={step3Kind}
           label="Проверка"
           sublabel={step3Sub}
@@ -1465,12 +1457,7 @@ export default function ReceiptsPage() {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [sortField, setSortField]         = useState<SortField>("purchase_date");
   const [sortDir, setSortDir]             = useState<SortDir>("desc");
-  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
-
-  // pipeline ref so EmptyState can trigger upload
-  const pipelineUploadRef = useRef<(() => void) | null>(null);
-
-  const selectedYear = useDashboardStore(s => s.selectedYear);
+const selectedYear = useDashboardStore(s => s.selectedYear);
   const activeBatch  = useBatchStore(s => s.activeBatch);
   const completed    = useBatchStore(s => s.completed);
   const reviewCount  = useBatchStore(s => s.reviewCount);
@@ -1505,15 +1492,6 @@ export default function ReceiptsPage() {
     queryFn:  () => api.get<ReceiptListResponse>(`/api/v1/receipts?year=${selectedYear}`),
     staleTime: 30_000,
   });
-
-  // Автоматически выбираем первый чек при загрузке данных
-  useEffect(() => {
-    if (!data || selectedReceiptId) return;
-    const firstDone = data.months
-      .flatMap(m => m.receipts)
-      .find(r => r.ocr_status === "DONE");
-    if (firstDone) setSelectedReceiptId(firstDone.id);
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -1555,17 +1533,11 @@ export default function ReceiptsPage() {
         <SummaryStrip data={doneData} filter={selectedMonth} />
       )}
 
-      {/* ── Processing Pipeline + Side Panel ── */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 20, alignItems: "stretch" }}>
+      {/* ── Processing Pipeline ── */}
+      <div style={{ marginBottom: 20 }}>
         <ProcessingPipeline
           onRefetch={() => void refetch()}
         />
-        {selectedReceiptId && (
-          <ReceiptSidePanel
-            receiptId={selectedReceiptId}
-            onNavigate={() => router.push(`/receipts/${selectedReceiptId}`)}
-          />
-        )}
       </div>
 
       {/* ── Duplicate alert banner ── */}
@@ -1652,8 +1624,6 @@ export default function ReceiptsPage() {
                   onSort={handleSort}
                   defaultOpen={i === 0}
                   onDelete={handleDelete}
-                  selectedReceiptId={selectedReceiptId}
-                  onSelectReceipt={setSelectedReceiptId}
                 />
               ))
             )}
