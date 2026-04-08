@@ -227,6 +227,31 @@ async def get_summary(
 
 
 # ---------------------------------------------------------------------------
+# GET /receipts/review-queue
+# ---------------------------------------------------------------------------
+
+
+@router.get("/review-queue", response_model=list[ReceiptListItem])
+async def get_review_queue(
+    db: AsyncSession = Depends(get_db_rls),
+    current_user=Depends(get_current_user),
+) -> list[ReceiptListItem]:
+    """Вернуть все чеки пользователя в статусе REVIEW или DUPLICATE_REVIEW (без фильтра по году)."""
+    stmt = (
+        select(Receipt)
+        .where(
+            Receipt.user_id == current_user.id,
+            Receipt.ocr_status.in_([OCRStatus.REVIEW, OCRStatus.DUPLICATE_REVIEW]),
+        )
+        .options(selectinload(Receipt.items))
+        .order_by(Receipt.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    receipts = result.scalars().all()
+    return [ReceiptListItem.model_validate(r) for r in receipts]
+
+
+# ---------------------------------------------------------------------------
 # GET /receipts
 # ---------------------------------------------------------------------------
 

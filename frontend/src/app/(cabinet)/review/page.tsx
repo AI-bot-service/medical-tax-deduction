@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
-import type { ReceiptListResponse, ReceiptListItem, ReceiptDetail } from "@/types/api";
+import type { ReceiptListItem, ReceiptDetail } from "@/types/api";
 
 // ---------------------------------------------------------------------------
 // Confidence bar
@@ -436,18 +436,15 @@ export default function ReviewPage() {
   const queryClient = useQueryClient();
   const { queue, currentIdx, loadQueue, approve, skip } = useReviewStore();
 
-  const { data, isLoading } = useQuery<ReceiptListResponse>({
-    queryKey: ["receipts-review"],
-    queryFn: () => api.get<ReceiptListResponse>(`/api/v1/receipts`),
-    staleTime: 30_000,
+  const { data, isLoading } = useQuery<ReceiptListItem[]>({
+    queryKey: ["receipts-review-queue"],
+    queryFn: () => api.get<ReceiptListItem[]>(`/api/v1/receipts/review-queue`),
+    staleTime: 0,
   });
 
   useEffect(() => {
     if (data) {
-      const reviewItems = data.months.flatMap((m) =>
-        m.receipts.filter((r) => r.ocr_status === "REVIEW" || r.ocr_status === "DUPLICATE_REVIEW"),
-      );
-      loadQueue(reviewItems);
+      loadQueue(data);
     }
   }, [data, loadQueue]);
 
@@ -455,7 +452,7 @@ export default function ReviewPage() {
   const remaining = queue.length - currentIdx;
 
   function handleApprove() {
-    void queryClient.invalidateQueries({ queryKey: ["receipts-review"] });
+    void queryClient.invalidateQueries({ queryKey: ["receipts-review-queue"] });
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     approve();
     if (currentIdx + 1 >= queue.length) router.push("/dashboard");
@@ -467,7 +464,7 @@ export default function ReviewPage() {
   }
 
   function handleDuplicateResolved() {
-    void queryClient.invalidateQueries({ queryKey: ["receipts-review"] });
+    void queryClient.invalidateQueries({ queryKey: ["receipts-review-queue"] });
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     approve();
     if (currentIdx + 1 >= queue.length) router.push("/dashboard");
