@@ -215,7 +215,7 @@ function MonthAccordion({
                 <SortTh field="purchase_date" active={sortField} dir={sortDir} onSort={onSort}>Дата</SortTh>
                 <SortTh field="pharmacy_name" active={sortField} dir={sortDir} onSort={onSort}>Аптека</SortTh>
                 <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", background: "var(--bg)" }}>Лекарство</th>
-                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Цена</th>
+                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", background: "var(--bg)" }}>Цена</th>
                 <th style={{ padding: "10px 8px", background: "var(--bg)" }} />
               </tr>
             </thead>
