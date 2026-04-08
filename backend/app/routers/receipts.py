@@ -371,6 +371,10 @@ async def patch_receipt(
         receipt.pharmacy_name = body.pharmacy_name
     if body.total_amount is not None:
         receipt.total_amount = float(body.total_amount)
+    if body.fiscal_fn is not None:
+        receipt.fiscal_fn = body.fiscal_fn
+    if body.fiscal_fd is not None:
+        receipt.fiscal_fd = body.fiscal_fd
 
     # Пользователь явно подтвердил данные — помечаем как DONE и выставляем 100% уверенности
     receipt.ocr_status = OCRStatus.DONE

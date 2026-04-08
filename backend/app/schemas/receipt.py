@@ -143,6 +143,8 @@ class ReceiptPatch(BaseModel):
     purchase_date: date | None = None
     pharmacy_name: str | None = None
     total_amount: Decimal | None = None
+    fiscal_fn: str | None = None
+    fiscal_fd: str | None = None
     items: list[ReceiptItemPatch] | None = None
 
 

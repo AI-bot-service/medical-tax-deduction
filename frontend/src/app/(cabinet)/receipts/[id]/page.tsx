@@ -220,6 +220,8 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
 
   const [date, setDate] = useState(receipt.purchase_date ?? "");
   const [pharmacy, setPharmacy] = useState(receipt.pharmacy_name ?? "");
+  const [fn, setFn] = useState(receipt.fiscal_fn ?? "");
+  const [fd, setFd] = useState(receipt.fiscal_fd ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [userEdited, setUserEdited] = useState(false);
@@ -230,7 +232,9 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   useEffect(() => {
     setDate(receipt.purchase_date ?? "");
     setPharmacy(receipt.pharmacy_name ?? "");
-  }, [receipt.purchase_date, receipt.pharmacy_name]);
+    setFn(receipt.fiscal_fn ?? "");
+    setFd(receipt.fiscal_fd ?? "");
+  }, [receipt.purchase_date, receipt.pharmacy_name, receipt.fiscal_fn, receipt.fiscal_fd]);
 
   const fieldInputStyle: React.CSSProperties = {
     width: "100%",
@@ -278,6 +282,16 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   async function handlePharmacyBlur() {
     if ((pharmacy || null) === (receipt.pharmacy_name ?? null)) return;
     await saveFields({ pharmacy_name: pharmacy || null });
+  }
+
+  async function handleFnBlur() {
+    if ((fn || null) === (receipt.fiscal_fn ?? null)) return;
+    await saveFields({ fiscal_fn: fn || null });
+  }
+
+  async function handleFdBlur() {
+    if ((fd || null) === (receipt.fiscal_fd ?? null)) return;
+    await saveFields({ fiscal_fd: fd || null });
   }
 
   return (
@@ -333,6 +347,36 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             onBlur={(e) => {
               e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
               void handlePharmacyBlur();
+            }}
+          />
+        </div>
+        <div>
+          <label style={fieldLabelStyle}>FN</label>
+          <input
+            type="text"
+            value={fn}
+            onChange={(e) => setFn(e.target.value)}
+            placeholder="Номер ФН"
+            style={fieldInputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
+              void handleFnBlur();
+            }}
+          />
+        </div>
+        <div>
+          <label style={fieldLabelStyle}>FD</label>
+          <input
+            type="text"
+            value={fd}
+            onChange={(e) => setFd(e.target.value)}
+            placeholder="Номер ФД"
+            style={fieldInputStyle}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
+              void handleFdBlur();
             }}
           />
         </div>
