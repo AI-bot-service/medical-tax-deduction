@@ -205,18 +205,24 @@ function MonthAccordion({
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <colgroup>
-              <col style={{ width: 96 }} />
-              <col style={{ width: 270 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 210 }} />
               <col />
-              <col style={{ width: 110 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 60 }} />
+              <col style={{ width: 85 }} />
+              <col style={{ width: 85 }} />
               <col style={{ width: 52 }} />
             </colgroup>
             <thead>
               <tr>
                 <SortTh field="purchase_date" active={sortField} dir={sortDir} onSort={onSort}>Дата</SortTh>
                 <SortTh field="pharmacy_name" active={sortField} dir={sortDir} onSort={onSort}>Аптека</SortTh>
-                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Лекарство</th>
-                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Цена</th>
+                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Название лекарства</th>
+                <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>МНН</th>
+                <th style={{ padding: "10px 8px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Кол-во</th>
+                <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Цена</th>
+                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Сумма</th>
                 <th style={{ padding: "10px 8px", background: "var(--bg)" }} />
               </tr>
             </thead>
@@ -307,12 +313,12 @@ function MonthAccordion({
                       <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {r.pharmacy_name ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
                       </td>
-                      <td colSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</td>
+                      <td colSpan={5} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</td>
                       {deleteCell}
                     </tr>,
                     <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                      <td style={{ ...sharedCellStyle, padding: "8px 4px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "left", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                      <td colSpan={4} style={{ ...sharedCellStyle, padding: "8px 12px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
+                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                     </tr>,
                   ];
                 }
@@ -343,18 +349,27 @@ function MonthAccordion({
                         </td>
                       )}
                       <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {item.drug_name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}
+                        {item.drug_name}
                         {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
                       </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "left", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "12px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                        {item.drug_inn ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
+                      </td>
+                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 8px 6px" : "4px 8px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                        {item.quantity}
+                      </td>
+                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                        {formatRub(item.unit_price)}
+                      </td>
+                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
                         {formatRub(item.total_price)}
                       </td>
                       {idx === 0 && deleteCell}
                     </tr>
                   )),
                   <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                    <td style={{ ...sharedCellStyle, padding: "6px 4px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "left", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                    <td colSpan={4} style={{ ...sharedCellStyle, padding: "6px 12px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
+                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                   </tr>,
                 ];
               })}
