@@ -538,7 +538,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   color: "var(--text-secondary)",
                   letterSpacing: "0.04em",
                   textTransform: "uppercase",
-                  textAlign: i >= 2 ? "center" : "left",
+                  textAlign: "left",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   background: "var(--bg)",
@@ -596,7 +596,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Кол-во — editable */}
-                  <td style={{ padding: "8px 16px", textAlign: "center", width: 60 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left", width: 60 }}>
                     <input
                       type="number"
                       min="1"
@@ -618,7 +618,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         fontFamily: "Urbanist, sans-serif",
                         color: "var(--text-primary)",
                         outline: "none",
-                        textAlign: "center",
+                        textAlign: "left",
                         boxSizing: "border-box",
                         opacity: isSaving ? 0.6 : 1,
                       }}
@@ -626,7 +626,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Цена — editable */}
-                  <td style={{ padding: "8px 16px", textAlign: "right", width: 80 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left", width: 80 }}>
                     <input
                       type="number"
                       min="0"
@@ -648,7 +648,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         fontFamily: "Urbanist, sans-serif",
                         color: "var(--text-secondary)",
                         outline: "none",
-                        textAlign: "right",
+                        textAlign: "left",
                         boxSizing: "border-box",
                       }}
                       disabled={isSaving}
@@ -656,7 +656,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Сумма по позиции — readonly */}
-                  <td style={{ padding: "8px 16px", textAlign: "right", width: 80, fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left", width: 80, fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
                     {isSaving
                       ? <span style={{ opacity: 0.5 }}>…</span>
                       : formatRub(String((parseFloat(row._qty) * parseFloat(row._price) || 0).toFixed(2)))
@@ -706,15 +706,18 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
               );
             })}
           </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "1px solid var(--border-light)" }}>
+              <td colSpan={4} style={{ padding: "10px 16px", textAlign: "right", fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Итого
+              </td>
+              <td style={{ padding: "10px 16px", textAlign: "left", fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                {formatRub(String(total))}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
         </table>
-      </div>
-
-      {/* Итого */}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 16, padding: "10px 18px", borderTop: "1px solid var(--border-light)" }}>
-        <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Итого</span>
-        <span style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          {formatRub(String(total))}
-        </span>
       </div>
     </div>
   );
