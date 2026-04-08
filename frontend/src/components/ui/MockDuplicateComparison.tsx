@@ -210,6 +210,101 @@ function initCard(r: ReceiptDetail): CardState {
 }
 
 // ---------------------------------------------------------------------------
+// Lightbox / зум фото
+// ---------------------------------------------------------------------------
+
+function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "clamp(320px, 46vw, 680px)",
+        height: "100vh",
+        zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--surface)",
+        borderRight: "1px solid var(--border)",
+        boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+      }}
+    >
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "12px 16px",
+        borderBottom: "1px solid var(--border)",
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+          🧾 Фото чека
+        </span>
+        <button
+          onClick={onClose}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: "var(--r-sm)",
+            border: "1px solid var(--border)",
+            background: "var(--bg)",
+            cursor: "pointer",
+            fontSize: "16px",
+            color: "var(--text-secondary)",
+            fontFamily: "Urbanist, sans-serif",
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+          title="Закрыть"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Image scroll area */}
+      <div style={{
+        flex: 1,
+        overflow: "auto",
+        padding: "12px",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Фото чека"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--border)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Иконка корзины
+// ---------------------------------------------------------------------------
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5 3.5l.5 8M7 3.5v8M9 3.5l-.5 8M3.5 3.5l.5 8.5a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5l.5-8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Карточка чека
 // ---------------------------------------------------------------------------
 
@@ -222,6 +317,7 @@ function ReceiptEditCard({
   readOnly,
   state,
   onChange,
+  onZoom,
 }: {
   title: string;
   accentColor: string;
@@ -231,6 +327,7 @@ function ReceiptEditCard({
   readOnly: boolean;
   state: CardState;
   onChange?: (s: CardState) => void;
+  onZoom?: (src: string) => void;
 }) {
   const INPUT: React.CSSProperties = {
     width: "100%",
@@ -276,7 +373,27 @@ function ReceiptEditCard({
     onChange?.({ ...state, items });
   }
 
+  function addItem() {
+    const newItem = {
+      id: `new-${Date.now()}`,
+      drug_name: "Новое лекарство",
+      drug_inn: null,
+      quantity: 1,
+      unit_price: "0.00",
+      total_price: "0.00",
+      is_rx: false,
+    };
+    onChange?.({ ...state, items: [...state.items, newItem] });
+  }
+
+  function deleteItem(id: string) {
+    onChange?.({ ...state, items: state.items.filter(it => it.id !== id) });
+  }
+
   const total = state.items.reduce((acc, it) => acc + it.quantity * parseFloat(it.unit_price || "0"), 0);
+
+  // grid columns: название + МНН + цена + (корзина если редактируемый)
+  const gridCols = readOnly ? "1fr 80px 72px" : "1fr 80px 72px 30px";
 
   return (
     <div style={{
@@ -326,23 +443,51 @@ function ReceiptEditCard({
       </div>
 
       {/* ── Фото ── */}
-      <div style={{
-        height: 160,
-        background: "var(--bg)",
-        borderBottom: "1px solid var(--border-light)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+      <div
+        style={{
+          height: 160,
+          background: "var(--bg)",
+          borderBottom: "1px solid var(--border-light)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          cursor: data.image_url ? "zoom-in" : "default",
+        }}
+        onClick={() => { if (data.image_url && onZoom) onZoom(data.image_url); }}
+        title={data.image_url ? "Нажмите чтобы открыть" : undefined}
+      >
         {data.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={data.image_url}
-            alt="Фото чека"
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={data.image_url}
+              alt="Фото чека"
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
+            <div
+              style={{
+                position: "absolute", inset: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: "rgba(0,0,0,0)",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0.18)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0)"; }}
+            >
+              <span style={{
+                fontSize: "12px", fontWeight: 700,
+                color: "#fff",
+                background: "rgba(0,0,0,0.45)",
+                padding: "4px 12px",
+                borderRadius: "var(--r-pill)",
+                pointerEvents: "none",
+              }}>
+                🔍 Открыть
+              </span>
+            </div>
+          </>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text-muted)" }}>
             <span style={{ fontSize: 28 }}>🧾</span>
@@ -437,21 +582,41 @@ function ReceiptEditCard({
           marginBottom: 8,
           paddingTop: 2,
         }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>Лекарства</span>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{state.items.length} поз.</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
+            Лекарства
+          </span>
+          {!readOnly ? (
+            <button
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--accent)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                fontFamily: "Urbanist, sans-serif",
+              }}
+              onClick={addItem}
+            >
+              + Добавить
+            </button>
+          ) : (
+            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{state.items.length} поз.</span>
+          )}
         </div>
 
         {/* Заголовок таблицы */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 80px 72px",
+          gridTemplateColumns: gridCols,
           padding: "5px 8px",
           background: "var(--bg)",
           borderRadius: "var(--r-sm) var(--r-sm) 0 0",
           borderBottom: "1px solid var(--border-light)",
         }}>
-          {["Название", "МНН", "Цена/ед."].map(h => (
-            <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {["Название", "МНН", "Цена/ед.", ...(readOnly ? [] : [""])].map((h, i) => (
+            <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {h}
             </span>
           ))}
@@ -469,7 +634,7 @@ function ReceiptEditCard({
               key={item.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 80px 72px",
+                gridTemplateColumns: gridCols,
                 padding: "7px 8px",
                 borderTop: idx > 0 ? "1px solid var(--border-light)" : "none",
                 background: "var(--surface)",
@@ -540,6 +705,42 @@ function ReceiptEditCard({
                   onBlur={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
                 />
               )}
+
+              {/* Корзина — только для редактируемой карточки */}
+              {!readOnly && (
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    title="Удалить позицию"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 26,
+                      height: 26,
+                      borderRadius: "var(--r-sm)",
+                      border: "1px solid transparent",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      padding: 0,
+                      transition: "color 0.15s, background 0.15s, border-color 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "var(--red-text)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "var(--red-bg)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--red-text)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+                    }}
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -598,9 +799,13 @@ function ReceiptEditCard({
 export function MockDuplicateComparison() {
   const [origState] = useState<CardState>(() => initCard(MOCK_ORIGINAL));
   const [dupState, setDupState] = useState<CardState>(() => initCard(MOCK_DUPLICATE));
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   return (
     <div style={{ marginBottom: 32 }}>
+      {/* Зум фото */}
+      {zoomedImage && <ImageModal src={zoomedImage} onClose={() => setZoomedImage(null)} />}
+
       {/* Баннер-пояснение */}
       <div style={{
         padding: "10px 14px",
@@ -621,7 +826,7 @@ export function MockDuplicateComparison() {
       </div>
 
       {/* Две карточки рядом */}
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 0, alignItems: "flex-start" }}>
         <ReceiptEditCard
           title="Оригинал в базе"
           accentColor="#16A34A"
@@ -630,32 +835,11 @@ export function MockDuplicateComparison() {
           data={MOCK_ORIGINAL}
           readOnly
           state={origState}
+          onZoom={setZoomedImage}
         />
 
-        {/* Разделитель */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          paddingTop: 80,
-          gap: 6,
-          flexShrink: 0,
-        }}>
-          <div style={{ width: 1, height: 32, background: "var(--border)" }} />
-          <div style={{
-            width: 30, height: 30,
-            borderRadius: "50%",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14,
-            color: "var(--text-muted)",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-          }}>
-            ↔
-          </div>
-          <div style={{ width: 1, height: 32, background: "var(--border)" }} />
-        </div>
+        {/* Разделитель — вертикальная линия на всю высоту */}
+        <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0 }} />
 
         <ReceiptEditCard
           title="Новый загруженный"
@@ -666,6 +850,7 @@ export function MockDuplicateComparison() {
           readOnly={false}
           state={dupState}
           onChange={setDupState}
+          onZoom={setZoomedImage}
         />
       </div>
     </div>
