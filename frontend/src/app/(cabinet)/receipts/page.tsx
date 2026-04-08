@@ -121,6 +121,7 @@ function MonthAccordion({
   defaultOpen: boolean;
   onDelete: (id: string) => Promise<void>;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
@@ -273,9 +274,16 @@ function MonthAccordion({
                   </td>
                 );
 
+                const handleRowClick = () => {
+                  if (!isDeleting && confirmId !== r.id) {
+                    router.push(`/receipts/${r.id}`);
+                  }
+                };
+
                 const handleRowEvents = {
                   onMouseEnter: () => { if (!isDeleting) setHoveredId(r.id); },
                   onMouseLeave: () => setHoveredId(null),
+                  onClick: handleRowClick,
                 };
 
                 if (!hasItems) {
