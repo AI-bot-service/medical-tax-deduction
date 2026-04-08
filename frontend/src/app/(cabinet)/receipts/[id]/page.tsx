@@ -526,11 +526,12 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
             <col style={{ width: 140 }} />
             <col style={{ width: 72 }} />
             <col style={{ width: 90 }} />
+            <col style={{ width: 90 }} />
             <col style={{ width: 36 }} />
           </colgroup>
           <thead>
             <tr style={{ background: "var(--bg)" }}>
-              {(["Название", "МНН", "Кол-во", "Цена", ""] as const).map((h, i) => (
+              {(["Название", "МНН", "Кол-во", "Цена/ед.", "Сумма", ""] as const).map((h, i) => (
                 <th key={i} style={{
                   padding: "6px 10px",
                   fontSize: "10px", fontWeight: 700,
@@ -651,6 +652,14 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                       }}
                       disabled={isSaving}
                     />
+                  </td>
+
+                  {/* Сумма по позиции — readonly */}
+                  <td style={{ padding: "4px 10px", textAlign: "right", width: 80, fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                    {isSaving
+                      ? <span style={{ opacity: 0.5 }}>…</span>
+                      : formatRub(String((parseFloat(row._qty) * parseFloat(row._price) || 0).toFixed(2)))
+                    }
                   </td>
 
                   {/* Удалить */}
