@@ -401,8 +401,8 @@ function ReceiptEditCard({
 
   const total = state.items.reduce((acc, it) => acc + it.quantity * parseFloat(it.unit_price || "0"), 0);
 
-  // grid columns: название + МНН + цена + (корзина если редактируемый)
-  const gridCols = readOnly ? "1fr 80px 72px" : "1fr 80px 72px 30px";
+  // grid columns: название + кол. + цена/ед. + сумма + (корзина если редактируемый)
+  const gridCols = readOnly ? "1fr 44px 68px 68px" : "1fr 44px 68px 68px 30px";
 
   return (
     <div style={{
@@ -624,8 +624,8 @@ function ReceiptEditCard({
           borderRadius: "var(--r-sm) var(--r-sm) 0 0",
           borderBottom: "1px solid var(--border-light)",
         }}>
-          {["Название", "МНН", "Цена/ед.", ...(readOnly ? [] : [""])].map((h, i) => (
-            <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {["Название", "Кол.", "Цена/ед.", "Сумма", ...(readOnly ? [] : [""])].map((h, i) => (
+            <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i > 0 ? "right" : "left" }}>
               {h}
             </span>
           ))}
@@ -685,19 +685,45 @@ function ReceiptEditCard({
                 )}
               </div>
 
-              {/* МНН */}
-              <span style={{ fontSize: 11, color: item.drug_inn ? "var(--accent)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {item.drug_inn ?? "—"}
-              </span>
-
-              {/* Цена */}
+              {/* Кол-во */}
               {readOnly ? (
-                <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, textAlign: "right" }}>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)", textAlign: "right", display: "block" }}>
+                  {item.quantity}
+                </span>
+              ) : (
+                <input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={e => updateItem(idx, { quantity: parseFloat(e.target.value) || 1 })}
+                  style={{
+                    width: "100%",
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                    background: "transparent",
+                    border: "1px solid transparent",
+                    borderRadius: "var(--r-sm)",
+                    padding: "2px 4px",
+                    outline: "none",
+                    fontFamily: "Urbanist, sans-serif",
+                    textAlign: "right",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={e => { e.currentTarget.style.background = "var(--bg)"; e.currentTarget.style.borderColor = "var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+                />
+              )}
+
+              {/* Цена/ед. */}
+              {readOnly ? (
+                <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, textAlign: "right", display: "block" }}>
                   {formatRub(item.unit_price)}
                 </span>
               ) : (
                 <input
                   type="number"
+                  min="0"
+                  step="0.01"
                   value={item.unit_price}
                   onChange={e => updateItem(idx, { unit_price: e.target.value })}
                   style={{
@@ -718,6 +744,11 @@ function ReceiptEditCard({
                   onBlur={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
                 />
               )}
+
+              {/* Сумма */}
+              <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 700, textAlign: "right", display: "block", whiteSpace: "nowrap" }}>
+                {formatRub(String((item.quantity * parseFloat(item.unit_price || "0")).toFixed(2)))}
+              </span>
 
               {/* Корзина — только для редактируемой карточки */}
               {!readOnly && (
@@ -857,7 +888,7 @@ export function MockDuplicateComparison() {
         />
 
         {/* Разделитель — вертикальная линия на всю высоту */}
-        <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0 }} />
+        <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0, margin: "0 12px" }} />
 
         <ReceiptEditCard
           title="Новый загруженный"
