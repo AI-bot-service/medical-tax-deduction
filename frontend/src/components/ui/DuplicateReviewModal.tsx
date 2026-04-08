@@ -440,6 +440,18 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
 
   async function handleSave() {
     if (!editState) return;
+
+    // Сравниваем ФН и ФД нового чека с оригиналом из БД
+    const newFn = (editState.fiscal_fn || "").trim();
+    const newFd = (editState.fiscal_fd || "").trim();
+    const origFn = (orig?.fiscal_fn || "").trim();
+    const origFd = (orig?.fiscal_fd || "").trim();
+
+    if (newFn && newFd && newFn === origFn && newFd === origFd) {
+      setDuplicateWarning("Чеки одинаковые — ФН и ФД совпадают с оригиналом. Сохранение невозможно.");
+      return;
+    }
+
     setSaving(true);
     setDuplicateWarning(null);
     try {
@@ -537,9 +549,12 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
               <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>🚫</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "var(--red-text)", marginBottom: 3 }}>
-                  Дубликат найден — сохранение отменено
+                  Сохранение невозможно
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{duplicateWarning}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                  Исправьте ФН / ФД нового чека или нажмите «Сбросить» для удаления.
+                </div>
               </div>
             </div>
           )}
@@ -683,22 +698,16 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
               onClick={handleDiscard}
               disabled={discarding || saving}
             >
-              {discarding ? "Удаление..." : duplicateWarning ? "Закрыть" : "Отмена"}
+              {discarding ? "Удаление..." : "Сбросить"}
             </button>
 
-            {duplicateWarning ? (
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                Нажмите «Закрыть» для удаления загруженного чека
-              </div>
-            ) : (
-              <button
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={saving || discarding || isLoading}
-              >
-                {saving ? "Проверка..." : "Сохранить"}
-              </button>
-            )}
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={saving || discarding || isLoading}
+            >
+              {saving ? "Проверка..." : "Сохранить"}
+            </button>
           </div>
     </div>
   );
