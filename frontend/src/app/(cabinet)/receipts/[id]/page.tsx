@@ -259,7 +259,7 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     display: "block",
   };
 
-  async function saveFields(fields: { purchase_date?: string | null; pharmacy_name?: string | null }) {
+  async function saveFields(fields: { purchase_date?: string | null; pharmacy_name?: string | null; fiscal_fn?: string | null; fiscal_fd?: string | null }) {
     setSaving(true);
     try {
       await api.patch(`/api/v1/receipts/${receipt.id}`, fields);
