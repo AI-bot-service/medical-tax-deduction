@@ -577,8 +577,8 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         background: focusedCell === `${row.id}-name` ? "var(--surface)" : "transparent",
                         border: `1px solid ${focusedCell === `${row.id}-name` ? "var(--accent)" : "transparent"}`,
                         borderRadius: "var(--r-sm)",
-                        padding: "3px 6px",
-                        fontSize: "12px",
+                        padding: "3px 0",
+                        fontSize: "13px",
                         fontFamily: "Urbanist, sans-serif",
                         color: "var(--text-primary)",
                         outline: "none",
@@ -596,7 +596,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Кол-во — editable */}
-                  <td style={{ padding: "8px 16px", textAlign: "left", width: 60 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left" }}>
                     <input
                       type="number"
                       min="1"
@@ -609,12 +609,12 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         void handleQtyBlur(row);
                       }}
                       style={{
-                        width: 52,
+                        width: "100%",
                         background: focusedCell === `${row.id}-qty` ? "var(--surface)" : "transparent",
                         border: `1px solid ${focusedCell === `${row.id}-qty` ? "var(--accent)" : "transparent"}`,
                         borderRadius: "var(--r-sm)",
-                        padding: "3px 6px",
-                        fontSize: "12px",
+                        padding: "3px 0",
+                        fontSize: "13px",
                         fontFamily: "Urbanist, sans-serif",
                         color: "var(--text-primary)",
                         outline: "none",
@@ -626,7 +626,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Цена — editable */}
-                  <td style={{ padding: "8px 16px", textAlign: "left", width: 80 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left" }}>
                     <input
                       type="number"
                       min="0"
@@ -639,12 +639,12 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                         void handlePriceBlur(row);
                       }}
                       style={{
-                        width: 72,
+                        width: "100%",
                         background: focusedCell === `${row.id}-price` ? "var(--surface)" : "transparent",
                         border: `1px solid ${focusedCell === `${row.id}-price` ? "var(--accent)" : "transparent"}`,
                         borderRadius: "var(--r-sm)",
-                        padding: "3px 6px",
-                        fontSize: "12px",
+                        padding: "3px 0",
+                        fontSize: "13px",
                         fontFamily: "Urbanist, sans-serif",
                         color: "var(--text-secondary)",
                         outline: "none",
@@ -656,7 +656,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Сумма по позиции — readonly */}
-                  <td style={{ padding: "8px 16px", textAlign: "left", width: 80, fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "8px 16px", textAlign: "left", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
                     {isSaving
                       ? <span style={{ opacity: 0.5 }}>…</span>
                       : formatRub(String((parseFloat(row._qty) * parseFloat(row._price) || 0).toFixed(2)))
