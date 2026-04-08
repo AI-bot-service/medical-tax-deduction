@@ -395,7 +395,7 @@ function EditItems({
 
 interface DuplicateReviewModalProps {
   receiptId: string;
-  onSaved: () => void;
+  onSaved: (receipt: ReceiptDetail) => void;
   onCancelled: () => void;
   /** Если true — рендерить как inline-блок (без modal-оверлея), для использования на странице */
   asPage?: boolean;
@@ -455,7 +455,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
     setSaving(true);
     setDuplicateWarning(null);
     try {
-      await api.post(`/api/v1/receipts/${receiptId}/resolve-duplicate`, {
+      const saved = await api.post<ReceiptDetail>(`/api/v1/receipts/${receiptId}/resolve-duplicate`, {
         purchase_date: editState.purchase_date || null,
         pharmacy_name: editState.pharmacy_name || null,
         total_amount: editState.total_amount ? parseFloat(editState.total_amount) : null,
@@ -470,7 +470,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
           is_rx: it.is_rx,
         })),
       });
-      onSaved();
+      onSaved(saved);
     } catch (e) {
       setDuplicateWarning(
         e instanceof ApiError && e.status === 409

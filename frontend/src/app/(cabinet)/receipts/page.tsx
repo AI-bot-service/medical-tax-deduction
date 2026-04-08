@@ -1504,7 +1504,7 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
       .catch(() => { /* ignore */ });
   }, [activeBatch, completed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleDuplicateDone() {
+  function handleDuplicateDone(_receipt?: unknown) {
     setDuplicateQueue(prev => prev.slice(1));
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     void queryClient.invalidateQueries({ queryKey: ["summary"] });

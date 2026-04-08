@@ -463,7 +463,7 @@ export default function ReviewPage() {
     if (currentIdx + 1 >= queue.length) router.push("/dashboard");
   }
 
-  function handleDuplicateResolved() {
+  function handleDuplicateResolved(_receipt?: unknown) {
     void queryClient.invalidateQueries({ queryKey: ["receipts-review-queue"] });
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     approve();

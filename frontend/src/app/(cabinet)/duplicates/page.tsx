@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
 import { MockDuplicateComparison } from "@/components/ui/MockDuplicateComparison";
-import type { ReceiptListItem } from "@/types/api";
+import { useDashboardStore } from "@/lib/store";
+import type { ReceiptDetail, ReceiptListItem } from "@/types/api";
 
 // ---------------------------------------------------------------------------
 // Empty state
@@ -84,6 +85,7 @@ function DoneState({ total, onDashboard }: { total: number; onDashboard: () => v
 export default function DuplicatesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const setSelectedYear = useDashboardStore(s => s.setSelectedYear);
 
   // Загружаем очередь проверки и фильтруем только DUPLICATE_REVIEW
   const { data, isLoading } = useQuery<ReceiptListItem[]>({
@@ -109,6 +111,17 @@ export default function DuplicatesPage() {
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     setProcessedTotal((n) => n + 1);
     // После инвалидации список уменьшится — индекс остаётся, следующий подтянется
+  }
+
+  function handleSaved(receipt: ReceiptDetail) {
+    void queryClient.invalidateQueries({ queryKey: ["receipts-review-queue"] });
+    void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
+    // Устанавливаем год фильтра по дате чека и переходим на страницу чеков
+    const year = receipt.purchase_date
+      ? new Date(receipt.purchase_date).getFullYear()
+      : new Date().getFullYear();
+    setSelectedYear(year);
+    router.push("/receipts");
   }
 
   function handlePrev() {
@@ -233,7 +246,7 @@ export default function DuplicatesPage() {
         <DuplicateReviewModal
           key={currentItem.id}
           receiptId={currentItem.id}
-          onSaved={handleResolved}
+          onSaved={handleSaved}
           onCancelled={handleResolved}
           asPage
         />
