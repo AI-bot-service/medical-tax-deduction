@@ -533,14 +533,15 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
             <tr style={{ background: "var(--bg)" }}>
               {(["Название", "МНН", "Кол-во", "Цена/ед.", "Сумма", ""] as const).map((h, i) => (
                 <th key={i} style={{
-                  padding: "6px 10px",
-                  fontSize: "10px", fontWeight: 700,
-                  color: "var(--text-muted)",
-                  letterSpacing: "0.05em",
+                  padding: "10px 16px",
+                  fontSize: "11px", fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  letterSpacing: "0.04em",
                   textTransform: "uppercase",
                   textAlign: i >= 2 ? "center" : "left",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
+                  background: "var(--bg)",
                 }}>
                   {h}
                 </th>
@@ -562,7 +563,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   }}
                 >
                   {/* Название — editable */}
-                  <td style={{ padding: "4px 6px", maxWidth: 180 }}>
+                  <td style={{ padding: "8px 16px", maxWidth: 180 }}>
                     <input
                       value={row._name}
                       onChange={(e) => updateRow(row.id, "_name", e.target.value)}
@@ -590,12 +591,12 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* МНН — read-only */}
-                  <td style={{ padding: "4px 10px", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "8px 16px", fontSize: "13px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
                     {isSaving ? <span style={{ opacity: 0.5 }}>…</span> : (row.drug_inn ?? "—")}
                   </td>
 
                   {/* Кол-во — editable */}
-                  <td style={{ padding: "4px 6px", textAlign: "center", width: 60 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "center", width: 60 }}>
                     <input
                       type="number"
                       min="1"
@@ -625,7 +626,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Цена — editable */}
-                  <td style={{ padding: "4px 6px", textAlign: "right", width: 80 }}>
+                  <td style={{ padding: "8px 16px", textAlign: "right", width: 80 }}>
                     <input
                       type="number"
                       min="0"
@@ -655,7 +656,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Сумма по позиции — readonly */}
-                  <td style={{ padding: "4px 10px", textAlign: "right", width: 80, fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "8px 16px", textAlign: "right", width: 80, fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
                     {isSaving
                       ? <span style={{ opacity: 0.5 }}>…</span>
                       : formatRub(String((parseFloat(row._qty) * parseFloat(row._price) || 0).toFixed(2)))
@@ -663,7 +664,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
                   </td>
 
                   {/* Удалить */}
-                  <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                  <td style={{ padding: "8px 8px", textAlign: "center" }}>
                     <button
                       onClick={() => { void deleteItem(row.id); }}
                       disabled={isSaving || isDeleting}
