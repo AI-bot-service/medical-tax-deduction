@@ -6,7 +6,7 @@
  * моковые данные справа). Используется для прототипирования UI сравнения.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReceiptDetail } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -373,6 +373,9 @@ function ReceiptEditCard({
     onChange?.({ ...state, items });
   }
 
+  const deletingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   function addItem() {
     const newItem = {
       id: `new-${Date.now()}`,
@@ -387,7 +390,13 @@ function ReceiptEditCard({
   }
 
   function deleteItem(id: string) {
-    onChange?.({ ...state, items: state.items.filter(it => it.id !== id) });
+    if (deletingIds.has(id)) return;
+    setDeletingIds(prev => new Set(prev).add(id));
+    deletingTimers.current[id] = setTimeout(() => {
+      onChange?.({ ...state, items: state.items.filter(it => it.id !== id) });
+      setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+      delete deletingTimers.current[id];
+    }, 300);
   }
 
   const total = state.items.reduce((acc, it) => acc + it.quantity * parseFloat(it.unit_price || "0"), 0);
@@ -629,7 +638,9 @@ function ReceiptEditCard({
           borderRadius: "0 0 var(--r-sm) var(--r-sm)",
           overflow: "hidden",
         }}>
-          {state.items.map((item, idx) => (
+          {state.items.map((item, idx) => {
+            const isDeleting = deletingIds.has(item.id);
+            return (
             <div
               key={item.id}
               style={{
@@ -637,7 +648,9 @@ function ReceiptEditCard({
                 gridTemplateColumns: gridCols,
                 padding: "7px 8px",
                 borderTop: idx > 0 ? "1px solid var(--border-light)" : "none",
-                background: "var(--surface)",
+                background: isDeleting ? "var(--red-bg)" : "var(--surface)",
+                opacity: isDeleting ? 0.5 : 1,
+                transition: "background 0.2s, opacity 0.2s",
                 alignItems: "center",
               }}
             >
@@ -711,6 +724,7 @@ function ReceiptEditCard({
                 <div style={{ display: "flex", justifyContent: "center" }}>
                   <button
                     onClick={() => deleteItem(item.id)}
+                    disabled={isDeleting}
                     title="Удалить позицию"
                     style={{
                       display: "inline-flex",
@@ -721,15 +735,18 @@ function ReceiptEditCard({
                       borderRadius: "var(--r-sm)",
                       border: "1px solid transparent",
                       background: "transparent",
-                      cursor: "pointer",
+                      cursor: isDeleting ? "not-allowed" : "pointer",
                       color: "var(--text-muted)",
                       padding: 0,
                       transition: "color 0.15s, background 0.15s, border-color 0.15s",
+                      opacity: isDeleting ? 0.4 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "var(--red-text)";
-                      (e.currentTarget as HTMLButtonElement).style.background = "var(--red-bg)";
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--red-text)";
+                      if (!isDeleting) {
+                        (e.currentTarget as HTMLButtonElement).style.color = "var(--red-text)";
+                        (e.currentTarget as HTMLButtonElement).style.background = "var(--red-bg)";
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--red-text)";
+                      }
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
@@ -742,7 +759,8 @@ function ReceiptEditCard({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Итого */}
