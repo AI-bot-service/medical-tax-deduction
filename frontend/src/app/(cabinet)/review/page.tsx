@@ -12,6 +12,7 @@ import { useReviewStore, useDashboardStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
+import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
 import type { ReceiptListResponse, ReceiptListItem, ReceiptDetail } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -445,7 +446,7 @@ export default function ReviewPage() {
   useEffect(() => {
     if (data) {
       const reviewItems = data.months.flatMap((m) =>
-        m.receipts.filter((r) => r.ocr_status === "REVIEW"),
+        m.receipts.filter((r) => r.ocr_status === "REVIEW" || r.ocr_status === "DUPLICATE_REVIEW"),
       );
       loadQueue(reviewItems);
     }
@@ -463,6 +464,13 @@ export default function ReviewPage() {
 
   function handleSkip() {
     skip();
+    if (currentIdx + 1 >= queue.length) router.push("/dashboard");
+  }
+
+  function handleDuplicateResolved() {
+    void queryClient.invalidateQueries({ queryKey: ["receipts-review"] });
+    void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
+    approve();
     if (currentIdx + 1 >= queue.length) router.push("/dashboard");
   }
 
@@ -518,8 +526,17 @@ export default function ReviewPage() {
         />
       )}
 
+      {/* Карточка дубликата */}
+      {!isLoading && currentItem && currentIdx < queue.length && currentItem.ocr_status === "DUPLICATE_REVIEW" && (
+        <DuplicateReviewModal
+          receiptId={currentItem.id}
+          onSaved={handleDuplicateResolved}
+          onCancelled={handleDuplicateResolved}
+        />
+      )}
+
       {/* Карточка проверки */}
-      {!isLoading && currentItem && currentIdx < queue.length && (
+      {!isLoading && currentItem && currentIdx < queue.length && currentItem.ocr_status !== "DUPLICATE_REVIEW" && (
         <ReviewCard
           item={currentItem}
           total={queue.length}
