@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DuplicateReviewModal } from "@/components/ui/DuplicateReviewModal";
+import { MockDuplicateComparison } from "@/components/ui/MockDuplicateComparison";
 import type { ReceiptListItem } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -122,7 +123,10 @@ export default function DuplicatesPage() {
   const total = duplicates.length;
 
   return (
-    <div style={{ maxWidth: currentItem ? "none" : 800 }}>
+    <div style={{ maxWidth: "none" }}>
+
+      {/* ── Мок для разработки: две карточки сравнения ── */}
+      <MockDuplicateComparison />
 
       {/* ── Заголовок ── */}
       {!isLoading && !currentItem && total === 0 && processedTotal === 0 ? null : (
