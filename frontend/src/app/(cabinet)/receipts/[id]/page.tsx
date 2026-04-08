@@ -351,7 +351,7 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
           />
         </div>
         <div>
-          <label style={fieldLabelStyle}>FN</label>
+          <label style={fieldLabelStyle}>ФН</label>
           <input
             type="text"
             value={fn}
@@ -366,7 +366,7 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
           />
         </div>
         <div>
-          <label style={fieldLabelStyle}>FD</label>
+          <label style={fieldLabelStyle}>ФД</label>
           <input
             type="text"
             value={fd}
