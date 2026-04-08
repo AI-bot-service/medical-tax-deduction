@@ -303,8 +303,8 @@ function MonthAccordion({
                       {deleteCell}
                     </tr>,
                     <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                      <td style={{ ...sharedCellStyle, padding: "8px 4px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                      <td style={{ ...sharedCellStyle, padding: "8px 4px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "left", borderTop: "none" }}>Итого:</td>
+                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "left", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                     </tr>,
                   ];
                 }
@@ -338,15 +338,15 @@ function MonthAccordion({
                         {item.drug_name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}
                         {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
                       </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "left", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
                         {formatRub(item.total_price)}
                       </td>
                       {idx === 0 && deleteCell}
                     </tr>
                   )),
                   <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                    <td style={{ ...sharedCellStyle, padding: "6px 4px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                    <td style={{ ...sharedCellStyle, padding: "6px 4px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "left", borderTop: "none" }}>Итого:</td>
+                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "left", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
                   </tr>,
                 ];
               })}
