@@ -1484,11 +1484,13 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
   const activeBatch  = useBatchStore(s => s.activeBatch);
   const completed    = useBatchStore(s => s.completed);
   const reviewCount  = useBatchStore(s => s.reviewCount);
+  const clearBatch   = useBatchStore(s => s.clearBatch);
 
   // Очередь ID чеков со статусом DUPLICATE_REVIEW для показа модалки
   const [duplicateQueue, setDuplicateQueue] = useState<string[]>([]);
 
-  // После завершения батча ищем чеки с DUPLICATE_REVIEW в этом батче
+  // После завершения батча ищем чеки с DUPLICATE_REVIEW в этом батче.
+  // Если дублей нет — сбрасываем пайплайн, чтобы он не висел вечно.
   useEffect(() => {
     if (!activeBatch || !completed) return;
     api.get<ReceiptListResponse>(`/api/v1/receipts?batch_id=${activeBatch}`)
@@ -1499,6 +1501,9 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
           .map(r => r.id);
         if (dupeIds.length > 0) {
           setDuplicateQueue(dupeIds);
+        } else {
+          // Нет DUPLICATE_REVIEW — пайплайн сбрасываем, чек в REVIEW доступен через сайдбар
+          setTimeout(() => clearBatch(), 3000);
         }
       })
       .catch(() => { /* ignore */ });
