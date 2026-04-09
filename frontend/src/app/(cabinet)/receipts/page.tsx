@@ -1563,8 +1563,8 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
         />
       </div>
 
-      {/* ── Duplicate alert banner ── */}
-      {activeBatch && completed && reviewCount > 0 && (
+      {/* ── Duplicate alert banner — только если в батче есть реальные DUPLICATE_REVIEW ── */}
+      {activeBatch && completed && duplicateQueue.length > 0 && (
         <div style={{
           display: "flex", alignItems: "flex-start", gap: 12,
           padding: "14px 18px",
@@ -1579,7 +1579,7 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
               Обнаружены возможные дубликаты
             </div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-              {reviewCount} {plural(reviewCount, "документ требует", "документа требуют", "документов требуют")} проверки — среди них могут быть дубликаты уже загруженных файлов.{" "}
+              {duplicateQueue.length} {plural(duplicateQueue.length, "документ требует", "документа требуют", "документов требуют")} проверки — среди них могут быть дубликаты уже загруженных файлов.{" "}
               <a
                 href="/duplicates"
                 style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
