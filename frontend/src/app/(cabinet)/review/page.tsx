@@ -513,20 +513,6 @@ export default function ReviewListPage() {
 
   return (
     <>
-      {/* ── Заголовок по центру ── */}
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>
-          На проверке
-        </h1>
-        {!isLoading && reviewData && (
-          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
-            {reviewData.total_count > 0
-              ? `${reviewData.total_count} чек${reviewData.total_count === 1 ? "" : reviewData.total_count < 5 ? "а" : "ов"} ожидают ручной проверки`
-              : "Нет чеков, требующих проверки"}
-          </p>
-        )}
-      </div>
-
       {/* ── Summary strip ── */}
       {reviewData && reviewData.total_count > 0 && (
         <SummaryStrip data={reviewData} filter={selectedMonth} />

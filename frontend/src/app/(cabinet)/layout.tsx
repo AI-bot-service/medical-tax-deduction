@@ -414,11 +414,21 @@ function Topbar({ onMenuToggle: _onMenuToggle }: { onMenuToggle: () => void }) {
   const isDashboard = pathname === "/dashboard" || pathname === "/";
 
   return (
-    <header className="topbar">
-      {/* Left: YearFilter always visible + page title on non-dashboard pages */}
+    <header className="topbar" style={{ position: "sticky" }}>
+      {/* Left: YearFilter always visible */}
       <YearFilter />
+
+      {/* Center: page title on non-dashboard pages */}
       {!isDashboard && (
-        <span className="topbar-title" style={{ marginLeft: "4px" }}>
+        <span
+          className="topbar-title"
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            pointerEvents: "none",
+          }}
+        >
           {Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ?? "Кабинет"}
         </span>
       )}
