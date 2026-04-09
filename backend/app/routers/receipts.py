@@ -371,18 +371,13 @@ async def patch_receipt(
         receipt.pharmacy_name = body.pharmacy_name
     if body.total_amount is not None:
         receipt.total_amount = float(body.total_amount)
-    if body.fiscal_fn is not None:
-        receipt.fiscal_fn = body.fiscal_fn
-    if body.fiscal_fd is not None:
-        receipt.fiscal_fd = body.fiscal_fd
-
-    # Проверка дубля по ФН+ФД перед сохранением
-    new_fn = receipt.fiscal_fn
-    new_fd = receipt.fiscal_fd
-    if new_fn and new_fd:
+    # Проверка дубля по ФН+ФД ДО изменения объекта (иначе autoflush сработает раньше)
+    check_fn = body.fiscal_fn if body.fiscal_fn is not None else receipt.fiscal_fn
+    check_fd = body.fiscal_fd if body.fiscal_fd is not None else receipt.fiscal_fd
+    if check_fn and check_fd:
         dup_stmt = select(Receipt.id).where(
-            Receipt.fiscal_fn == new_fn,
-            Receipt.fiscal_fd == new_fd,
+            Receipt.fiscal_fn == check_fn,
+            Receipt.fiscal_fd == check_fd,
             Receipt.id != receipt_id,
             Receipt.user_id == current_user.id,
         )
@@ -390,8 +385,13 @@ async def patch_receipt(
         if dup_result.scalar_one_or_none() is not None:
             raise HTTPException(
                 status_code=409,
-                detail=f"Чек с ФН {new_fn} и ФД {new_fd} уже существует в вашей базе.",
+                detail=f"Чек с ФН {check_fn} и ФД {check_fd} уже существует в вашей базе.",
             )
+
+    if body.fiscal_fn is not None:
+        receipt.fiscal_fn = body.fiscal_fn
+    if body.fiscal_fd is not None:
+        receipt.fiscal_fd = body.fiscal_fd
 
     # Статус DONE и 100% уверенность выставляются только явно — через кнопку "Сохранить"
     if body.mark_done:
