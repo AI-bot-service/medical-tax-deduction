@@ -12,7 +12,7 @@
  *   - «Отмена» / «Закрыть»: DELETE /receipts/{id} + закрытие
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { ReceiptDetail, ReceiptItem } from "@/types/api";
@@ -204,9 +204,9 @@ function ReadCell({ value }: { value: React.ReactNode }) {
 }
 
 function EditCell({
-  value, onChange, type = "text", placeholder,
+  value, onChange, type = "text", placeholder, hasError = false,
 }: {
-  value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+  value: string; onChange: (v: string) => void; type?: string; placeholder?: string; hasError?: boolean;
 }) {
   return (
     <input
@@ -217,14 +217,14 @@ function EditCell({
       style={{
         width: "100%", minHeight: 32, padding: "5px 9px",
         fontSize: 14, color: "var(--text-primary)",
-        background: "var(--bg)",
-        border: "1px solid var(--border-strong)",
+        background: hasError ? "rgba(239,68,68,0.05)" : "var(--bg)",
+        border: `1px solid ${hasError ? "rgba(239,68,68,0.7)" : "var(--border-strong)"}`,
         borderRadius: "var(--r-sm)",
         outline: "none", transition: "border-color 0.15s",
         boxSizing: "border-box",
       }}
-      onFocus={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-      onBlur={e => (e.currentTarget.style.borderColor = "var(--border-strong)")}
+      onFocus={e => (e.currentTarget.style.borderColor = hasError ? "rgba(239,68,68,0.9)" : "var(--accent)")}
+      onBlur={e => (e.currentTarget.style.borderColor = hasError ? "rgba(239,68,68,0.7)" : "var(--border-strong)")}
     />
   );
 }
@@ -408,7 +408,9 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [fdFieldError, setFdFieldError] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const warningRef = useRef<HTMLDivElement | null>(null);
 
   const { data: newReceipt, isLoading: loadingNew } = useQuery<ReceiptDetail>({
     queryKey: ["receipt-detail", receiptId],
@@ -438,6 +440,13 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
     onCancelled();
   }
 
+  // Скролл к предупреждению при его появлении
+  useEffect(() => {
+    if (duplicateWarning && warningRef.current) {
+      warningRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [duplicateWarning]);
+
   async function handleSave() {
     if (!editState) return;
 
@@ -447,11 +456,21 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
     const origFn = (orig?.fiscal_fn || "").trim();
     const origFd = (orig?.fiscal_fd || "").trim();
 
-    if (newFn && newFd && newFn === origFn && newFd === origFd) {
-      setDuplicateWarning("Чеки одинаковые — ФН и ФД совпадают с оригиналом. Сохранение невозможно.");
+    // ФД — уникальный идентификатор документа, достаточно его совпадения
+    const fdMatch = !!(newFd && origFd && newFd === origFd);
+    const fnMatch = !!(newFn && origFn && newFn === origFn);
+
+    if (fdMatch) {
+      setFdFieldError(true);
+      setDuplicateWarning(
+        fnMatch
+          ? "ФН и ФД совпадают с оригиналом — это один и тот же фискальный документ."
+          : "Номер ФД совпадает с оригинальным чеком — это тот же фискальный документ."
+      );
       return;
     }
 
+    setFdFieldError(false);
     setSaving(true);
     setDuplicateWarning(null);
     try {
@@ -484,6 +503,10 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
 
   function setField(field: keyof EditState, value: string) {
     setEditState(prev => prev ? { ...prev, [field]: value } : prev);
+    if (field === "fiscal_fd") {
+      setFdFieldError(false);
+      setDuplicateWarning(null);
+    }
   }
 
   const isLoading = loadingNew || (!!newReceipt?.duplicate_of_id && loadingOriginal);
@@ -538,22 +561,39 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
 
           {/* ── Предупреждение при сохранении ── */}
           {duplicateWarning && (
-            <div style={{
-              margin: "14px 20px 0",
-              padding: "12px 14px",
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.28)",
-              borderRadius: "var(--r-md)",
-              display: "flex", alignItems: "flex-start", gap: 10,
-            }}>
-              <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>🚫</span>
+            <div
+              ref={warningRef}
+              style={{
+                margin: "14px 20px 0",
+                padding: "12px 14px",
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.35)",
+                borderRadius: "var(--r-md)",
+                display: "flex", alignItems: "flex-start", gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>🚫</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--red-text)", marginBottom: 3 }}>
-                  Сохранение невозможно
+                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--red-text)", marginBottom: 4 }}>
+                  Сохранение невозможно — обнаружен дубликат
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{duplicateWarning}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-                  Исправьте ФН / ФД нового чека или нажмите «Сбросить» для удаления.
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                  {duplicateWarning}
+                </div>
+                <div style={{
+                  fontSize: 12, color: "var(--text-secondary)",
+                  background: "rgba(239,68,68,0.07)",
+                  border: "1px solid rgba(239,68,68,0.18)",
+                  borderRadius: "var(--r-sm)",
+                  padding: "7px 10px",
+                  lineHeight: 1.5,
+                }}>
+                  <strong style={{ color: "var(--red-text)" }}>Что делать:</strong>
+                  <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                    <li>Проверьте поле <strong>ФД</strong> в новом чеке — оно выделено красным.</li>
+                    <li>Введите верное значение из фото чека (правая колонка).</li>
+                    <li>Если чек действительно дублирует — нажмите <strong>«Сбросить»</strong>.</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -670,11 +710,19 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
                 label="ФД"
                 left={<ReadCell value={orig?.fiscal_fd} />}
                 right={
-                  <EditCell
-                    value={editState.fiscal_fd}
-                    onChange={v => setField("fiscal_fd", v)}
-                    placeholder="Номер фискального документа"
-                  />
+                  <div style={{ width: "100%" }}>
+                    <EditCell
+                      value={editState.fiscal_fd}
+                      onChange={v => setField("fiscal_fd", v)}
+                      placeholder="Номер фискального документа"
+                      hasError={fdFieldError}
+                    />
+                    {fdFieldError && (
+                      <div style={{ fontSize: 11, color: "var(--red-text)", marginTop: 4, fontWeight: 500 }}>
+                        ФД совпадает с оригиналом — исправьте значение
+                      </div>
+                    )}
+                  </div>
                 }
               />
 
