@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useDashboardStore } from "@/lib/store";
-import { ReceiptSidePanel } from "@/components/ui/ReceiptSidePanel";
 import type {
   ReceiptListResponse, ReceiptListItem, MonthGroup, OCRStatus,
 } from "@/types/api";
@@ -104,15 +103,12 @@ function SortTh({
 
 function MonthAccordion({
   group, sortField, sortDir, onSort, defaultOpen, onDelete,
-  selectedReceiptId, onSelectReceipt,
 }: {
   group: MonthGroup;
   sortField: SortField; sortDir: SortDir;
   onSort: (f: SortField) => void;
   defaultOpen: boolean;
   onDelete: (id: string) => Promise<void>;
-  selectedReceiptId: string | null;
-  onSelectReceipt: (id: string | null) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
@@ -124,10 +120,6 @@ function MonthAccordion({
   const sorted      = sortReceipts(group.receipts.filter(r => !deletedIds.has(r.id)), sortField, sortDir);
   const reviewCount = group.receipts.filter(r => r.ocr_status === "REVIEW").length;
   const dupeCount   = group.receipts.filter(r => r.ocr_status === "DUPLICATE_REVIEW").length;
-
-  const activeReceiptInGroup = selectedReceiptId && group.receipts.some(r => r.id === selectedReceiptId)
-    ? selectedReceiptId
-    : null;
 
   return (
     <div className="card" style={{ overflow: "hidden", transition: "box-shadow 0.2s" }}>
@@ -219,14 +211,10 @@ function MonthAccordion({
               <tbody>
                 {sorted.map((r, i) => {
                   const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
-                  const isSelected = selectedReceiptId === r.id;
                   const hoverBg = "rgba(123,111,212,0.04)";
-                  const selectedBg = "rgba(123,111,212,0.08)";
                   const isHovered = hoveredId === r.id;
                   const isDeleting = animatingId === r.id;
-                  const bg = isSelected
-                    ? selectedBg
-                    : isHovered && confirmId !== r.id && !isDeleting
+                  const bg = isHovered && confirmId !== r.id && !isDeleting
                     ? hoverBg
                     : rowBg;
                   const hasItems = r.items && r.items.length > 0;
@@ -278,7 +266,7 @@ function MonthAccordion({
 
                   const handleRowClick = () => {
                     if (!isDeleting && confirmId !== r.id) {
-                      onSelectReceipt(isSelected ? null : r.id);
+                      router.push(`/receipts/${r.id}`);
                     }
                   };
 
@@ -385,61 +373,6 @@ function MonthAccordion({
             </table>
           </div>
 
-          {/* Карточка редактирования — появляется под таблицей при выборе чека */}
-          {activeReceiptInGroup && (
-            <div style={{
-              padding: "16px",
-              borderTop: "2px solid var(--accent-mid)",
-              background: "var(--surface-subtle)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Редактирование чека
-                </span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <button
-                    onClick={() => router.push(`/receipts/${activeReceiptInGroup}`)}
-                    style={{
-                      fontSize: "12px", fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      background: "none", border: "1px solid var(--border)",
-                      borderRadius: "var(--r-sm)",
-                      padding: "4px 10px",
-                      cursor: "pointer",
-                      fontFamily: "Urbanist, sans-serif",
-                    }}
-                  >
-                    Открыть полностью →
-                  </button>
-                  <button
-                    onClick={() => onSelectReceipt(null)}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      width: 28, height: 28,
-                      borderRadius: "var(--r-sm)",
-                      border: "1px solid var(--border)",
-                      background: "var(--bg)",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      color: "var(--text-secondary)",
-                      fontFamily: "Urbanist, sans-serif",
-                      lineHeight: 1,
-                    }}
-                    title="Закрыть"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              <ReceiptSidePanel
-                receiptId={activeReceiptInGroup}
-                onNavigate={() => router.push(`/receipts/${activeReceiptInGroup}`)}
-              />
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -542,7 +475,6 @@ export default function ReviewListPage() {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [sortField, setSortField]         = useState<SortField>("purchase_date");
   const [sortDir, setSortDir]             = useState<SortDir>("desc");
-  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const selectedYear = useDashboardStore(s => s.selectedYear);
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
@@ -558,7 +490,6 @@ export default function ReviewListPage() {
 
   async function handleDelete(id: string) {
     await api.delete(`/api/v1/receipts/${id}`);
-    if (selectedReceiptId === id) setSelectedReceiptId(null);
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     void refetch();
   }
@@ -642,8 +573,6 @@ export default function ReviewListPage() {
                   onSort={handleSort}
                   defaultOpen={i === 0}
                   onDelete={handleDelete}
-                  selectedReceiptId={selectedReceiptId}
-                  onSelectReceipt={setSelectedReceiptId}
                 />
               ))
             )}
