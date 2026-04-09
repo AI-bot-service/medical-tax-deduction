@@ -230,8 +230,8 @@ function MonthAccordion({
                 const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
                 const hoverBg = "rgba(123,111,212,0.04)";
                 const isHovered = hoveredId === r.id;
-                const bg = isHovered && !isDeleting ? hoverBg : rowBg;
                 const isDeleting = animatingId === r.id;
+                const bg = isHovered && !isDeleting ? hoverBg : rowBg;
                 const hasItems = r.items && r.items.length > 0;
                 const rowSpanCount = hasItems ? r.items.length + 1 : 2;
 
