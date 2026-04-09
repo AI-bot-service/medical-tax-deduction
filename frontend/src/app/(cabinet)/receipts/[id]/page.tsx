@@ -924,7 +924,7 @@ export default function ReceiptDetailPage() {
 
           {/* Right: Editor + Table */}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-            <OCREditor receipt={receipt} onSaved={invalidate} onDeleted={() => router.push("/receipts")} />
+            <OCREditor receipt={receipt} onSaved={() => { void queryClient.invalidateQueries({ queryKey: ["receipts-list"] }); setTimeout(() => router.back(), 800); }} onDeleted={() => router.push("/receipts")} />
             <ItemsTable items={receipt.items} receiptId={id} onLinked={invalidate} />
           </div>
         </div>
