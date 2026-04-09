@@ -1255,6 +1255,7 @@ function ProcessingPipeline({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingStuckSince, setProcessingStuckSince] = useState<number | null>(null);
   const [showStuckWarning, setShowStuckWarning] = useState(false);
+  const [reviewCheckState, setReviewCheckState] = useState<"idle" | "checking" | "done">("idle");
 
   const {
     activeBatch, totalFiles, doneCount, reviewCount, failedCount, completed,
@@ -1304,6 +1305,37 @@ function ProcessingPipeline({
     return () => clearTimeout(t);
   }, [activeBatch, completed, reviewCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Авто-переход на страницу дублей или проверки после завершения распознавания
+  useEffect(() => {
+    if (!activeBatch || !completed || reviewCount === 0) return;
+    if (reviewCheckState !== "idle") return;
+
+    setReviewCheckState("checking");
+
+    void (async () => {
+      try {
+        const queue = await api.get<ReceiptListItem[]>("/api/v1/receipts/review-queue");
+        const firstItem = queue[0];
+        clearBatch();
+        setUploadState("idle");
+        setUploadProgress(0);
+        setReviewCheckState("idle");
+        if (firstItem?.ocr_status === "DUPLICATE_REVIEW") {
+          router.push("/duplicates");
+        } else if (firstItem) {
+          router.push("/review");
+        }
+      } catch {
+        setReviewCheckState("done");
+      }
+    })();
+  }, [activeBatch, completed, reviewCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Сброс состояния проверки при очистке батча
+  useEffect(() => {
+    if (!activeBatch) setReviewCheckState("idle");
+  }, [activeBatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived states ────────────────────────────────────────────────────────
   const step1Kind: StepKind =
     uploadState === "uploading"                               ? "active" :
@@ -1319,9 +1351,10 @@ function ProcessingPipeline({
     "pending";
 
   const step3Kind: StepKind =
-    !!activeBatch && completed && reviewCount > 0                              ? "alert" :
+    reviewCheckState === "checking"                                                        ? "active" :
+    reviewCheckState === "done"                                                            ? "alert" :
     !!activeBatch && completed && reviewCount === 0 && failedCount > 0 && doneCount === 0 ? "alert" :
-    !!activeBatch && completed && reviewCount === 0                            ? "done" :
+    !!activeBatch && completed && reviewCount === 0                                        ? "done" :
     "pending";
 
   // ── Subtitle texts ────────────────────────────────────────────────────────
@@ -1340,8 +1373,10 @@ function ProcessingPipeline({
     "Ожидает загрузки";
 
   const step3Sub =
-    !!activeBatch && completed && reviewCount > 0
-      ? `${reviewCount} ${plural(reviewCount, "чек", "чека", "чеков")} на проверке →` :
+    reviewCheckState === "checking"
+      ? "Проверка дублей..." :
+    reviewCheckState === "done"
+      ? "Ошибка — попробуйте снова" :
     !!activeBatch && completed && failedCount > 0 && reviewCount === 0 && doneCount === 0
       ? "Не распознан" :
     !!activeBatch && completed && doneCount > 0 && reviewCount === 0
@@ -1419,11 +1454,7 @@ function ProcessingPipeline({
           label="Проверка"
           sublabel={step3Sub}
           icon={<IconReview />}
-          onClick={step3Kind === "alert" && reviewCount > 0 ? () => {
-            clearBatch();
-            setUploadState("idle");
-            router.push("/review");
-          } : undefined}
+          onClick={undefined}
         />
       </div>
 
