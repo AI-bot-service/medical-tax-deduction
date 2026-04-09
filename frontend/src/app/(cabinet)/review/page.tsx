@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useDashboardStore } from "@/lib/store";
+import { ReceiptSidePanel } from "@/components/ui/ReceiptSidePanel";
 import type {
   ReceiptListResponse, ReceiptListItem, MonthGroup, OCRStatus,
 } from "@/types/api";
@@ -103,12 +104,15 @@ function SortTh({
 
 function MonthAccordion({
   group, sortField, sortDir, onSort, defaultOpen, onDelete,
+  selectedReceiptId, onSelectReceipt,
 }: {
   group: MonthGroup;
   sortField: SortField; sortDir: SortDir;
   onSort: (f: SortField) => void;
   defaultOpen: boolean;
   onDelete: (id: string) => Promise<void>;
+  selectedReceiptId: string | null;
+  onSelectReceipt: (id: string | null) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
@@ -120,6 +124,10 @@ function MonthAccordion({
   const sorted      = sortReceipts(group.receipts.filter(r => !deletedIds.has(r.id)), sortField, sortDir);
   const reviewCount = group.receipts.filter(r => r.ocr_status === "REVIEW").length;
   const dupeCount   = group.receipts.filter(r => r.ocr_status === "DUPLICATE_REVIEW").length;
+
+  const activeReceiptInGroup = selectedReceiptId && group.receipts.some(r => r.id === selectedReceiptId)
+    ? selectedReceiptId
+    : null;
 
   return (
     <div className="card" style={{ overflow: "hidden", transition: "box-shadow 0.2s" }}>
@@ -181,193 +189,257 @@ function MonthAccordion({
       </button>
 
       {open && (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-            <colgroup>
-              <col style={{ width: 90 }} />
-              <col style={{ width: 210 }} />
-              <col />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 60 }} />
-              <col style={{ width: 85 }} />
-              <col style={{ width: 85 }} />
-              <col style={{ width: 100 }} />
-              <col style={{ width: 52 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <SortTh field="purchase_date" active={sortField} dir={sortDir} onSort={onSort}>Дата</SortTh>
-                <SortTh field="pharmacy_name" active={sortField} dir={sortDir} onSort={onSort}>Аптека</SortTh>
-                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Название лекарства</th>
-                <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>МНН</th>
-                <th style={{ padding: "10px 8px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Кол-во</th>
-                <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Цена</th>
-                <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Сумма</th>
-                <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Статус</th>
-                <th style={{ padding: "10px 8px", background: "var(--bg)" }} />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((r, i) => {
-                const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
-                const hoverBg = "rgba(123,111,212,0.04)";
-                const isHovered = hoveredId === r.id;
-                const bg = isHovered && confirmId !== r.id && animatingId !== r.id ? hoverBg : rowBg;
-                const isDeleting = animatingId === r.id;
-                const hasItems = r.items && r.items.length > 0;
-                const rowSpanCount = hasItems ? r.items.length + 1 : 2;
+        <div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 210 }} />
+                <col />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 52 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <SortTh field="purchase_date" active={sortField} dir={sortDir} onSort={onSort}>Дата</SortTh>
+                  <SortTh field="pharmacy_name" active={sortField} dir={sortDir} onSort={onSort}>Аптека</SortTh>
+                  <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Название лекарства</th>
+                  <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>МНН</th>
+                  <th style={{ padding: "10px 8px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Кол-во</th>
+                  <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Цена</th>
+                  <th style={{ padding: "10px 16px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "right", background: "var(--bg)" }}>Сумма</th>
+                  <th style={{ padding: "10px 12px", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase", textAlign: "left", background: "var(--bg)" }}>Статус</th>
+                  <th style={{ padding: "10px 8px", background: "var(--bg)" }} />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((r, i) => {
+                  const rowBg = i % 2 === 0 ? "var(--surface)" : "var(--surface-subtle)";
+                  const isSelected = selectedReceiptId === r.id;
+                  const hoverBg = "rgba(123,111,212,0.04)";
+                  const selectedBg = "rgba(123,111,212,0.08)";
+                  const isHovered = hoveredId === r.id;
+                  const isDeleting = animatingId === r.id;
+                  const bg = isSelected
+                    ? selectedBg
+                    : isHovered && confirmId !== r.id && !isDeleting
+                    ? hoverBg
+                    : rowBg;
+                  const hasItems = r.items && r.items.length > 0;
+                  const rowSpanCount = hasItems ? r.items.length + 1 : 2;
 
-                const sharedCellStyle = {
-                  borderTop: "1px solid var(--border-light)",
-                  background: bg,
-                  transition: isDeleting ? "none" : "background 0.12s",
-                  verticalAlign: "top" as const,
-                };
+                  const sharedCellStyle = {
+                    borderTop: "1px solid var(--border-light)",
+                    background: bg,
+                    transition: isDeleting ? "none" : "background 0.12s",
+                    verticalAlign: "top" as const,
+                  };
 
-                const deleteCell = (
-                  <td
-                    rowSpan={rowSpanCount}
-                    style={{ ...sharedCellStyle, padding: "10px 8px", textAlign: "center", width: 52, verticalAlign: "middle" }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    {confirmId === r.id ? (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  const deleteCell = (
+                    <td
+                      rowSpan={rowSpanCount}
+                      style={{ ...sharedCellStyle, padding: "10px 8px", textAlign: "center", width: 52, verticalAlign: "middle" }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {confirmId === r.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                          <button
+                            onClick={() => { setConfirmId(null); setAnimatingId(r.id); }}
+                            style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 700, background: "#EF4444", color: "#fff", border: "none", borderRadius: "var(--r-sm)", cursor: "pointer", whiteSpace: "nowrap" }}
+                          >Удалить</button>
+                          <button
+                            onClick={() => setConfirmId(null)}
+                            style={{ padding: "4px 8px", fontSize: "11px", background: "var(--bg)", color: "var(--text-secondary)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", cursor: "pointer" }}
+                          >Отмена</button>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => { setConfirmId(null); setAnimatingId(r.id); }}
-                          style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 700, background: "#EF4444", color: "#fff", border: "none", borderRadius: "var(--r-sm)", cursor: "pointer", whiteSpace: "nowrap" }}
-                        >Удалить</button>
-                        <button
-                          onClick={() => setConfirmId(null)}
-                          style={{ padding: "4px 8px", fontSize: "11px", background: "var(--bg)", color: "var(--text-secondary)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", cursor: "pointer" }}
-                        >Отмена</button>
-                      </div>
-                    ) : (
-                      <button
-                        className="delete-btn"
-                        title="Удалить чек"
-                        onClick={() => setConfirmId(r.id)}
-                        style={{ opacity: 0.25, transform: "scale(0.9)", transition: "opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s", background: "none", border: "none", cursor: "pointer", padding: "5px", borderRadius: "var(--r-sm)", color: "#EF4444", lineHeight: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "none"; if (confirmId !== r.id) { e.currentTarget.style.opacity = "0.25"; e.currentTarget.style.transform = "scale(0.9)"; } }}
+                          className="delete-btn"
+                          title="Удалить чек"
+                          onClick={() => setConfirmId(r.id)}
+                          style={{ opacity: 0.25, transform: "scale(0.9)", transition: "opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s", background: "none", border: "none", cursor: "pointer", padding: "5px", borderRadius: "var(--r-sm)", color: "#EF4444", lineHeight: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "none"; if (confirmId !== r.id) { e.currentTarget.style.opacity = "0.25"; e.currentTarget.style.transform = "scale(0.9)"; } }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                            <path d="M10 11v6M14 11v6"/>
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                          </svg>
+                        </button>
+                      )}
+                    </td>
+                  );
+
+                  const handleRowClick = () => {
+                    if (!isDeleting && confirmId !== r.id) {
+                      onSelectReceipt(isSelected ? null : r.id);
+                    }
+                  };
+
+                  const handleRowEvents = {
+                    onMouseEnter: () => { if (!isDeleting) setHoveredId(r.id); },
+                    onMouseLeave: () => setHoveredId(null),
+                    onClick: handleRowClick,
+                  };
+
+                  const statusCell = (rowSpan: number) => (
+                    <td
+                      rowSpan={rowSpan}
+                      style={{ ...sharedCellStyle, padding: "12px 12px", verticalAlign: "middle" }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <StatusBadge status={r.ocr_status} />
+                    </td>
+                  );
+
+                  if (!hasItems) {
+                    return [
+                      <tr
+                        key={`${r.id}-main`}
+                        className={isDeleting ? "row-deleting" : ""}
+                        onAnimationEnd={() => {
+                          if (animatingId === r.id) {
+                            setDeletedIds(prev => new Set([...prev, r.id]));
+                            setAnimatingId(null);
+                            void onDelete(r.id);
+                          }
+                        }}
+                        style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
+                        {...handleRowEvents}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                          <path d="M10 11v6M14 11v6"/>
-                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                        </svg>
-                      </button>
-                    )}
-                  </td>
-                );
-
-                const handleRowClick = () => {
-                  if (!isDeleting && confirmId !== r.id) {
-                    router.push(`/receipts/${r.id}`);
-                  }
-                };
-
-                const handleRowEvents = {
-                  onMouseEnter: () => { if (!isDeleting) setHoveredId(r.id); },
-                  onMouseLeave: () => setHoveredId(null),
-                  onClick: handleRowClick,
-                };
-
-                const statusCell = (rowSpan: number) => (
-                  <td
-                    rowSpan={rowSpan}
-                    style={{ ...sharedCellStyle, padding: "12px 12px", verticalAlign: "middle" }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <StatusBadge status={r.ocr_status} />
-                  </td>
-                );
-
-                if (!hasItems) {
-                  return [
-                    <tr
-                      key={`${r.id}-main`}
-                      className={isDeleting ? "row-deleting" : ""}
-                      onAnimationEnd={() => {
-                        if (animatingId === r.id) {
-                          setDeletedIds(prev => new Set([...prev, r.id]));
-                          setAnimatingId(null);
-                          void onDelete(r.id);
-                        }
-                      }}
-                      style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
-                      {...handleRowEvents}
-                    >
-                      <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                        {formatDate(r.purchase_date)}
-                      </td>
-                      <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.pharmacy_name ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
-                      </td>
-                      <td colSpan={5} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</td>
-                      {statusCell(2)}
-                      {deleteCell}
-                    </tr>,
-                    <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                      <td colSpan={4} style={{ ...sharedCellStyle, padding: "8px 12px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                      <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
-                    </tr>,
-                  ];
-                }
-
-                return [
-                  ...r.items.map((item, idx) => (
-                    <tr
-                      key={`${r.id}-item-${item.id}`}
-                      className={idx === 0 && isDeleting ? "row-deleting" : ""}
-                      onAnimationEnd={idx === 0 ? () => {
-                        if (animatingId === r.id) {
-                          setDeletedIds(prev => new Set([...prev, r.id]));
-                          setAnimatingId(null);
-                          void onDelete(r.id);
-                        }
-                      } : undefined}
-                      style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
-                      {...handleRowEvents}
-                    >
-                      {idx === 0 && (
-                        <td rowSpan={rowSpanCount} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                        <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                           {formatDate(r.purchase_date)}
                         </td>
-                      )}
-                      {idx === 0 && (
-                        <td rowSpan={rowSpanCount} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {r.pharmacy_name ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
                         </td>
-                      )}
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {item.drug_name}
-                        {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
-                      </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "12px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {item.drug_inn ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
-                      </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 8px 6px" : "4px 8px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {item.quantity}
-                      </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {formatRub(item.unit_price)}
-                      </td>
-                      <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
-                        {formatRub(item.total_price)}
-                      </td>
-                      {idx === 0 && statusCell(rowSpanCount)}
-                      {idx === 0 && deleteCell}
-                    </tr>
-                  )),
-                  <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
-                    <td colSpan={4} style={{ ...sharedCellStyle, padding: "6px 12px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
-                    <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
-                  </tr>,
-                ];
-              })}
-            </tbody>
-          </table>
+                        <td colSpan={5} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-muted)", fontStyle: "italic" }}>нет данных о препаратах</td>
+                        {statusCell(2)}
+                        {deleteCell}
+                      </tr>,
+                      <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
+                        <td colSpan={4} style={{ ...sharedCellStyle, padding: "8px 12px 12px", fontSize: "13px", color: "var(--text-muted)", textAlign: "right", borderTop: "none" }}>Итого:</td>
+                        <td style={{ ...sharedCellStyle, padding: "8px 16px 12px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                      </tr>,
+                    ];
+                  }
+
+                  return [
+                    ...r.items.map((item, idx) => (
+                      <tr
+                        key={`${r.id}-item-${item.id}`}
+                        className={idx === 0 && isDeleting ? "row-deleting" : ""}
+                        onAnimationEnd={idx === 0 ? () => {
+                          if (animatingId === r.id) {
+                            setDeletedIds(prev => new Set([...prev, r.id]));
+                            setAnimatingId(null);
+                            void onDelete(r.id);
+                          }
+                        } : undefined}
+                        style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
+                        {...handleRowEvents}
+                      >
+                        {idx === 0 && (
+                          <td rowSpan={rowSpanCount} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                            {formatDate(r.purchase_date)}
+                          </td>
+                        )}
+                        {idx === 0 && (
+                          <td rowSpan={rowSpanCount} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {r.pharmacy_name ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
+                          </td>
+                        )}
+                        <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                          {item.drug_name}
+                          {item.is_rx && <span title="Рецептурный" style={{ marginLeft: 4, fontSize: "11px" }}>💊</span>}
+                        </td>
+                        <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "12px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                          {item.drug_inn ?? <span style={{ color: "var(--text-muted)" }}>—</span>}
+                        </td>
+                        <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 8px 6px" : "4px 8px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                          {item.quantity}
+                        </td>
+                        <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 12px 6px" : "4px 12px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                          {formatRub(item.unit_price)}
+                        </td>
+                        <td style={{ ...sharedCellStyle, padding: idx === 0 ? "12px 16px 6px" : "4px 16px", fontSize: "13px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap", borderTop: idx === 0 ? "1px solid var(--border-light)" : "none" }}>
+                          {formatRub(item.total_price)}
+                        </td>
+                        {idx === 0 && statusCell(rowSpanCount)}
+                        {idx === 0 && deleteCell}
+                      </tr>
+                    )),
+                    <tr key={`${r.id}-total`} style={{ cursor: "pointer" }} {...handleRowEvents}>
+                      <td colSpan={4} style={{ ...sharedCellStyle, padding: "6px 12px 12px", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right", borderTop: "none" }}>Итого:</td>
+                      <td style={{ ...sharedCellStyle, padding: "6px 16px 12px", fontSize: "14px", fontWeight: 800, color: "var(--text-primary)", textAlign: "right", letterSpacing: "-0.02em", whiteSpace: "nowrap", borderTop: "none" }}>{formatRub(r.total_amount)}</td>
+                    </tr>,
+                  ];
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Карточка редактирования — появляется под таблицей при выборе чека */}
+          {activeReceiptInGroup && (
+            <div style={{
+              padding: "16px",
+              borderTop: "2px solid var(--accent-mid)",
+              background: "var(--surface-subtle)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Редактирование чека
+                </span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    onClick={() => router.push(`/receipts/${activeReceiptInGroup}`)}
+                    style={{
+                      fontSize: "12px", fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      background: "none", border: "1px solid var(--border)",
+                      borderRadius: "var(--r-sm)",
+                      padding: "4px 10px",
+                      cursor: "pointer",
+                      fontFamily: "Urbanist, sans-serif",
+                    }}
+                  >
+                    Открыть полностью →
+                  </button>
+                  <button
+                    onClick={() => onSelectReceipt(null)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 28, height: 28,
+                      borderRadius: "var(--r-sm)",
+                      border: "1px solid var(--border)",
+                      background: "var(--bg)",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      color: "var(--text-secondary)",
+                      fontFamily: "Urbanist, sans-serif",
+                      lineHeight: 1,
+                    }}
+                    title="Закрыть"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <ReceiptSidePanel
+                receiptId={activeReceiptInGroup}
+                onNavigate={() => router.push(`/receipts/${activeReceiptInGroup}`)}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -470,6 +542,7 @@ export default function ReviewListPage() {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [sortField, setSortField]         = useState<SortField>("purchase_date");
   const [sortDir, setSortDir]             = useState<SortDir>("desc");
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const selectedYear = useDashboardStore(s => s.selectedYear);
 
   const { data, isLoading, isError, refetch } = useQuery<ReceiptListResponse>({
@@ -485,6 +558,7 @@ export default function ReviewListPage() {
 
   async function handleDelete(id: string) {
     await api.delete(`/api/v1/receipts/${id}`);
+    if (selectedReceiptId === id) setSelectedReceiptId(null);
     void queryClient.invalidateQueries({ queryKey: ["receipts-list"] });
     void refetch();
   }
@@ -568,6 +642,8 @@ export default function ReviewListPage() {
                   onSort={handleSort}
                   defaultOpen={i === 0}
                   onDelete={handleDelete}
+                  selectedReceiptId={selectedReceiptId}
+                  onSelectReceipt={setSelectedReceiptId}
                 />
               ))
             )}
