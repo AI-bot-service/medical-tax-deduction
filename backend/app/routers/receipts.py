@@ -376,6 +376,23 @@ async def patch_receipt(
     if body.fiscal_fd is not None:
         receipt.fiscal_fd = body.fiscal_fd
 
+    # Проверка дубля по ФН+ФД перед сохранением
+    new_fn = receipt.fiscal_fn
+    new_fd = receipt.fiscal_fd
+    if new_fn and new_fd:
+        dup_stmt = select(Receipt.id).where(
+            Receipt.fiscal_fn == new_fn,
+            Receipt.fiscal_fd == new_fd,
+            Receipt.id != receipt_id,
+            Receipt.user_id == current_user.id,
+        )
+        dup_result = await db.execute(dup_stmt)
+        if dup_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Чек с ФН {new_fn} и ФД {new_fd} уже существует в вашей базе.",
+            )
+
     # Статус DONE и 100% уверенность выставляются только явно — через кнопку "Сохранить"
     if body.mark_done:
         receipt.ocr_status = OCRStatus.DONE

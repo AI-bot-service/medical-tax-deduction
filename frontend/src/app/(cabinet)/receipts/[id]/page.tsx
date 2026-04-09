@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type {
   ReceiptDetail,
   ReceiptItem,
@@ -227,6 +227,7 @@ function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
   const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<{ date?: boolean; fn?: boolean; fd?: boolean }>({});
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   const showUncertain = hasLowConf && !saved;
 
@@ -281,6 +282,7 @@ function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
     }
 
     setErrors({});
+    setDuplicateError(null);
     setSaving(true);
     try {
       await api.patch(`/api/v1/receipts/${receipt.id}`, {
@@ -293,8 +295,11 @@ function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
-    } catch {
-      // ignore
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setErrors(prev => ({ ...prev, fd: true }));
+        setDuplicateError(e.message || "Чек с таким ФД уже существует в базе.");
+      }
     } finally {
       setSaving(false);
     }
@@ -405,7 +410,11 @@ function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
           <input
             type="text"
             value={fd}
-            onChange={(e) => { setFd(e.target.value); if (errors.fd) setErrors(prev => ({ ...prev, fd: false })); }}
+            onChange={(e) => {
+              setFd(e.target.value);
+              if (errors.fd) setErrors(prev => ({ ...prev, fd: false }));
+              if (duplicateError) setDuplicateError(null);
+            }}
             placeholder="Номер ФД"
             style={fieldInputStyle(!!errors.fd)}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
@@ -413,6 +422,31 @@ function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
           />
         </div>
       </div>
+
+      {/* Ошибка дубликата */}
+      {duplicateError && (
+        <div style={{
+          marginTop: 12,
+          padding: "10px 12px",
+          background: "rgba(239,68,68,0.07)",
+          border: "1px solid rgba(239,68,68,0.35)",
+          borderRadius: "var(--r-md)",
+          display: "flex", alignItems: "flex-start", gap: 8,
+        }}>
+          <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>🚫</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "var(--red-text, #EF4444)", marginBottom: 3 }}>
+              Обнаружен дубликат — сохранение невозможно
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 5 }}>
+              {duplicateError}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              <strong style={{ color: "var(--red-text, #EF4444)" }}>Что делать:</strong> проверьте поле <strong>ФД</strong> — оно выделено красным. Введите верное значение из фото чека или удалите этот чек.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
