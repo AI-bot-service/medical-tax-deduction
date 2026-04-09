@@ -112,7 +112,6 @@ function MonthAccordion({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -214,7 +213,7 @@ function MonthAccordion({
                   const hoverBg = "rgba(123,111,212,0.04)";
                   const isHovered = hoveredId === r.id;
                   const isDeleting = animatingId === r.id;
-                  const bg = isHovered && confirmId !== r.id && !isDeleting
+                  const bg = isHovered && !isDeleting
                     ? hoverBg
                     : rowBg;
                   const hasItems = r.items && r.items.length > 0;
@@ -233,39 +232,27 @@ function MonthAccordion({
                       style={{ ...sharedCellStyle, padding: "10px 8px", textAlign: "center", width: 52, verticalAlign: "middle" }}
                       onClick={e => e.stopPropagation()}
                     >
-                      {confirmId === r.id ? (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                          <button
-                            onClick={() => { setConfirmId(null); setAnimatingId(r.id); }}
-                            style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 700, background: "#EF4444", color: "#fff", border: "none", borderRadius: "var(--r-sm)", cursor: "pointer", whiteSpace: "nowrap" }}
-                          >Удалить</button>
-                          <button
-                            onClick={() => setConfirmId(null)}
-                            style={{ padding: "4px 8px", fontSize: "11px", background: "var(--bg)", color: "var(--text-secondary)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", cursor: "pointer" }}
-                          >Отмена</button>
-                        </div>
-                      ) : (
-                        <button
-                          className="delete-btn"
-                          title="Удалить чек"
-                          onClick={() => setConfirmId(r.id)}
-                          style={{ opacity: 0.25, transform: "scale(0.9)", transition: "opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s", background: "none", border: "none", cursor: "pointer", padding: "5px", borderRadius: "var(--r-sm)", color: "#EF4444", lineHeight: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "none"; if (confirmId !== r.id) { e.currentTarget.style.opacity = "0.25"; e.currentTarget.style.transform = "scale(0.9)"; } }}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                            <path d="M10 11v6M14 11v6"/>
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                          </svg>
-                        </button>
-                      )}
+                      <button
+                        className="delete-btn"
+                        title="Удалить чек"
+                        onClick={() => { if (!isDeleting) setAnimatingId(r.id); }}
+                        disabled={isDeleting}
+                        style={{ opacity: isDeleting ? 0 : 0.25, transform: "scale(0.9)", transition: "opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s", background: "none", border: "none", cursor: "pointer", padding: "5px", borderRadius: "var(--r-sm)", color: "#EF4444", lineHeight: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                        onMouseEnter={e => { if (!isDeleting) { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; } }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "none"; if (!isDeleting) { e.currentTarget.style.opacity = "0.25"; e.currentTarget.style.transform = "scale(0.9)"; } }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                      </button>
                     </td>
                   );
 
                   const handleRowClick = () => {
-                    if (!isDeleting && confirmId !== r.id) {
+                    if (!isDeleting) {
                       router.push(`/receipts/${r.id}`);
                     }
                   };
@@ -298,7 +285,7 @@ function MonthAccordion({
                             void onDelete(r.id);
                           }
                         }}
-                        style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
+                        style={{ cursor: isDeleting ? "default" : "pointer" }}
                         {...handleRowEvents}
                       >
                         <td rowSpan={2} style={{ ...sharedCellStyle, padding: "12px 16px", fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
@@ -330,7 +317,7 @@ function MonthAccordion({
                             void onDelete(r.id);
                           }
                         } : undefined}
-                        style={{ cursor: isDeleting || confirmId === r.id ? "default" : "pointer" }}
+                        style={{ cursor: isDeleting ? "default" : "pointer" }}
                         {...handleRowEvents}
                       >
                         {idx === 0 && (
