@@ -1581,7 +1581,7 @@ const selectedYear = useDashboardStore(s => s.selectedYear);
             <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {reviewCount} {plural(reviewCount, "документ требует", "документа требуют", "документов требуют")} проверки — среди них могут быть дубликаты уже загруженных файлов.{" "}
               <a
-                href="/review"
+                href="/duplicates"
                 style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
                 onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
                 onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
