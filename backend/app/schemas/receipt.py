@@ -146,6 +146,7 @@ class ReceiptPatch(BaseModel):
     fiscal_fn: str | None = None
     fiscal_fd: str | None = None
     items: list[ReceiptItemPatch] | None = None
+    mark_done: bool = False
 
 
 class ReceiptResolveDuplicate(BaseModel):

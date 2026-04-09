@@ -376,9 +376,10 @@ async def patch_receipt(
     if body.fiscal_fd is not None:
         receipt.fiscal_fd = body.fiscal_fd
 
-    # Пользователь явно подтвердил данные — помечаем как DONE и выставляем 100% уверенности
-    receipt.ocr_status = OCRStatus.DONE
-    receipt.ocr_confidence = 1.0
+    # Статус DONE и 100% уверенность выставляются только явно — через кнопку "Сохранить"
+    if body.mark_done:
+        receipt.ocr_status = OCRStatus.DONE
+        receipt.ocr_confidence = 1.0
 
     # Update items if provided
     if body.items is not None:

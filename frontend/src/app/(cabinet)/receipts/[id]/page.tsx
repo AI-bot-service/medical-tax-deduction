@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -210,8 +210,9 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
 interface OCREditorProps {
   receipt: ReceiptDetail;
   onSaved: () => void;
+  onDeleted: () => void;
 }
-function OCREditor({ receipt, onSaved }: OCREditorProps) {
+function OCREditor({ receipt, onSaved, onDeleted }: OCREditorProps) {
   const LOW_CONFIDENCE = 0.7;
   const hasLowConf =
     receipt.ocr_confidence !== null &&
@@ -223,10 +224,11 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
   const [fn, setFn] = useState(receipt.fiscal_fn ?? "");
   const [fd, setFd] = useState(receipt.fiscal_fd ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [userEdited, setUserEdited] = useState(false);
+  const [errors, setErrors] = useState<{ date?: boolean; fn?: boolean; fd?: boolean }>({});
 
-  const showUncertain = hasLowConf && !saved && !userEdited;
+  const showUncertain = hasLowConf && !saved;
 
   // Sync if receipt data changes (e.g. after invalidate)
   useEffect(() => {
@@ -236,18 +238,11 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     setFd(receipt.fiscal_fd ?? "");
   }, [receipt.purchase_date, receipt.pharmacy_name, receipt.fiscal_fn, receipt.fiscal_fd]);
 
-  const fieldInputStyle: React.CSSProperties = {
-    width: "100%",
-    borderRadius: "var(--r-sm)",
-    border: `1px solid ${showUncertain ? "var(--yellow)" : "var(--border)"}`,
-    background: "var(--surface)",
-    padding: "7px 10px",
-    fontSize: "13px",
-    color: "var(--text-primary)",
-    outline: "none",
-    fontFamily: "Urbanist, sans-serif",
-    boxSizing: "border-box",
-  };
+  function getFieldBorder(hasError: boolean) {
+    if (hasError) return "var(--red-text, #EF4444)";
+    if (showUncertain) return "var(--yellow)";
+    return "var(--border)";
+  }
 
   const fieldLabelStyle: React.CSSProperties = {
     fontSize: "10px",
@@ -259,11 +254,42 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     display: "block",
   };
 
-  async function saveFields(fields: { purchase_date?: string | null; pharmacy_name?: string | null; fiscal_fn?: string | null; fiscal_fd?: string | null }) {
+  function fieldInputStyle(hasError: boolean): React.CSSProperties {
+    return {
+      width: "100%",
+      borderRadius: "var(--r-sm)",
+      border: `1px solid ${getFieldBorder(hasError)}`,
+      background: "var(--surface)",
+      padding: "7px 10px",
+      fontSize: "13px",
+      color: "var(--text-primary)",
+      outline: "none",
+      fontFamily: "Urbanist, sans-serif",
+      boxSizing: "border-box",
+    };
+  }
+
+  async function handleSave() {
+    const newErrors: { date?: boolean; fn?: boolean; fd?: boolean } = {};
+    if (!date) newErrors.date = true;
+    if (!fn.trim()) newErrors.fn = true;
+    if (!fd.trim()) newErrors.fd = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     setSaving(true);
     try {
-      await api.patch(`/api/v1/receipts/${receipt.id}`, fields);
-      setUserEdited(true);
+      await api.patch(`/api/v1/receipts/${receipt.id}`, {
+        purchase_date: date || null,
+        pharmacy_name: pharmacy || null,
+        fiscal_fn: fn.trim() || null,
+        fiscal_fd: fd.trim() || null,
+        mark_done: true,
+      });
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);
@@ -274,24 +300,17 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
     }
   }
 
-  async function handleDateBlur() {
-    if ((date || null) === (receipt.purchase_date ?? null)) return;
-    await saveFields({ purchase_date: date || null });
-  }
-
-  async function handlePharmacyBlur() {
-    if ((pharmacy || null) === (receipt.pharmacy_name ?? null)) return;
-    await saveFields({ pharmacy_name: pharmacy || null });
-  }
-
-  async function handleFnBlur() {
-    if ((fn || null) === (receipt.fiscal_fn ?? null)) return;
-    await saveFields({ fiscal_fn: fn || null });
-  }
-
-  async function handleFdBlur() {
-    if ((fd || null) === (receipt.fiscal_fd ?? null)) return;
-    await saveFields({ fiscal_fd: fd || null });
+  async function handleDelete() {
+    if (!confirm("Удалить этот чек? Это действие нельзя отменить.")) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/v1/receipts/${receipt.id}`);
+      onDeleted();
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -313,26 +332,44 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
           {saved && (
             <span style={{ fontSize: "12px", color: "var(--green-text)", fontWeight: 600 }}>✓ Сохранено</span>
           )}
-          {saving && (
-            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Сохранение…</span>
-          )}
+          <button
+            onClick={() => { void handleDelete(); }}
+            disabled={deleting || saving}
+            className="btn btn-sm"
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              color: deleting ? "var(--text-muted)" : "var(--red-text, #EF4444)",
+              cursor: deleting || saving ? "not-allowed" : "pointer",
+              opacity: deleting ? 0.5 : 1,
+            }}
+          >
+            {deleting ? "…" : "Удалить"}
+          </button>
+          <button
+            onClick={() => { void handleSave(); }}
+            disabled={saving || deleting}
+            className="btn btn-primary btn-sm"
+            style={saving || deleting ? { opacity: 0.55, cursor: "not-allowed" } : {}}
+          >
+            {saving ? "…" : "Сохранить"}
+          </button>
         </div>
       </div>
 
       {/* Fields — 2 column grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div>
-          <label style={fieldLabelStyle}>Дата покупки</label>
+          <label style={{ ...fieldLabelStyle, color: errors.date ? "var(--red-text, #EF4444)" : "var(--text-secondary)" }}>
+            Дата покупки{errors.date && " — обязательное поле"}
+          </label>
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            style={fieldInputStyle}
+            onChange={(e) => { setDate(e.target.value); if (errors.date) setErrors(prev => ({ ...prev, date: false })); }}
+            style={fieldInputStyle(!!errors.date)}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
-              void handleDateBlur();
-            }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = getFieldBorder(!!errors.date); }}
           />
         </div>
         <div>
@@ -342,42 +379,37 @@ function OCREditor({ receipt, onSaved }: OCREditorProps) {
             value={pharmacy}
             onChange={(e) => setPharmacy(e.target.value)}
             placeholder="Аптека"
-            style={fieldInputStyle}
+            style={fieldInputStyle(false)}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
-              void handlePharmacyBlur();
-            }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = getFieldBorder(false); }}
           />
         </div>
         <div>
-          <label style={fieldLabelStyle}>ФН</label>
+          <label style={{ ...fieldLabelStyle, color: errors.fn ? "var(--red-text, #EF4444)" : "var(--text-secondary)" }}>
+            ФН{errors.fn && " — обязательное поле"}
+          </label>
           <input
             type="text"
             value={fn}
-            onChange={(e) => setFn(e.target.value)}
+            onChange={(e) => { setFn(e.target.value); if (errors.fn) setErrors(prev => ({ ...prev, fn: false })); }}
             placeholder="Номер ФН"
-            style={fieldInputStyle}
+            style={fieldInputStyle(!!errors.fn)}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
-              void handleFnBlur();
-            }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = getFieldBorder(!!errors.fn); }}
           />
         </div>
         <div>
-          <label style={fieldLabelStyle}>ФД</label>
+          <label style={{ ...fieldLabelStyle, color: errors.fd ? "var(--red-text, #EF4444)" : "var(--text-secondary)" }}>
+            ФД{errors.fd && " — обязательное поле"}
+          </label>
           <input
             type="text"
             value={fd}
-            onChange={(e) => setFd(e.target.value)}
+            onChange={(e) => { setFd(e.target.value); if (errors.fd) setErrors(prev => ({ ...prev, fd: false })); }}
             placeholder="Номер ФД"
-            style={fieldInputStyle}
+            style={fieldInputStyle(!!errors.fd)}
             onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = showUncertain ? "var(--yellow)" : "var(--border)";
-              void handleFdBlur();
-            }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = getFieldBorder(!!errors.fd); }}
           />
         </div>
       </div>
@@ -858,7 +890,7 @@ export default function ReceiptDetailPage() {
 
           {/* Right: Editor + Table */}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-            <OCREditor receipt={receipt} onSaved={invalidate} />
+            <OCREditor receipt={receipt} onSaved={invalidate} onDeleted={() => router.push("/receipts")} />
             <ItemsTable items={receipt.items} receiptId={id} onLinked={invalidate} />
           </div>
         </div>
