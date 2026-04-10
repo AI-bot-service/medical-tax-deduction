@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useDashboardStore } from "@/lib/store";
 import PrescriptionTable from "@/components/ui/PrescriptionTable";
+import PrescriptionDetailDrawer from "@/components/ui/PrescriptionDetailDrawer";
 import type { PrescriptionSortField, PrescriptionSortDir } from "@/components/ui/PrescriptionTable";
 import type { Prescription, PrescriptionListResponse, DocType } from "@/types/api";
 
@@ -126,7 +127,7 @@ function DocTypeFilterPills({ value, onChange }: { value: string; onChange: (v: 
 // ---------------------------------------------------------------------------
 
 function MonthAccordion({
-  group, sortField, sortDir, onSort, defaultOpen, onDelete,
+  group, sortField, sortDir, onSort, defaultOpen, onDelete, onRowClick,
 }: {
   group:        PrescriptionMonthGroup;
   sortField:    PrescriptionSortField;
@@ -134,6 +135,7 @@ function MonthAccordion({
   onSort:       (f: PrescriptionSortField) => void;
   defaultOpen:  boolean;
   onDelete:     (id: string) => Promise<void>;
+  onRowClick:   (id: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -220,6 +222,7 @@ function MonthAccordion({
           sortDir={sortDir}
           onSort={onSort}
           onDelete={onDelete}
+          onRowClick={onRowClick}
         />
       )}
     </div>
@@ -280,9 +283,10 @@ export default function PrescriptionsPage() {
   const queryClient  = useQueryClient();
   const selectedYear = useDashboardStore(s => s.selectedYear);
 
-  const [docTypeFilter, setDocTypeFilter] = useState<string>("all");
-  const [sortField, setSortField]         = useState<PrescriptionSortField>("issue_date");
-  const [sortDir, setSortDir]             = useState<PrescriptionSortDir>("desc");
+  const [docTypeFilter, setDocTypeFilter]         = useState<string>("all");
+  const [sortField, setSortField]                 = useState<PrescriptionSortField>("issue_date");
+  const [sortDir, setSortDir]                     = useState<PrescriptionSortDir>("desc");
+  const [drawerPrescriptionId, setDrawerPrescriptionId] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery<PrescriptionListResponse>({
     queryKey: ["prescriptions", docTypeFilter, selectedYear],
@@ -380,12 +384,27 @@ export default function PrescriptionsPage() {
                   onSort={handleSort}
                   defaultOpen={i === 0}
                   onDelete={handleDelete}
+                  onRowClick={setDrawerPrescriptionId}
                 />
               ))
             )}
           </div>
         </>
       )}
+
+      <PrescriptionDetailDrawer
+        prescriptionId={drawerPrescriptionId}
+        onClose={() => setDrawerPrescriptionId(null)}
+        onDeleted={() => {
+          setDrawerPrescriptionId(null);
+          void refetch();
+          void queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
+        }}
+        onSaved={() => {
+          void refetch();
+          void queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
+        }}
+      />
     </>
   );
 }
