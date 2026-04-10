@@ -73,3 +73,12 @@ class S3Client:
         """Download and return object bytes. Raises ClientError if not found."""
         resp = self._boto_client.get_object(Bucket=bucket, Key=key)
         return resp["Body"].read()
+
+    def list_objects(self, bucket: str, prefix: str = "") -> list[dict]:
+        """Paginated list of all objects in bucket. Returns list of {key, size}."""
+        paginator = self._boto_client.get_paginator("list_objects_v2")
+        result = []
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                result.append({"key": obj["Key"], "size": obj["Size"]})
+        return result

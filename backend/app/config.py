@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Sentry
     sentry_dsn: str = ""
 
+    # Admin
+    admin_telegram_ids: list[int] = []
+
     # App
     environment: str = "development"
     debug: bool = True
