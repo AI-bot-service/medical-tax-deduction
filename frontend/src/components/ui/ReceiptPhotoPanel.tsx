@@ -5,7 +5,7 @@
  * Используется на странице редактирования чека и на странице дубликатов.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 interface ReceiptPhotoPanelProps {
   src: string;
@@ -18,6 +18,13 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastY = useRef(0);
+  const [scale, setScale] = useState(1.0);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    setScale(s => Math.min(4, Math.max(0.25, parseFloat((s + delta).toFixed(2)))));
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -77,7 +84,44 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
         <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
           🧾 {title}
         </span>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Кнопки зума */}
+          <button
+            onClick={() => setScale(s => Math.min(4, parseFloat((s + 0.25).toFixed(2))))}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 28, height: 28, borderRadius: "var(--r-sm)",
+              border: "1px solid var(--border)", background: "var(--bg)",
+              cursor: "pointer", fontSize: "16px", color: "var(--text-secondary)",
+              lineHeight: 1, flexShrink: 0,
+            }}
+            title="Увеличить"
+          >+</button>
+          <span style={{ fontSize: "11px", color: "var(--text-secondary)", minWidth: 34, textAlign: "center" }}>
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            onClick={() => setScale(s => Math.max(0.25, parseFloat((s - 0.25).toFixed(2))))}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 28, height: 28, borderRadius: "var(--r-sm)",
+              border: "1px solid var(--border)", background: "var(--bg)",
+              cursor: "pointer", fontSize: "16px", color: "var(--text-secondary)",
+              lineHeight: 1, flexShrink: 0,
+            }}
+            title="Уменьшить"
+          >−</button>
+          <button
+            onClick={() => setScale(1)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 28, height: 28, borderRadius: "var(--r-sm)",
+              border: "1px solid var(--border)", background: "var(--bg)",
+              cursor: "pointer", fontSize: "10px", color: "var(--text-secondary)",
+              lineHeight: 1, flexShrink: 0,
+            }}
+            title="Сбросить масштаб"
+          >⊡</button>
           {downloadUrl && (
             <a
               href={downloadUrl}
@@ -135,6 +179,7 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
         onMouseMove={handleMouseMove}
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
+        onWheel={handleWheel}
         style={{
           flex: 1,
           overflow: "auto",
@@ -152,10 +197,12 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
           alt={title}
           style={{
             display: "block",
-            width: "100%",
+            width: `${scale * 100}%`,
             height: "auto",
             borderRadius: "var(--r-md)",
             border: "1px solid var(--border)",
+            flexShrink: 0,
+            transition: "width 0.1s ease",
           }}
         />
       </div>
