@@ -57,11 +57,21 @@ class S3Client:
         bucket: str,
         key: str,
         ttl: int = 900,
+        as_download: bool = False,
+        filename: str = "receipt",
     ) -> str:
-        """Generate a presigned GET URL valid for `ttl` seconds (default 15 min)."""
+        """Generate a presigned GET URL valid for `ttl` seconds (default 15 min).
+
+        If `as_download=True`, adds ResponseContentDisposition so the browser
+        treats the response as a file download attachment.
+        """
+        params: dict = {"Bucket": bucket, "Key": key}
+        if as_download:
+            ext = key.rsplit(".", 1)[-1] if "." in key else "jpg"
+            params["ResponseContentDisposition"] = f'attachment; filename="{filename}.{ext}"'
         return self._boto_client.generate_presigned_url(
             ClientMethod="get_object",
-            Params={"Bucket": bucket, "Key": key},
+            Params=params,
             ExpiresIn=ttl,
         )
 

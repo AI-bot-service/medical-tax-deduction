@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type { ReceiptDetail, ReceiptItem } from "@/types/api";
+import { ReceiptPhotoPanel } from "@/components/ui/ReceiptPhotoPanel";
 
 // ---------------------------------------------------------------------------
 // Утилиты
@@ -43,61 +44,10 @@ async function deleteReceipt(receiptId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Лайтбокс для увеличения фото
-// ---------------------------------------------------------------------------
-
-function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0, zIndex: 2000,
-        background: "rgba(0,0,0,0.88)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "zoom-out",
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt="Чек (увеличенный)"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: "90vw", maxHeight: "90vh",
-          objectFit: "contain",
-          borderRadius: 8,
-          boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
-          cursor: "default",
-        }}
-      />
-      <button
-        onClick={onClose}
-        style={{
-          position: "fixed", top: 20, right: 24,
-          background: "rgba(255,255,255,0.12)",
-          border: "none", color: "#fff",
-          width: 40, height: 40, borderRadius: "50%",
-          fontSize: 22, cursor: "pointer", lineHeight: 1,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Кликабельное фото чека
 // ---------------------------------------------------------------------------
 
-function ReceiptPhoto({ imageUrl, onZoom }: { imageUrl: string | null; onZoom: (url: string) => void }) {
+function ReceiptPhoto({ imageUrl, downloadUrl, onZoom }: { imageUrl: string | null; downloadUrl?: string | null; onZoom: (data: { src: string; downloadUrl?: string }) => void }) {
   if (!imageUrl) {
     return (
       <div style={{
@@ -114,7 +64,7 @@ function ReceiptPhoto({ imageUrl, onZoom }: { imageUrl: string | null; onZoom: (
   }
   return (
     <div
-      onClick={() => onZoom(imageUrl)}
+      onClick={() => onZoom({ src: imageUrl, downloadUrl: downloadUrl ?? undefined })}
       style={{
         width: "100%", height: 260, position: "relative",
         borderRadius: "var(--r-sm)",
@@ -409,7 +359,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
   const [discarding, setDiscarding] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [fdFieldError, setFdFieldError] = useState(false);
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<{ src: string; downloadUrl?: string } | null>(null);
   const warningRef = useRef<HTMLDivElement | null>(null);
 
   const { data: newReceipt, isLoading: loadingNew } = useQuery<ReceiptDetail>({
@@ -592,7 +542,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
                   <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
                     <li>Проверьте поле <strong>ФД</strong> в новом чеке — оно выделено красным.</li>
                     <li>Введите верное значение из фото чека (правая колонка).</li>
-                    <li>Если чек действительно дублирует — нажмите <strong>«Сбросить»</strong>.</li>
+                    <li>Если чек действительно дублирует — нажмите <strong>«Удалить»</strong>.</li>
                   </ul>
                 </div>
               </div>
@@ -640,6 +590,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
                 <div style={{ padding: "12px 16px", background: "var(--surface-subtle)" }}>
                   <ReceiptPhoto
                     imageUrl={hasOrig ? orig!.image_url : null}
+                    downloadUrl={hasOrig ? orig!.download_url : null}
                     onZoom={setZoomedImage}
                   />
                 </div>
@@ -647,6 +598,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
                 <div style={{ padding: "12px 16px" }}>
                   <ReceiptPhoto
                     imageUrl={newReceipt?.image_url ?? null}
+                    downloadUrl={newReceipt?.download_url ?? null}
                     onZoom={setZoomedImage}
                   />
                 </div>
@@ -739,14 +691,14 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
           {/* ── Кнопки ── */}
           <div style={{
             padding: "14px 20px",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8,
           }}>
             <button
               className="btn btn-secondary"
               onClick={handleDiscard}
               disabled={discarding || saving}
             >
-              {discarding ? "Удаление..." : "Сбросить"}
+              {discarding ? "Удаление..." : "Удалить"}
             </button>
 
             <button
@@ -762,7 +714,7 @@ export function DuplicateReviewModal({ receiptId, onSaved, onCancelled, asPage =
 
   return (
     <>
-      {zoomedImage && <ImageLightbox src={zoomedImage} onClose={() => setZoomedImage(null)} />}
+      {zoomedImage && <ReceiptPhotoPanel src={zoomedImage.src} downloadUrl={zoomedImage.downloadUrl} onClose={() => setZoomedImage(null)} />}
       {asPage ? (
         inner
       ) : (

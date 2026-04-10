@@ -327,16 +327,19 @@ async def get_receipt(
     if receipt is None:
         raise HTTPException(status_code=404, detail="Чек не найден")
 
-    # Generate presigned URL (TTL 15 min)
+    # Generate presigned URLs (TTL 15 min)
     image_url: str | None = None
+    download_url: str | None = None
     try:
         s3 = S3Client()
         image_url = s3.generate_presigned_url(BUCKET_RECEIPTS, receipt.s3_key, ttl=900)
+        download_url = s3.generate_presigned_url(BUCKET_RECEIPTS, receipt.s3_key, ttl=900, as_download=True, filename="receipt")
     except Exception as exc:
         logger.warning("Failed to generate presigned URL for receipt %s: %s", receipt_id, exc)
 
     detail = ReceiptDetail.model_validate(receipt)
     detail.image_url = image_url
+    detail.download_url = download_url
     detail.items = [ReceiptItemSchema.model_validate(item) for item in receipt.items]
     return detail
 
@@ -486,14 +489,17 @@ async def get_duplicate_original(
         raise HTTPException(status_code=404, detail="Оригинальный чек не найден")
 
     image_url: str | None = None
+    download_url: str | None = None
     try:
         s3 = S3Client()
         image_url = s3.generate_presigned_url(BUCKET_RECEIPTS, original.s3_key, ttl=900)
+        download_url = s3.generate_presigned_url(BUCKET_RECEIPTS, original.s3_key, ttl=900, as_download=True, filename="receipt")
     except Exception as exc:
         logger.warning("Failed to generate presigned URL for original %s: %s", original.id, exc)
 
     detail = ReceiptDetail.model_validate(original)
     detail.image_url = image_url
+    detail.download_url = download_url
     detail.items = [ReceiptItemSchema.model_validate(item) for item in original.items]
     return detail
 

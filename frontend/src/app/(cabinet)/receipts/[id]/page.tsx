@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
+import { ReceiptPhotoPanel } from "@/components/ui/ReceiptPhotoPanel";
 import type {
   ReceiptDetail,
   ReceiptItem,
@@ -32,6 +33,7 @@ interface PresignedImageProps {
 function PresignedImage({ receiptId }: PresignedImageProps) {
   const REFRESH_MS = 14 * 60 * 1000;
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -39,6 +41,7 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
     try {
       const detail = await api.get<ReceiptDetail>(`/api/v1/receipts/${receiptId}`);
       setImageUrl(detail.image_url ?? null);
+      setDownloadUrl(detail.download_url ?? null);
     } catch {
       // ignore
     }
@@ -122,82 +125,9 @@ function PresignedImage({ receiptId }: PresignedImageProps) {
         </p>
       </div>
 
-      {/* Modal — fixed on the left */}
+      {/* Панель увеличенного фото — открывается слева */}
       {modalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "clamp(320px, 46vw, 680px)",
-            height: "100vh",
-            zIndex: 1000,
-            display: "flex",
-            flexDirection: "column",
-            background: "var(--surface)",
-            borderRight: "1px solid var(--border)",
-            boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
-          }}
-        >
-          {/* Header */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 16px",
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-          }}>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
-              🧾 Фото чека
-            </span>
-            <button
-              onClick={() => setModalOpen(false)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 32,
-                height: 32,
-                borderRadius: "var(--r-sm)",
-                border: "1px solid var(--border)",
-                background: "var(--bg)",
-                cursor: "pointer",
-                fontSize: "16px",
-                color: "var(--text-secondary)",
-                fontFamily: "Urbanist, sans-serif",
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
-              title="Закрыть"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Image scroll area */}
-          <div style={{
-            flex: 1,
-            overflow: "auto",
-            padding: "12px",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-          }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt="Фото чека"
-              style={{
-                display: "block",
-                width: "100%",
-                height: "auto",
-                borderRadius: "var(--r-md)",
-                border: "1px solid var(--border)",
-              }}
-            />
-          </div>
-        </div>
+        <ReceiptPhotoPanel src={imageUrl} downloadUrl={downloadUrl ?? undefined} onClose={() => setModalOpen(false)} />
       )}
     </>
   );

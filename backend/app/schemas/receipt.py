@@ -88,7 +88,8 @@ class ReceiptDetail(BaseModel):
     fiscal_fn: str | None = None
     fiscal_fd: str | None = None
     duplicate_of_id: uuid.UUID | None = None
-    image_url: str | None = None  # presigned URL, injected after DB fetch
+    image_url: str | None = None      # presigned URL, injected after DB fetch
+    download_url: str | None = None   # presigned URL with Content-Disposition: attachment
     items: list[ReceiptItemSchema] = Field(default_factory=list)
     created_at: datetime
 

@@ -7,26 +7,14 @@
 
 import { useEffect, useRef, useCallback } from "react";
 
-async function downloadImage(src: string, filename = "receipt.jpg") {
-  const response = await fetch(src);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 interface ReceiptPhotoPanelProps {
   src: string;
+  downloadUrl?: string;
   title?: string;
   onClose: () => void;
 }
 
-export function ReceiptPhotoPanel({ src, title = "Фото чека", onClose }: ReceiptPhotoPanelProps) {
+export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека", onClose }: ReceiptPhotoPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastY = useRef(0);
@@ -90,28 +78,31 @@ export function ReceiptPhotoPanel({ src, title = "Фото чека", onClose }:
           🧾 {title}
         </span>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => downloadImage(src)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: "var(--r-sm)",
-              border: "1px solid var(--border)",
-              background: "var(--bg)",
-              cursor: "pointer",
-              color: "var(--text-secondary)",
-              flexShrink: 0,
-            }}
-            title="Скачать чек"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 1v9M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
+          {downloadUrl && (
+            <a
+              href={downloadUrl}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                flexShrink: 0,
+                textDecoration: "none",
+              }}
+              title="Скачать чек"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 1v9M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </a>
+          )}
           <button
             onClick={onClose}
             style={{

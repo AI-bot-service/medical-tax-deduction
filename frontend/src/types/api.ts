@@ -87,6 +87,7 @@ export interface ReceiptDetail extends ReceiptListItem {
   fiscal_fd: string | null;
   duplicate_of_id: string | null;
   image_url: string | null;
+  download_url: string | null;
   items: ReceiptItem[];
 }
 
