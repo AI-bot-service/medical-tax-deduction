@@ -26,6 +26,7 @@ const MOCK_ORIGINAL: ReceiptDetail = {
   fiscal_fd: "127453",
   duplicate_of_id: null,
   image_url: null,
+  download_url: null,
   created_at: "2025-03-14T10:22:31Z",
   items: [
     {
@@ -98,6 +99,7 @@ const MOCK_DUPLICATE: ReceiptDetail = {
   fiscal_fd: "127453",
   duplicate_of_id: "a1b2c3d4-0001-0000-0000-000000000001",
   image_url: null,
+  download_url: null,
   created_at: "2025-03-15T09:05:10Z",
   items: [
     {
