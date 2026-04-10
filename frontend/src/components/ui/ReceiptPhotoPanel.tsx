@@ -7,6 +7,19 @@
 
 import { useEffect, useRef, useCallback } from "react";
 
+async function downloadImage(src: string, filename = "receipt.jpg") {
+  const response = await fetch(src);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 interface ReceiptPhotoPanelProps {
   src: string;
   title?: string;
@@ -77,9 +90,8 @@ export function ReceiptPhotoPanel({ src, title = "Фото чека", onClose }:
           🧾 {title}
         </span>
         <div style={{ display: "flex", gap: 8 }}>
-          <a
-            href={src}
-            download
+          <button
+            onClick={() => downloadImage(src)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -92,7 +104,6 @@ export function ReceiptPhotoPanel({ src, title = "Фото чека", onClose }:
               cursor: "pointer",
               color: "var(--text-secondary)",
               flexShrink: 0,
-              textDecoration: "none",
             }}
             title="Скачать чек"
           >
@@ -100,7 +111,7 @@ export function ReceiptPhotoPanel({ src, title = "Фото чека", onClose }:
               <path d="M8 1v9M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
-          </a>
+          </button>
           <button
             onClick={onClose}
             style={{
