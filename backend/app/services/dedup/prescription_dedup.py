@@ -99,24 +99,21 @@ def _prescriptions_are_identical(existing: Prescription, parsed: ParsedPrescript
     Считаем идентичными, если совпадает набор наименований препаратов (сортированный).
     Дополнительно проверяем дозировки, если они указаны.
     """
-    # Для рецептов в БД хранится один препарат на запись.
-    # Для сравнения берём drug_name существующей записи.
-    existing_drug = _normalize_name(existing.drug_name)
+    existing_drugs = sorted(_normalize_name(item.drug_name) for item in existing.items)
     parsed_drugs = sorted(_normalize_name(d.drug_name_raw) for d in parsed.drugs)
 
-    # Если в распознанном рецепте несколько препаратов,
-    # а в БД только один — ищем его среди новых
-    if existing_drug not in parsed_drugs:
+    if existing_drugs != parsed_drugs:
         return False
 
-    # Сравниваем дозировки
-    existing_dosage = _normalize_name(existing.dosage)
-    parsed_dosages = {
-        _normalize_name(d.drug_name_raw): _normalize_name(d.dosage)
-        for d in parsed.drugs
+    existing_dosages = {
+        _normalize_name(item.drug_name): _normalize_name(item.dosage)
+        for item in existing.items
     }
-    matched_dosage = parsed_dosages.get(existing_drug, "")
-    if existing_dosage and matched_dosage and existing_dosage != matched_dosage:
-        return False
+    for drug in parsed.drugs:
+        norm_name = _normalize_name(drug.drug_name_raw)
+        existing_dosage = existing_dosages.get(norm_name, "")
+        parsed_dosage = _normalize_name(drug.dosage)
+        if existing_dosage and parsed_dosage and existing_dosage != parsed_dosage:
+            return False
 
     return True

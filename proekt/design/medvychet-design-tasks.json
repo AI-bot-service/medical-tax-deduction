@@ -1,0 +1,1059 @@
+{
+  "project": "МедВычет — Личный кабинет",
+  "branchName": "design/medvychet-cabinet",
+  "description": "Полный UI/UX дизайн личного кабинета МедВычет. Только дизайн — без кода. Задачи атомарные, каждая = один экран или один компонент. Дизайн-система HEITKAMP-adapted: Urbanist font, #7B6FD4 accent, тёмный sidebar #1A1A2E.",
+  "designSystem": {
+    "font": "Urbanist",
+    "accent": "#7B6FD4",
+    "sidebarBg": "#1A1A2E",
+    "cardBg": "#FFFFFF",
+    "pageBg": "#F2F2F7",
+    "tokensFile": "design-tokens-heitkamp.json",
+    "cssFile": "heitkamp-ds.css",
+    "prototypeFile": "medvychet-dashboard.html"
+  },
+  "progress_log": "progress.txt",
+  "userStories": [
+
+    {
+      "id": "DS-001",
+      "phase": "Foundation",
+      "title": "Дизайн-токены — финализация палитры",
+      "description": "Как дизайнер, мне нужно зафиксировать все цветовые токены проекта, чтобы все компоненты использовали единую палитру.",
+      "acceptanceCriteria": [
+        "Brand: --accent #7B6FD4, --accent-light #EEEDFC, --accent-mid #A89FE0",
+        "Status: green/yellow/red/blue/purple с парами base+bg",
+        "Kanban tints: #AAFFD8 / #FFD5D5 / #AAEEFF / #E8E5FF",
+        "Sidebar: bg #1A1A2E, hover #252543, text #A0A8C0",
+        "Нейтральные: page bg #F2F2F7, card #FFFFFF, border #E5E7EB",
+        "Все токены задокументированы в design-tokens-heitkamp.json"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Завершено — файл design-tokens-heitkamp.json создан"
+    },
+
+    {
+      "id": "DS-002",
+      "phase": "Foundation",
+      "title": "Дизайн-токены — типографика Urbanist",
+      "description": "Как дизайнер, мне нужно зафиксировать типографическую шкалу, чтобы все тексты были консистентны.",
+      "acceptanceCriteria": [
+        "8 уровней: display / h1 / h2 / h3 / body-lg / body / caption / label",
+        "KPI Value: clamp(1.5rem,3vw,1.75rem), weight 800, letter-spacing -0.05em",
+        "Label: 0.6875rem, weight 600, letter-spacing 0.04em, uppercase",
+        "Google Fonts URL задокументирован с preconnect",
+        "Все размеры используют clamp() для fluid typography"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Завершено — в design-tokens-heitkamp.json раздел typography"
+    },
+
+    {
+      "id": "DS-003",
+      "phase": "Foundation",
+      "title": "Дизайн-токены — spacing, radius, shadows",
+      "description": "Как дизайнер, мне нужно зафиксировать геометрические токены проекта.",
+      "acceptanceCriteria": [
+        "Spacing scale: 4/8/12/16/20/24/28/32/40/48px",
+        "Border-radius: --r-sm 8px / --r-md 12px / --r-lg 16px / --r-pill 9999px",
+        "Shadows: sm / md / lg / accent (rgba(123,111,212,0.35))",
+        "Sidebar width: 232px desktop / 200px tablet / off-canvas mobile",
+        "Topbar height: 60px"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Завершено — в design-tokens-heitkamp.json"
+    },
+
+    {
+      "id": "DS-004",
+      "phase": "Foundation",
+      "title": "Компонент: Base Card",
+      "description": "Как дизайнер, мне нужно спроектировать базовую карточку — контейнер для всего контента кабинета.",
+      "acceptanceCriteria": [
+        "Default: белый, border 1px #E5E7EB, radius 12px, shadow-sm",
+        "Hover-state: translateY(-3px), shadow-md — для интерактивных карточек",
+        "Card Header: padding 18px 20px 14px, border-bottom 1px #F3F4F6",
+        "Card Title: 14px, weight 700",
+        "Card Action: 12px, accent color, cursor pointer",
+        "Card Body: padding 16px 20px",
+        "Статичный и интерактивный варианты задокументированы"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Реализовано в medvychet-dashboard.html и heitkamp-ds.css"
+    },
+
+    {
+      "id": "DS-005",
+      "phase": "Foundation",
+      "title": "Компонент: Buttons (Primary / Secondary / Ghost)",
+      "description": "Как дизайнер, мне нужно спроектировать все варианты кнопок с состояниями.",
+      "acceptanceCriteria": [
+        "Primary: bg #7B6FD4, белый текст, radius 8px, padding 9px 18px",
+        "Primary hover: opacity 0.88, translateY(-1px)",
+        "Secondary: белый bg, border #E5E7EB, dark текст",
+        "Secondary hover: bg #F2F2F7",
+        "Ghost: rgba(255,255,255,0.22) bg, белый текст, border rgba(255,255,255,0.3) — для gradient card",
+        "Размеры: sm (7px 14px) / md (9px 18px) / lg (12px 24px)",
+        "Disabled state: opacity 0.4, cursor not-allowed",
+        "Loading state: spinner inline"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Реализовано в heitkamp-ds.css"
+    },
+
+    {
+      "id": "DS-006",
+      "phase": "Foundation",
+      "title": "Компонент: Status Badges",
+      "description": "Как дизайнер, мне нужно спроектировать 5 вариантов статусных бейджей для OCR-статусов.",
+      "acceptanceCriteria": [
+        "done: bg #DCFCE7, text #15803D, dot #22C55E",
+        "review: bg #FEF3C7, text #B45309, dot #F59E0B",
+        "ocr: bg #DBEAFE, text #1D4ED8, dot #3B82F6",
+        "failed: bg #FEE2E2, text #B91C1C, dot #EF4444",
+        "pending: bg #EDE9FE, text #5B21B6, dot #7B6FD4",
+        "Форма: pill, padding 3px 10px, font 11px weight 600",
+        "Dot: 5px circle внутри слева",
+        "Размер sm (10px) для kanban карточек"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Реализовано в heitkamp-ds.css и dashboard.html"
+    },
+
+    {
+      "id": "DS-007",
+      "phase": "Foundation",
+      "title": "Компонент: Filter Pills",
+      "description": "Как дизайнер, мне нужно спроектировать горизонтальные таб-фильтры.",
+      "acceptanceCriteria": [
+        "Default: bg white, border #E5E7EB, text secondary",
+        "Active: bg #7B6FD4, border accent, text white",
+        "Hover non-active: border accent, text accent",
+        "Font: 12px weight 600, border-radius pill",
+        "Padding: 5px 14px",
+        "Transition: all 150ms"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Реализовано"
+    },
+
+    {
+      "id": "DS-008",
+      "phase": "Foundation",
+      "title": "Компонент: Input / Form Elements",
+      "description": "Как дизайнер, мне нужно спроектировать поля ввода для форм профиля, поиска и авторизации.",
+      "acceptanceCriteria": [
+        "Input default: height 36px, border #E5E7EB, radius 8px, padding 7px 14px",
+        "Input focus: outline 2px solid #7B6FD4, outline-offset 3px",
+        "Input error: border #EF4444, helper text красный",
+        "Input disabled: opacity 0.5, cursor not-allowed",
+        "Search input: иконка лупы внутри слева",
+        "Mobile touch target: min-height 44px",
+        "Label: 12px weight 600, mb 6px",
+        "Helper/error text: 11px, mt 4px"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-009",
+      "phase": "Foundation",
+      "title": "Компонент: Avatar",
+      "description": "Как дизайнер, мне нужно спроектировать аватар пользователя с инициалами.",
+      "acceptanceCriteria": [
+        "sm: 28px, font 11px",
+        "md: 36px, font 14px",
+        "lg: 44px, font 16px",
+        "Градиент: linear-gradient(135deg, #7B6FD4, #A89FE0)",
+        "border-radius: 50%",
+        "Font weight: 700, color white"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Реализовано"
+    },
+
+    {
+      "id": "DS-010",
+      "phase": "Foundation",
+      "title": "Компонент: Sidebar Navigation",
+      "description": "Как дизайнер, мне нужно спроектировать полную левую навигационную панель со всеми состояниями.",
+      "acceptanceCriteria": [
+        "Фон: #1A1A2E, ширина 232px, position fixed",
+        "Logo-блок: иконка 36px (accent bg, radius 10px) + название + tagline",
+        "Section labels: 10px, weight 600, uppercase, opacity 50%",
+        "Nav Item default: padding 9px 20px, color #A0A8C0, font 13px weight 500",
+        "Nav Item hover: bg #252543, color white",
+        "Nav Item active: bg rgba(123,111,212,0.18), left bar 3px accent, color #A89FE0",
+        "Nav badge: accent или yellow, font 10px weight 700, pill",
+        "Telegram CTA блок: rounded card внизу с кнопкой",
+        "User info блок: аватар + имя + email, border-top"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-011",
+      "phase": "Foundation",
+      "title": "Компонент: Topbar",
+      "description": "Как дизайнер, мне нужно спроектировать верхнюю панель кабинета.",
+      "acceptanceCriteria": [
+        "Высота 60px, bg white, border-bottom #E5E7EB, position sticky",
+        "Breadcrumb слева: текущий раздел, font 13px",
+        "Search input по центру: ширина 220px, bg #F2F2F7",
+        "Year pill справа: accent-light bg, accent text",
+        "Icon buttons: 34px, bg #F2F2F7, border, radius 8px",
+        "Notification dot: 7px, red, абсолютное позиционирование",
+        "User avatar крайний справа: 36px",
+        "Mobile: hamburger кнопка слева вместо breadcrumb"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-012",
+      "phase": "Foundation",
+      "title": "Компонент: Progress Bar + Step Tracker",
+      "description": "Как дизайнер, мне нужно спроектировать прогресс-бар и step-трекер этапов вычета.",
+      "acceptanceCriteria": [
+        "Progress bar: высота 8px, bg #F2F2F7, radius pill",
+        "Fill: gradient #7B6FD4 → #A89FE0",
+        "Анимация fill: 1.2s cubic-bezier(0.16,1,0.3,1)",
+        "Step circle done: 28px, bg #DCFCE7, text #15803D, checkmark",
+        "Step circle active: 28px, bg #7B6FD4, text white, номер",
+        "Step circle pending: 28px, bg #F2F2F7, border #E5E7EB, text muted",
+        "Step line done: 2px solid #22C55E",
+        "Step line pending: 2px solid #E5E7EB",
+        "Текстовые метки под кружками: 12px weight 600"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-013",
+      "phase": "Auth",
+      "title": "Экран: Авторизация — ввод телефона",
+      "description": "Как пользователь, я хочу увидеть чистый экран входа с полем для телефона, чтобы начать авторизацию через Telegram OTP.",
+      "acceptanceCriteria": [
+        "Центрированный layout, max-width 400px, белая card с shadow-lg",
+        "Логотип МедВычет вверху (иконка + название)",
+        "Заголовок 'Вход в МедВычет', h2",
+        "Подпись: 'Отправим код в ваш Telegram'",
+        "Input телефона с маской +7, placeholder '+7 (___) ___-__-__'",
+        "Primary button 'Получить код', full-width",
+        "Loading state кнопки: spinner + 'Отправляем...'",
+        "Error state: красный border + сообщение под полем",
+        "Ссылка 'Нужна помощь?' внизу",
+        "Фоновая атмосфера: gradient mesh или dot-паттерн"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-014",
+      "phase": "Auth",
+      "title": "Экран: Авторизация — ввод OTP кода",
+      "description": "Как пользователь, я хочу ввести 6-значный код из Telegram в красивую форму с отдельными ячейками.",
+      "acceptanceCriteria": [
+        "6 отдельных input-ячеек в ряд, каждая 48x56px, border, radius 8px",
+        "Active ячейка: border accent 2px",
+        "Filled ячейка: bg accent-light, текст accent",
+        "Error ячейки: border red, анимация shake",
+        "Заголовок 'Введите код из Telegram'",
+        "Подпись: 'Код отправлен на +7 (***) ***-XX-XX'",
+        "Таймер обратного отсчёта 60сек под ячейками",
+        "Кнопка 'Отправить повторно': неактивна пока таймер идёт",
+        "Ссылка '← Изменить номер'"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-015",
+      "phase": "Auth",
+      "title": "Экран: Onboarding — 3 шага для нового пользователя",
+      "description": "Как новый пользователь, я хочу увидеть welcome-тур, который объяснит как работает МедВычет.",
+      "acceptanceCriteria": [
+        "Шаг 1: иллюстрация + 'Добро пожаловать' + описание возврата до 19 500 ₽",
+        "Шаг 2: иллюстрация + 'Загружайте чеки' + объяснение OCR-процесса",
+        "Шаг 3: иллюстрация + 'Заполните профиль' + зачем ИНН и реквизиты",
+        "Progress dots снизу: 3 точки, активная — accent",
+        "Кнопки: 'Далее' (primary) + 'Пропустить' (ghost)",
+        "На шаге 3: кнопка 'Начать работу' вместо 'Далее'",
+        "Анимация перехода между шагами: slide горизонтально",
+        "Иллюстрации: минималистичные SVG в цветах дизайн-системы"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-016",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — KPI блок (4 карточки)",
+      "description": "Как пользователь, я хочу видеть 4 ключевых числа вверху дашборда, чтобы сразу понять финансовую картину вычета.",
+      "acceptanceCriteria": [
+        "4 карточки в ряд, grid gap 16px",
+        "Карточка 'Потрачено': accent цвет значения, dot фиолетовый",
+        "Карточка 'К возврату': green цвет значения, dot зелёный",
+        "Карточка 'До лимита': yellow цвет значения, dot жёлтый",
+        "Карточка 'Чеков обработано': blue цвет значения, dot синий",
+        "Каждая карточка: label (11px uppercase) + value (26px 800) + trend pill",
+        "Orb-элемент: 80px circle, opacity 0.07, translate(20px,-20px)",
+        "Hover: translateY(-3px), shadow-md",
+        "На tablet: 2 колонки. На mobile: 1 колонка"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-017",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Прогресс-бар вычета + Step Tracker",
+      "description": "Как пользователь, я хочу видеть прогресс к лимиту 150 000 ₽ и текущий этап вычета.",
+      "acceptanceCriteria": [
+        "Карточка full-width под KPI",
+        "Header: заголовок слева + сумма 'X / 150 000 ₽' справа",
+        "Подпись лимита: 'Лимит социального вычета: 150 000 ₽ · ст. 219 НК РФ'",
+        "Progress bar: высота 8px, gradient fill",
+        "Метки под баром: 0₽ слева, X₽ (Y%) по центру, 150 000₽ справа",
+        "Step Tracker: 4 шага с кружками и линиями соединения",
+        "Шаги: Чеки / Рецепты / Документы / Отправка в ИФНС",
+        "Реализованные шаги: done (зелёный), текущий: active (accent), будущие: pending (серый)"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-018",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Gradient Deduction Card",
+      "description": "Как пользователь, я хочу видеть яркую карточку с суммой к возврату и CTA, чтобы перейти к формированию документов.",
+      "acceptanceCriteria": [
+        "Градиент: linear-gradient(135deg, #7B6FD4, #A89FE0)",
+        "Два декоративных orb-а: right:-30px top:-30px и right:20px bottom:-40px",
+        "Label: 'К возврату из ИФНС', 11px uppercase, opacity 0.8",
+        "Amount: 34px weight 800, white",
+        "Sub: '13% от X ₽ расходов', 12px, opacity 0.75",
+        "Ghost-кнопка: 'Сформировать документы →'",
+        "Box shadow: 0 8px 24px rgba(123,111,212,0.35)"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-019",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Bar Chart расходов по месяцам",
+      "description": "Как пользователь, я хочу видеть график расходов по месяцам, чтобы понимать динамику трат на лекарства.",
+      "acceptanceCriteria": [
+        "12 вертикальных баров, height area 80px",
+        "Inactive bar: bg #EEEDFC (accent-light)",
+        "Active bar (текущий месяц): bg #7B6FD4",
+        "Bars: border-radius 4px 4px 0 0",
+        "Метки месяцев под барами: 10px, text muted",
+        "Info strip под графиком: синий bg, иконка + 'Максимум в [месяце] — X ₽'",
+        "Hover на баре: opacity 0.7, tooltip с суммой"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-020",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Upload Zone",
+      "description": "Как пользователь, я хочу видеть зону загрузки чеков прямо на дашборде, чтобы быстро добавить новый чек.",
+      "acceptanceCriteria": [
+        "Border: 2px dashed #E5E7EB, radius 12px, padding 28px 20px",
+        "Hover: border accent, bg #EEEDFC",
+        "Drag-over: border accent 3px, bg accent-light, scale(1.02)",
+        "Иконка 📸 28px по центру",
+        "Title: 'Загрузить новый чек', 13px weight 700",
+        "Sub: 'Перетащите фото или нажмите кнопку. Поддержка JPG, PNG, PDF'",
+        "Primary button: '+ Выбрать файл'"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-021",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Таблица последних чеков",
+      "description": "Как пользователь, я хочу видеть последние 6 чеков в таблице с фильтрами, чтобы быстро проверить статус обработки.",
+      "acceptanceCriteria": [
+        "Filter pills: Все / Готово / На ревью / OCR / Ошибка",
+        "Колонки: Аптека/Препарат, Дата, Сумма, Возврат, Статус, Действия",
+        "Аптека: name bold 13px + drug name 11px secondary",
+        "Сумма: bold, Возврат: green weight 600",
+        "Статус: badge компонент",
+        "Действия: ⋯ кнопка 16px muted",
+        "Hover строки: rgba(123,111,212,0.03)",
+        "Table head: bg #F2F2F7, 11px uppercase, weight 600",
+        "Expandable: ссылка 'Все чеки →'"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-022",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Kanban статусов OCR",
+      "description": "Как пользователь, я хочу видеть текущие чеки в Kanban-виде по статусам OCR, чтобы отслеживать процесс обработки.",
+      "acceptanceCriteria": [
+        "4 колонки: Загружен / OCR идёт / На ревью / Готово",
+        "Заголовок колонки: dot цветной + название + кол-во в скобках, 11px uppercase",
+        "Kanban card 'Загружен': bg #E8E5FF (tint-purple)",
+        "Kanban card 'OCR идёт': bg #AAEEFF (tint-blue)",
+        "Kanban card 'На ревью': bg #FFD5D5 (tint-pink)",
+        "Kanban card 'Готово': bg #AAFFD8 (tint-green)",
+        "Внутри карточки: аптека bold / препарат secondary / meta row (badge + дата)",
+        "На tablet: 2 колонки. На mobile: 1 колонка"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-023",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Лента активности",
+      "description": "Как пользователь, я хочу видеть последние события в системе (OCR готов, рецепт привязан и т.д.).",
+      "acceptanceCriteria": [
+        "Список событий: иконка-dot + тело + время",
+        "Dot-иконки: 32px circle с emoji или символом, цвет по типу события",
+        "Типы: OCR готов (green), На ревью (yellow), Рецепт привязан (blue), Документ обновлён (purple), Telegram (green)",
+        "Title: 13px weight 600",
+        "Sub: 11px text secondary",
+        "Время: 11px text muted справа",
+        "Разделитель между событиями: 1px solid #F3F4F6",
+        "Ссылка 'Все →' в header карточки"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-024",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — Блок документов для ИФНС",
+      "description": "Как пользователь, я хочу видеть список 4 документов для ИФНС с их статусами готовности.",
+      "acceptanceCriteria": [
+        "4 строки в карточке: emoji-иконка + название + описание + badge справа",
+        "Строки: Реестр чеков / Сопроводительное письмо / Чеки сканы / ZIP-архив",
+        "Bg строки: #F2F2F7, radius 8px, padding 12px",
+        "Статусы: Готов (green) / Черновик (yellow) / Собрать (pending)",
+        "CTA кнопка 'Сформировать пакет документов' внизу, full-width, primary"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-025",
+      "phase": "Dashboard",
+      "title": "Экран: Дашборд — История вычетов по годам",
+      "description": "Как пользователь, я хочу видеть историю вычетов за 3 года и общую сумму возврата.",
+      "acceptanceCriteria": [
+        "3 строки: 2024 (активный), 2023, 2022",
+        "Активный год: bg #EEEDFC, border accent 1px",
+        "Прошлые года: bg #F2F2F7",
+        "Строка: год bold 24px + статус + 'X ₽ к возврату' secondary",
+        "Badge статуса: ocr (активный) / done (завершённые)",
+        "Итоговый блок: bg #DCFCE7, centre, большая цифра green weight 800",
+        "Подпись итога: 'Итого возвращено за 3 года'"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-026",
+      "phase": "Receipts",
+      "title": "Экран: Мои чеки — список с фильтрами",
+      "description": "Как пользователь, я хочу видеть полный список чеков с возможностью поиска, фильтрации и сортировки.",
+      "acceptanceCriteria": [
+        "Page header: 'Мои чеки' + subtitle с кол-вом + кнопка '+ Загрузить чек'",
+        "Toolbar: поиск (full-width) + фильтр статуса + фильтр года + сортировка",
+        "Поиск: placeholder 'Аптека или препарат...'",
+        "Фильтр статуса: select или pills: Все/Готово/На ревью/OCR/Ошибка",
+        "Фильтр года: select 2022/2023/2024",
+        "Таблица: те же колонки что и на дашборде + колонка Рецепт",
+        "Колонка Рецепт: зелёная галочка 'Есть' или серое тире 'Нет'",
+        "Пагинация внизу таблицы",
+        "Empty state: иллюстрация + 'Нет чеков по выбранным фильтрам'"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-027",
+      "phase": "Receipts",
+      "title": "Компонент: OCR Progress Row (real-time)",
+      "description": "Как пользователь, я хочу видеть прогресс OCR-обработки прямо в строке таблицы в реальном времени.",
+      "acceptanceCriteria": [
+        "Под строкой чека в статусе PROCESSING: animated progress bar",
+        "Прогресс-бар: тонкий 3px, accent цвет, animated shimmer",
+        "Текст справа: 'Обработка... ~30 сек'",
+        "По завершении: badge мгновенно меняется без перезагрузки",
+        "Transition: fade-in нового статуса 0.3s",
+        "SSE индикатор: маленький пульсирующий dot пока соединение активно"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-028",
+      "phase": "Receipts",
+      "title": "Компонент: Upload Modal — загрузка чека",
+      "description": "Как пользователь, я хочу увидеть модальное окно для загрузки чека с drag & drop зоной.",
+      "acceptanceCriteria": [
+        "Modal overlay: rgba(0,0,0,0.5), blur backdrop",
+        "Modal card: max-width 480px, radius 16px, padding 28px",
+        "Заголовок 'Загрузить чек' + X кнопка закрытия",
+        "Drop Zone: 2px dashed, radius 12px, padding 40px, hover state",
+        "Иконка upload + 'Перетащите фото сюда' + 'или'",
+        "Кнопка 'Выбрать файл' под текстом",
+        "Поддерживаемые форматы: 'JPG, PNG, PDF до 10 МБ'",
+        "After drop: превью файла + имя + кнопка 'Удалить'",
+        "Loading state: progress bar + 'Загружаем...'",
+        "Footer: кнопка 'Отмена' (secondary) + 'Загрузить' (primary)"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-029",
+      "phase": "ReceiptDetail",
+      "title": "Экран: Детальная карточка чека — layout",
+      "description": "Как пользователь, я хочу открыть детальную страницу чека и увидеть оригинал фото рядом с распознанными данными.",
+      "acceptanceCriteria": [
+        "Breadcrumb: 'Чеки / [Аптека] · [Дата]'",
+        "2-колоночный layout: фото слева 45%, данные справа 55%",
+        "Левая колонка: white card с фото чека, кнопка зума, 'Перезагрузить URL'",
+        "Правая колонка: секции — Основная информация / Позиции / Confidence / Рецепт",
+        "Action buttons в header: 'Редактировать' (secondary) + 'Удалить' (danger ghost)",
+        "На mobile: 1 колонка, фото сверху"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-030",
+      "phase": "ReceiptDetail",
+      "title": "Экран: Детальная карточка чека — секция данных",
+      "description": "Как пользователь, я хочу видеть все распознанные данные чека структурировано.",
+      "acceptanceCriteria": [
+        "Аптека: иконка + название bold + адрес secondary",
+        "Дата и время покупки: с иконкой часов",
+        "Таблица позиций: препарат / кол-во / цена / is_rx badge",
+        "is_rx: 'Рецептурный' (accent badge) или 'Безрецептурный' (gray badge)",
+        "Итого: крупно bold справа",
+        "Confidence Score: label + progress bar цветной + процент",
+        "Источник данных: pill-badge (QR / OCR / Merged / Conflict)",
+        "Если Conflict: жёлтый warning блок с объяснением"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-031",
+      "phase": "ReceiptDetail",
+      "title": "Экран: Детальная карточка чека — секция Рецепт",
+      "description": "Как пользователь, я хочу видеть секцию привязки рецепта и получить предупреждение если рецепта нет.",
+      "acceptanceCriteria": [
+        "Если рецепт привязан: мини-превью + МНН + кнопка 'Отвязать' (ghost danger)",
+        "Если не привязан: warning блок жёлтый 'Без рецепта препарат не войдёт в вычет'",
+        "Кнопка 'Привязать рецепт' (secondary) при отсутствии рецепта",
+        "Info блок: 'Рецептурный препарат требует рецепта врача' с иконкой info"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-032",
+      "phase": "ReceiptDetail",
+      "title": "Компонент: Модальное окно привязки рецепта",
+      "description": "Как пользователь, я хочу выбрать рецепт из списка для привязки к чеку.",
+      "acceptanceCriteria": [
+        "Modal: max-width 520px",
+        "Заголовок 'Выбрать рецепт'",
+        "Search input: 'Поиск по МНН или препарату'",
+        "Список рецептов: карточки с фото-превью + МНН + дата + статус привязки",
+        "Автоматически подсвечены рецепты с совпадающим МНН",
+        "Выбранный рецепт: accent border + checkmark",
+        "Footer: 'Отмена' + 'Привязать'"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-033",
+      "phase": "ReceiptDetail",
+      "title": "Экран: Режим редактирования чека",
+      "description": "Как пользователь, я хочу исправить ошибки OCR-распознавания вручную.",
+      "acceptanceCriteria": [
+        "Кнопка 'Редактировать' переводит правую колонку в edit-mode",
+        "Поля становятся редактируемыми (inline input)",
+        "Каждая позиция: название препарата (editable) + кол-во (editable) + цена (editable)",
+        "Кнопка '+' добавить позицию, '×' удалить позицию",
+        "Footer edit mode: 'Отмена' + 'Сохранить изменения' (primary)",
+        "После сохранения: пометка 'Исправлено вручную' badge около источника данных"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-034",
+      "phase": "Prescriptions",
+      "title": "Экран: Рецепты — список",
+      "description": "Как пользователь, я хочу видеть все загруженные рецепты в виде карточек.",
+      "acceptanceCriteria": [
+        "Page header: 'Рецепты' + кнопка '+ Загрузить рецепт'",
+        "Grid карточек: 3 колонки desktop, 2 tablet, 1 mobile",
+        "Prescription Card: фото превью (60px) + МНН bold + дата выписки + врач",
+        "Статус привязки badge: 'Привязан' (green) / 'Не привязан' (gray) / 'Истёк срок' (red)",
+        "Hover карточки: translateY(-3px), shadow-md",
+        "Поиск по МНН вверху",
+        "Empty state: 'Нет рецептов. Загрузите первый рецепт'"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-035",
+      "phase": "Prescriptions",
+      "title": "Компонент: Модальное окно загрузки рецепта",
+      "description": "Как пользователь, я хочу загрузить скан рецепта через удобный интерфейс.",
+      "acceptanceCriteria": [
+        "Аналогичен DS-028 (Upload Modal) но для рецепта",
+        "Заголовок 'Загрузить рецепт'",
+        "Пояснение: 'Загрузите скан или фото рецепта. Система автоматически распознает МНН препарата'",
+        "После загрузки: preview + поле для ручного ввода МНН (если OCR не распознал)",
+        "Footer: 'Отмена' + 'Загрузить рецепт'"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-036",
+      "phase": "Documents",
+      "title": "Экран: Документы — полная страница",
+      "description": "Как пользователь, я хочу видеть все готовые документы для ИФНС на отдельной странице и сформировать пакет.",
+      "acceptanceCriteria": [
+        "Page header: 'Документы для ИФНС' + subtitle с годом",
+        "Статус-блок: условия готовности (чеки ✓, ИНН ✓ / ✗)",
+        "4 документа в виде карточек: Реестр / Письмо / Чеки / ZIP",
+        "Каждая карточка: иконка + название + описание + badge + action кнопка (Скачать / Просмотр)",
+        "CTA секция внизу: большая кнопка 'Сформировать ZIP-пакет для ИФНС'",
+        "Progress spinner во время генерации (5-30 сек)",
+        "Блок 'Как подать': step-by-step инструкция в accordion",
+        "Warning: 'Подайте до 30 апреля [год]'"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-037",
+      "phase": "Documents",
+      "title": "Компонент: Блокировка CTA — профиль не заполнен",
+      "description": "Как дизайнер, мне нужно показать пользователю что кнопка формирования документов недоступна, пока не заполнены ФИО и ИНН.",
+      "acceptanceCriteria": [
+        "Кнопка 'Сформировать' disabled состояние: opacity 0.5, cursor not-allowed",
+        "Инфо-блок над кнопкой: жёлтый / оранжевый, с иконкой ⚠",
+        "Текст: 'Для формирования документов заполните ФИО и ИНН в профиле'",
+        "Ссылка-кнопка: 'Перейти в профиль →' (accent color)",
+        "Когда всё заполнено: блок исчезает, кнопка активируется"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-038",
+      "phase": "Documents",
+      "title": "Экран: Инструкция подачи — accordion",
+      "description": "Как пользователь, я хочу получить пошаговую инструкцию как подать документы в ИФНС.",
+      "acceptanceCriteria": [
+        "Accordion секция: 'Как подать документы в ИФНС'",
+        "3 варианта подачи: Через Госуслуги / Через ЛК ФНС / Лично в ИФНС",
+        "Каждый вариант: numbered steps список",
+        "Раскрытый вариант: accent border-left",
+        "Ссылки на внешние ресурсы (gosuslugi.ru, lkfl.nalog.ru) с иконкой внешней ссылки",
+        "Warning: 'Срок подачи: до 30 апреля следующего года'"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-039",
+      "phase": "Calculator",
+      "title": "Экран: Калькулятор вычета",
+      "description": "Как пользователь, я хочу видеть историю вычетов за 3 года и прогноз возврата.",
+      "acceptanceCriteria": [
+        "Page header: 'Калькулятор вычета'",
+        "Таблица: Год / Расходы / К возврату / Статус (3 строки)",
+        "Строка 2024: highlighted accent bg",
+        "Итого строка: bold, суммарный возврат за 3 года в green",
+        "Bar chart: расходы по месяцам за текущий год (из DS-019)",
+        "Prognosis блок: 'Если добавить ещё X ₽ чеков — возврат составит Y ₽'",
+        "Tooltip на лимите: объяснение 150 000 ₽ и откуда взялось",
+        "Кнопка 'Скачать отчёт за [год]'"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-040",
+      "phase": "Profile",
+      "title": "Экран: Профиль — личные данные",
+      "description": "Как пользователь, я хочу заполнить свои личные данные для автоматической подстановки в документы.",
+      "acceptanceCriteria": [
+        "Page header: 'Профиль'",
+        "Секция 'Личные данные': avatar (lg) + имя + телефон (masked)",
+        "Поля: ФИО / ИНН / СНИЛС — с плашкой '🔒 Хранится в зашифрованном виде'",
+        "Телефон: только read-only, 'Изменить нельзя (привязан к Telegram)'",
+        "Кнопка 'Редактировать' переводит секцию в edit-mode",
+        "Inline validation: ИНН 12 цифр, СНИЛС формат XXX-XXX-XXX XX",
+        "Save: 'Сохранить изменения' (primary) + 'Отмена'"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-041",
+      "phase": "Profile",
+      "title": "Экран: Профиль — реквизиты для возврата",
+      "description": "Как пользователь, я хочу заполнить банковские реквизиты для получения возврата НДФЛ.",
+      "acceptanceCriteria": [
+        "Секция 'Реквизиты для возврата' отдельной карточкой",
+        "Поля: Банк (autocomplete) / БИК (9 цифр) / Расчётный счёт (20 цифр) / Корр. счёт",
+        "Auto-fill: при вводе БИК подставляется название банка",
+        "Пояснение: 'Реквизиты будут подставлены в сопроводительное письмо для ИФНС'",
+        "Completion indicator: '3/4 полей заполнено'",
+        "Inline validation форматов"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-042",
+      "phase": "Profile",
+      "title": "Экран: Профиль — настройки уведомлений",
+      "description": "Как пользователь, я хочу настроить какие уведомления получать в Telegram.",
+      "acceptanceCriteria": [
+        "Секция 'Уведомления' с toggle-switches",
+        "Toggles: OCR завершён / Требуется ревью / Документы готовы / Напоминание о подаче",
+        "Toggle: accent когда включён, серый когда выключен",
+        "Иконка Telegram рядом с заголовком секции",
+        "Пояснение: уведомления приходят в Telegram-бот"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-043",
+      "phase": "EmptyStates",
+      "title": "Empty State: Нет чеков",
+      "description": "Как пользователь, я хочу увидеть понятный пустой экран с призывом загрузить первый чек.",
+      "acceptanceCriteria": [
+        "SVG иллюстрация: чек с иконкой загрузки, минималистичная, цвета accent",
+        "Заголовок: 'Нет загруженных чеков'",
+        "Подпись: 'Загрузите первый чек из аптеки — система автоматически распознает препараты'",
+        "CTA кнопка: '+ Загрузить первый чек' (primary)",
+        "Вторичная CTA: 'Как это работает?' (ghost)",
+        "Центрированный layout, padding 60px 0"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-044",
+      "phase": "EmptyStates",
+      "title": "Empty State: Нет рецептов",
+      "description": "Как пользователь, я хочу увидеть понятный экран с объяснением зачем нужны рецепты.",
+      "acceptanceCriteria": [
+        "SVG иллюстрация: рецепт врача",
+        "Заголовок: 'Нет загруженных рецептов'",
+        "Подпись: 'Рецептурные препараты требуют рецепта для получения вычета'",
+        "Info блок: 'Без рецепта лекарство не включается в вычет по ст. 219 НК РФ'",
+        "CTA: '+ Загрузить рецепт'"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-045",
+      "phase": "EmptyStates",
+      "title": "Empty State: Нет документов",
+      "description": "Как пользователь, я хочу понять почему документы ещё не готовы и что нужно сделать.",
+      "acceptanceCriteria": [
+        "SVG иллюстрация: папка с документами",
+        "Заголовок: 'Документы ещё не готовы'",
+        "Checklist: ✓ или ✗ для каждого условия (есть чеки / есть рецепты / заполнен профиль)",
+        "Невыполненные условия подсвечены yellow",
+        "CTA на первое невыполненное условие"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-046",
+      "phase": "Responsive",
+      "title": "Адаптив: Mobile layout (480px) — все экраны",
+      "description": "Как пользователь на мобильном, я хочу чтобы все экраны корректно отображались на смартфоне.",
+      "acceptanceCriteria": [
+        "Sidebar: полностью скрыт, открывается overlay по hamburger",
+        "Hamburger: 3 линии в topbar слева, 44x44px touch target",
+        "Sidebar overlay: полная высота экрана, z-index 200, overlay rgba(0,0,0,0.5)",
+        "KPI cards: 1 колонка",
+        "Tables: горизонтальный scroll или card-view вместо таблицы",
+        "Kanban: 1 колонка вертикальная",
+        "Modal: full-screen на mobile",
+        "Все кнопки: min-height 44px"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-047",
+      "phase": "Responsive",
+      "title": "Адаптив: Tablet layout (768px) — все экраны",
+      "description": "Как пользователь на планшете, я хочу чтобы интерфейс оптимально использовал размер экрана.",
+      "acceptanceCriteria": [
+        "Sidebar: скрывается, hamburger появляется",
+        "KPI grid: 2 колонки",
+        "Main-aside grid: 1 колонка (aside переезжает вниз)",
+        "Kanban: 2 колонки",
+        "Таблицы: видны основные колонки, второстепенные скрыты"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-048",
+      "phase": "Responsive",
+      "title": "Адаптив: Laptop layout (1024px) — все экраны",
+      "description": "Как пользователь на ноутбуке, я хочу чтобы sidebar сузился и контент занял больше места.",
+      "acceptanceCriteria": [
+        "Sidebar: сужается до 200px",
+        "Nav items: иконки без текста (только иконки) или сокращённые лейблы",
+        "KPI grid: 2 колонки вместо 4",
+        "Все grids: 2 колонки вместо 3",
+        "Topbar search: уменьшается до 160px"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-049",
+      "phase": "Accessibility",
+      "title": "Accessibility: Focus states для всех интерактивных элементов",
+      "description": "Как пользователь клавиатурной навигации, я хочу видеть чёткий фокус на каждом элементе.",
+      "acceptanceCriteria": [
+        "focus-visible на всех кнопках: outline 2px solid #7B6FD4, offset 3px",
+        "focus-visible на input полях",
+        "focus-visible на nav-items",
+        "Skip-link: первый элемент body, виден при фокусе",
+        "Таблица: строки фокусируемы через keyboard",
+        "Modal: фокус захватывается внутри (focus trap)",
+        "Escape закрывает modal и sidebar"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-050",
+      "phase": "Accessibility",
+      "title": "Accessibility: ARIA атрибуты и семантика",
+      "description": "Как дизайнер, мне нужно задокументировать все необходимые ARIA атрибуты для передачи разработчику.",
+      "acceptanceCriteria": [
+        "nav[aria-label='Основная навигация'] для sidebar",
+        "main[id='main-content'] для content area",
+        "progressbar[aria-valuenow][aria-valuemin][aria-valuemax] для progress bar",
+        "Все icon-only кнопки: aria-label",
+        "Декоративные элементы: aria-hidden='true'",
+        "Status badges: role='status' или aria-label с текстом статуса",
+        "Таблицы: th с scope='col', caption",
+        "Список требований задокументирован для разработчика"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-051",
+      "phase": "Animations",
+      "title": "Анимации: Reveal on scroll для всех секций",
+      "description": "Как пользователь, я хочу видеть плавное появление секций при скролле.",
+      "acceptanceCriteria": [
+        "Initial: opacity 0, translateY(24px)",
+        "Visible: opacity 1, translateY(0)",
+        "Transition: 0.7s cubic-bezier(0.16,1,0.3,1)",
+        "Stagger: 2й элемент +80ms, 3й +160ms, 4й +240ms",
+        "Threshold: 0.08, rootMargin: '0px 0px -40px 0px'",
+        "prefers-reduced-motion: анимации отключаются",
+        "Применяется ко всем card-секциям и KPI cards"
+      ],
+      "priority": 51,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-052",
+      "phase": "Animations",
+      "title": "Анимации: Scroll progress bar",
+      "description": "Как пользователь, я хочу видеть индикатор прогресса скролла страницы.",
+      "acceptanceCriteria": [
+        "Position: fixed top-0, height 3px, z-index 9999",
+        "Gradient: #7B6FD4 → #A89FE0",
+        "Transition: width 0.1s linear",
+        "Pointer-events: none",
+        "Обновляется при скролле через passive listener"
+      ],
+      "priority": 52,
+      "passes": true,
+      "notes": "Реализовано в dashboard.html"
+    },
+
+    {
+      "id": "DS-053",
+      "phase": "Animations",
+      "title": "Анимации: Page load stagger для Hero-секции",
+      "description": "Как пользователь, я хочу видеть красивое появление элементов при первой загрузке страницы.",
+      "acceptanceCriteria": [
+        "Page header title: появляется первым, delay 0s",
+        "Page header subtitle: delay 80ms",
+        "Action buttons: delay 160ms",
+        "KPI cards: stagger по 80ms каждая",
+        "Анимация: fadeInUp 0.7s spring",
+        "Только при первой загрузке страницы"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-054",
+      "phase": "DesignHandoff",
+      "title": "Handoff: Спецификация компонентов для разработчика",
+      "description": "Как разработчик, я хочу получить чёткую спецификацию всех компонентов с точными CSS-значениями для связки с кодом.",
+      "acceptanceCriteria": [
+        "Каждый компонент: точные размеры, цвета (hex), spacing, font-size, weight",
+        "CSS class names соответствуют heitkamp-ds.css",
+        "Все состояния задокументированы (default/hover/active/disabled/error)",
+        "CSS Variables список полный и актуальный",
+        "Breakpoints: 480/768/1024/1280px поведение для каждого компонента",
+        "Файл design-tokens-heitkamp.json актуален"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": ""
+    },
+
+    {
+      "id": "DS-055",
+      "phase": "DesignHandoff",
+      "title": "Handoff: Маппинг дизайн-компонентов на ShadCN/UI",
+      "description": "Как разработчик, я хочу знать какие ShadCN компоненты нужно кастомизировать под дизайн-систему HEITKAMP.",
+      "acceptanceCriteria": [
+        "Button → shadcn Button с custom variants (primary/secondary/ghost)",
+        "Badge → shadcn Badge с 5 вариантами (done/review/ocr/failed/pending)",
+        "Input → shadcn Input с кастомными focus styles",
+        "Dialog → shadcn Dialog с кастомным radius и backdrop",
+        "Progress → shadcn Progress с gradient fill",
+        "Table → shadcn Table с кастомными hover styles",
+        "Таблица маппинга: дизайн-компонент → ShadCN компонент → изменения CSS"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": ""
+    }
+
+  ]
+}

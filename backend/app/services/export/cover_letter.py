@@ -161,7 +161,13 @@ def _build_html(
     receipts_count: int,
     prescriptions_count: int,
 ) -> str:
-    ndfl = float(total_amount) * 0.13
+    from app.services.deduction.calculator import calculate_deduction
+    from app.services.deduction.types import ExpenseCategory, ExpenseItem, PersonIncome
+
+    _income = PersonIncome(annual_income=Decimal("2000000"), tax_year=year)
+    _expenses = [ExpenseItem(ExpenseCategory.MEDICINE, total_amount, year)]
+    _result = calculate_deduction(_expenses, _income)
+    ndfl = float(_result.deduction_amount)
     doc_rows_items = [
         (1, f"Реестр расходов на лекарственные препараты за {year} год — 1 экз."),
         (2, f"Чеки (кассовые чеки) из аптек — {receipts_count} шт."),

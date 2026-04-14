@@ -18,6 +18,7 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastY = useRef(0);
+  const lastX = useRef(0);
   const [scale, setScale] = useState(1.0);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -38,15 +39,19 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
     if (e.button !== 0) return;
     isDragging.current = true;
     lastY.current = e.clientY;
+    lastX.current = e.clientX;
     if (scrollRef.current) scrollRef.current.style.cursor = "grabbing";
     e.preventDefault();
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging.current || !scrollRef.current) return;
-    const delta = lastY.current - e.clientY;
-    scrollRef.current.scrollTop += delta;
+    const deltaY = lastY.current - e.clientY;
+    const deltaX = lastX.current - e.clientX;
+    scrollRef.current.scrollTop += deltaY;
+    scrollRef.current.scrollLeft += deltaX;
     lastY.current = e.clientY;
+    lastX.current = e.clientX;
   }, []);
 
   const stopDrag = useCallback(() => {
@@ -186,7 +191,7 @@ export function ReceiptPhotoPanel({ src, downloadUrl, title = "Фото чека
           padding: "12px",
           display: "flex",
           alignItems: "flex-start",
-          justifyContent: "center",
+          justifyContent: "flex-start",
           cursor: "grab",
           userSelect: "none",
         }}

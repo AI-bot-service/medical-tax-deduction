@@ -16,6 +16,7 @@ export interface PrescriptionTableProps {
   sortDir?:      PrescriptionSortDir;
   onSort?:       (field: PrescriptionSortField) => void;
   onDelete?:     (id: string) => Promise<void>;
+  onRowClick?:   (id: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +264,7 @@ export default function PrescriptionTable({
   sortDir   = "desc",
   onSort,
   onDelete,
+  onRowClick,
 }: PrescriptionTableProps) {
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [deletedIds,  setDeletedIds]  = useState<Set<string>>(new Set());
@@ -338,6 +340,7 @@ export default function PrescriptionTable({
             const rowEvents = {
               onMouseEnter: () => { if (!isDeleting) setHoveredId(p.id); },
               onMouseLeave: () => setHoveredId(null),
+              onClick: onRowClick && !isDeleting ? () => onRowClick(p.id) : undefined,
             };
 
             return (
@@ -345,6 +348,7 @@ export default function PrescriptionTable({
                 key={p.id}
                 className={isDeleting ? "row-deleting" : ""}
                 onAnimationEnd={() => handleAnimEnd(p.id)}
+                style={onRowClick && !isDeleting ? { cursor: "pointer" } : undefined}
                 {...rowEvents}
               >
                 {/* Дата выдачи */}

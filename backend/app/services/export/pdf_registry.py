@@ -46,8 +46,6 @@ try:
 except ImportError:
     _HAS_REPORTLAB = False
 
-_DEDUCTION_RATE = Decimal("0.13")
-_DEDUCTION_LIMIT = Decimal("150000")
 
 
 def _get_col_widths():
@@ -275,7 +273,18 @@ def _build_pdf(rows: list[RegistryRow], year: int, user_id: str) -> bytes:
                 pass
 
     # ── Year total row ────────────────────────────────────────────────────────
-    deduction = min(year_total, _DEDUCTION_LIMIT) * _DEDUCTION_RATE
+    from app.services.deduction.calculator import calculate_deduction
+    from app.services.deduction.limits import get_aggregate_limit
+    from app.services.deduction.types import ExpenseCategory, ExpenseItem, PersonIncome
+
+    _income = PersonIncome(annual_income=Decimal("2000000"), tax_year=year)
+    _expenses = [ExpenseItem(ExpenseCategory.MEDICINE, Decimal(str(year_total)), year)]
+    _deduction_result = calculate_deduction(_expenses, _income)
+    deduction = _deduction_result.deduction_amount
+    _limit = get_aggregate_limit(year)
+    _limit_pct = min(float(Decimal(str(year_total)) / _limit * 100), 100.0)
+    _ndfl_rate_pct = int(_deduction_result.ndfl_rate * 100)
+
     table_data.append([
         "", "ИТОГО за год", "", "", "", "",
         f"{year_total:.2f}", "",
@@ -294,8 +303,8 @@ def _build_pdf(rows: list[RegistryRow], year: int, user_id: str) -> bytes:
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph(
         f"<b>Итого расходов:</b> {year_total:.2f} руб.<br/>"
-        f"<b>Налоговый вычет (13%):</b> {deduction:.2f} руб.<br/>"
-        f"<b>Лимит использован:</b> {min(float(year_total / _DEDUCTION_LIMIT) * 100, 100):.1f}%",
+        f"<b>Налоговый вычет ({_ndfl_rate_pct}%):</b> {deduction:.2f} руб.<br/>"
+        f"<b>Лимит использован:</b> {_limit_pct:.1f}%",
         normal_style,
     ))
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.models.base import Base
 from app.models.enums import DocType, RiskLevel
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 from app.models.user import User
 from app.services.prescriptions.search_service import (
     PrescriptionSearchResult,
@@ -53,26 +53,36 @@ async def user(db: AsyncSession) -> User:
     return u
 
 
-def _presc(
+async def _add_presc(
+    db: AsyncSession,
     user_id,
-    drug_inn: str,
+    drug_inn: str | None,
     drug_name: str,
     issue_date: date,
     expires_at: date,
     status: str = "active",
 ) -> Prescription:
-    return Prescription(
+    """Create a Prescription + one PrescriptionItem and persist both."""
+    p = Prescription(
         id=uuid.uuid4(),
         user_id=user_id,
         doc_type=DocType.RECIPE_107,
         doctor_name="Тестовый Врач",
         issue_date=issue_date,
         expires_at=expires_at,
-        drug_name=drug_name,
-        drug_inn=drug_inn,
         risk_level=RiskLevel.STANDARD,
         status=status,
     )
+    db.add(p)
+    await db.flush()
+    db.add(PrescriptionItem(
+        prescription_id=p.id,
+        drug_name=drug_name,
+        drug_inn=drug_inn,
+        is_rx=True,
+    ))
+    await db.commit()
+    return p
 
 
 # ---------------------------------------------------------------------------
@@ -84,16 +94,12 @@ class TestL1Match:
     @pytest.fixture
     async def active_rx(self, db: AsyncSession, user: User) -> Prescription:
         """Prescription valid on TODAY."""
-        p = _presc(
-            user.id,
-            INN_IBUPROFEN,
-            "Ибупрофен",
+        return await _add_presc(
+            db, user.id,
+            INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=10),
             expires_at=TODAY + timedelta(days=50),
         )
-        db.add(p)
-        await db.commit()
-        return p
 
     @pytest.mark.anyio
     async def test_l1_exact_inn_in_period(self, db, user, active_rx):
@@ -136,14 +142,12 @@ class TestL1Match:
     @pytest.mark.anyio
     async def test_l1_deleted_prescription_skipped(self, db, user):
         """Deleted prescriptions are not matched."""
-        p = _presc(
-            user.id, INN_IBUPROFEN, "Ибупрофен",
+        await _add_presc(
+            db, user.id, INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=10),
             expires_at=TODAY + timedelta(days=50),
             status="deleted",
         )
-        db.add(p)
-        await db.commit()
         result = await find_prescription(user.id, INN_IBUPROFEN, "Ибупрофен", TODAY, db)
         assert result is None
 
@@ -157,16 +161,12 @@ class TestL2Match:
     @pytest.fixture
     async def expired_rx(self, db: AsyncSession, user: User) -> Prescription:
         """Prescription expired 15 days before TODAY."""
-        p = _presc(
-            user.id,
-            INN_IBUPROFEN,
-            "Ибупрофен",
+        return await _add_presc(
+            db, user.id,
+            INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=75),
             expires_at=TODAY - timedelta(days=15),
         )
-        db.add(p)
-        await db.commit()
-        return p
 
     @pytest.mark.anyio
     async def test_l2_overdue_15_days(self, db, user, expired_rx):
@@ -179,13 +179,11 @@ class TestL2Match:
     @pytest.mark.anyio
     async def test_l2_overdue_exactly_30_days(self, db, user):
         """Expired exactly 30 days ago → still L2."""
-        p = _presc(
-            user.id, INN_IBUPROFEN, "Ибупрофен",
+        await _add_presc(
+            db, user.id, INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=90),
             expires_at=TODAY - timedelta(days=30),
         )
-        db.add(p)
-        await db.commit()
         result = await find_prescription(user.id, INN_IBUPROFEN, "Ибупрофен", TODAY, db)
         assert result is not None
         assert result.match_level == "L2"
@@ -194,13 +192,11 @@ class TestL2Match:
     @pytest.mark.anyio
     async def test_l2_overdue_31_days_no_match(self, db, user):
         """Expired 31 days ago → no L2 match."""
-        p = _presc(
-            user.id, INN_IBUPROFEN, "Ибупрофен",
+        await _add_presc(
+            db, user.id, INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=91),
             expires_at=TODAY - timedelta(days=31),
         )
-        db.add(p)
-        await db.commit()
         result = await find_prescription(user.id, INN_IBUPROFEN, "Ибупрофен", TODAY, db)
         # Might match L3 by name, but not L2
         assert result is None or result.match_level != "L2"
@@ -214,19 +210,13 @@ class TestL2Match:
 class TestL3Match:
     @pytest.fixture
     async def nurofen_rx(self, db: AsyncSession, user: User) -> Prescription:
-        """Prescription for 'Нурофен' (brand of ibuprofen)."""
-        p = _presc(
-            user.id,
-            INN_IBUPROFEN,
-            "Нурофен",
+        """Prescription for 'Нурофен' (brand of ibuprofen), no INN → fall through to L3."""
+        return await _add_presc(
+            db, user.id,
+            None, "Нурофен",
             issue_date=TODAY - timedelta(days=10),
             expires_at=TODAY + timedelta(days=50),
         )
-        # Wipe drug_inn to force fall-through to L3
-        p.drug_inn = None
-        db.add(p)
-        await db.commit()
-        return p
 
     @pytest.mark.anyio
     async def test_l3_fuzzy_nurofen_matches_nurofen_express(self, db, user, nurofen_rx):
@@ -269,13 +259,11 @@ class TestL4NoMatch:
     @pytest.mark.anyio
     async def test_l4_no_purchase_date_skips_l1_l2(self, db, user):
         """No purchase_date → L1/L2 skipped, L3 attempted."""
-        p = _presc(
-            user.id, INN_IBUPROFEN, "Ибупрофен",
+        await _add_presc(
+            db, user.id, INN_IBUPROFEN, "Ибупрофен",
             issue_date=TODAY - timedelta(days=10),
             expires_at=TODAY + timedelta(days=50),
         )
-        db.add(p)
-        await db.commit()
         # No purchase_date → can't do L1/L2; L3 should match by name
         result = await find_prescription(user.id, INN_IBUPROFEN, "Ибупрофен", None, db)
         # L3 should find it

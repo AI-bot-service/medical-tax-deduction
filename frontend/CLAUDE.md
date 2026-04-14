@@ -21,3 +21,5 @@
 - `src/lib/api.ts` — Fetch wrapper (401→refresh→retry)
 - `src/lib/store.ts` — Zustand: authStore, batchStore, reviewStore
 - `src/lib/sse.ts` — SSE-клиент для batch stream (`useBatchSSE` hook)
+
+После каждого изменения Frontend - делаешь пересборку, деплой проекта в Docker

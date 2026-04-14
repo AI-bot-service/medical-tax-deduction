@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# Dockerfile для celery_worker с PaddleOCR вместо EasyOCR
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libzbar0 \
+    tesseract-ocr \
+    tesseract-ocr-rus \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml .
+RUN mkdir -p app workers && touch app/__init__.py workers/__init__.py
+RUN uv pip install --system --no-cache-dir .
+
+# PaddleOCR 2.7.3 + numpy<2.0 в одной команде: решатель учтёт ограничение
+# opencv<=4.6.0.66 имеет ABI-несовместимость с numpy>=2.0
+RUN pip install --no-cache-dir \
+        "numpy<2.0" \
+        "paddlepaddle" \
+        "paddleocr==2.7.3" \
+        -f https://www.paddlepaddle.org.cn/whl/linux/mkl/avx/stable.html
+
+COPY . .
+
+ENV OCR_ENGINE=paddleocr
+
+CMD ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info"]

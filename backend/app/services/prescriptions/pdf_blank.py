@@ -20,7 +20,7 @@ import botocore.exceptions
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 from app.services.storage.s3_client import BUCKET_PRESCRIPTIONS, S3Client
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ DOC_TYPE_LABELS: dict[str, str] = {
 }
 
 
-def _build_blank_pdf(prescription: Prescription) -> bytes:
+def _build_blank_pdf(prescription: Prescription, items: list[PrescriptionItem]) -> bytes:
     """Build the 107-1/u prescription blank PDF bytes."""
     if not _HAS_REPORTLAB:
         raise RuntimeError("reportlab is not installed")
@@ -180,22 +180,25 @@ def _build_blank_pdf(prescription: Prescription) -> bytes:
         # Rp section
         Paragraph("Rp:", heading_style),
         Spacer(1, 2 * mm),
-        Paragraph("Препарат:", label_style),
-        Paragraph(prescription.drug_name, field_style),
     ]
 
-    if prescription.drug_inn:
+    for item in items:
         story += [
-            Paragraph("МНН:", label_style),
-            Paragraph(prescription.drug_inn, field_style),
+            Paragraph("Препарат:", label_style),
+            Paragraph(item.drug_name, field_style),
         ]
-
-    if prescription.dosage:
-        story += [
-            Spacer(1, 2 * mm),
-            Paragraph("Дозировка:", label_style),
-            Paragraph(prescription.dosage, field_style),
-        ]
+        if item.drug_inn:
+            story += [
+                Paragraph("МНН:", label_style),
+                Paragraph(item.drug_inn, field_style),
+            ]
+        if item.dosage:
+            story += [
+                Spacer(1, 2 * mm),
+                Paragraph("Дозировка:", label_style),
+                Paragraph(item.dosage, field_style),
+            ]
+        story.append(Spacer(1, 3 * mm))
 
     story += [
         Spacer(1, 3 * mm),
@@ -273,7 +276,16 @@ async def generate_107_blank(
             raise
 
     # Generate
-    pdf_bytes = _build_blank_pdf(prescription)
+    items_result = await db.execute(
+        select(PrescriptionItem)
+        .where(PrescriptionItem.prescription_id == prescription_id)
+        .order_by(PrescriptionItem.created_at)
+    )
+    items = list(items_result.scalars().all())
+    if not items:
+        raise ValueError(f"Prescription {prescription_id} has no items")
+
+    pdf_bytes = _build_blank_pdf(prescription, items)
 
     # Upload
     s3_client.upload_file(

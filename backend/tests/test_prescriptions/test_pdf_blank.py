@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from io import BytesIO
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 
 import pytest
 
@@ -31,10 +30,31 @@ def _make_prescription(**kwargs) -> MagicMock:
     p.clinic_name = kwargs.get("clinic_name", "Городская поликлиника №1")
     p.issue_date = kwargs.get("issue_date", date(2024, 3, 15))
     p.expires_at = kwargs.get("expires_at", date(2024, 5, 14))
-    p.drug_name = kwargs.get("drug_name", "Амоксициллин")
-    p.drug_inn = kwargs.get("drug_inn", "Амоксициллин")
-    p.dosage = kwargs.get("dosage", "500 мг")
     return p
+
+
+def _make_item(**kwargs) -> MagicMock:
+    item = MagicMock()
+    item.drug_name = kwargs.get("drug_name", "Амоксициллин")
+    item.drug_inn = kwargs.get("drug_inn", "амоксициллин")
+    item.dosage = kwargs.get("dosage", "500 мг")
+    return item
+
+
+def _make_db_for_generate(prescription, items) -> AsyncMock:
+    """Build an AsyncMock db that returns prescription on 1st execute and items on 2nd."""
+    mock_db = AsyncMock()
+
+    presc_result = MagicMock()
+    presc_result.scalar_one_or_none.return_value = prescription
+
+    items_result = MagicMock()
+    items_scalars = MagicMock()
+    items_scalars.all.return_value = items
+    items_result.scalars.return_value = items_scalars
+
+    mock_db.execute = AsyncMock(side_effect=[presc_result, items_result])
+    return mock_db
 
 
 # ---------------------------------------------------------------------------
@@ -55,8 +75,9 @@ def test_register_cyrillic_font_returns_string():
 
 def test_build_blank_pdf_returns_bytes():
     p = _make_prescription()
+    items = [_make_item()]
     try:
-        pdf = _build_blank_pdf(p)
+        pdf = _build_blank_pdf(p, items)
     except RuntimeError:
         pytest.skip("reportlab not installed")
     assert isinstance(pdf, bytes)
@@ -65,28 +86,44 @@ def test_build_blank_pdf_returns_bytes():
 
 def test_build_blank_pdf_starts_with_pdf_header():
     p = _make_prescription()
+    items = [_make_item()]
     try:
-        pdf = _build_blank_pdf(p)
+        pdf = _build_blank_pdf(p, items)
     except RuntimeError:
         pytest.skip("reportlab not installed")
     assert pdf[:4] == b"%PDF"
 
 
 def test_build_blank_pdf_without_optional_fields():
-    p = _make_prescription(drug_inn=None, dosage=None, clinic_name=None, doctor_specialty=None)
+    p = _make_prescription(clinic_name=None, doctor_specialty=None)
+    items = [_make_item(drug_inn=None, dosage=None)]
     try:
-        pdf = _build_blank_pdf(p)
+        pdf = _build_blank_pdf(p, items)
     except RuntimeError:
         pytest.skip("reportlab not installed")
     assert isinstance(pdf, bytes)
     assert len(pdf) > 100
 
 
+def test_build_blank_pdf_multiple_items():
+    p = _make_prescription()
+    items = [
+        _make_item(drug_name="Амоксициллин", dosage="500 мг"),
+        _make_item(drug_name="Ибупрофен", drug_inn="ибупрофен", dosage="400 мг"),
+    ]
+    try:
+        pdf = _build_blank_pdf(p, items)
+    except RuntimeError:
+        pytest.skip("reportlab not installed")
+    assert isinstance(pdf, bytes)
+
+
 def test_build_blank_pdf_all_doc_types():
     for doc_type in DOC_TYPE_LABELS:
         p = _make_prescription(doc_type=doc_type)
+        items = [_make_item()]
         try:
-            pdf = _build_blank_pdf(p)
+            pdf = _build_blank_pdf(p, items)
         except RuntimeError:
             pytest.skip("reportlab not installed")
         assert isinstance(pdf, bytes)
@@ -110,8 +147,6 @@ def test_doc_type_labels_covers_all_types():
 @pytest.mark.asyncio
 async def test_generate_107_blank_returns_url_on_existing():
     """If S3 object exists, returns presigned URL without re-generating."""
-    import botocore.exceptions
-
     prescription_id = uuid.uuid4()
     mock_p = _make_prescription(id=prescription_id)
 
@@ -137,11 +172,9 @@ async def test_generate_107_blank_uploads_when_not_exists():
 
     prescription_id = uuid.uuid4()
     mock_p = _make_prescription(id=prescription_id)
+    mock_items = [_make_item()]
 
-    mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(return_value=MagicMock(
-        scalar_one_or_none=MagicMock(return_value=mock_p)
-    ))
+    mock_db = _make_db_for_generate(mock_p, mock_items)
 
     no_such_key = botocore.exceptions.ClientError(
         {"Error": {"Code": "NoSuchKey", "Message": "Not Found"}}, "GetObject"
@@ -179,6 +212,26 @@ async def test_generate_107_blank_raises_for_not_found():
 
 
 @pytest.mark.asyncio
+async def test_generate_107_blank_raises_for_no_items():
+    """ValueError raised when prescription has no items."""
+    import botocore.exceptions
+
+    prescription_id = uuid.uuid4()
+    mock_p = _make_prescription(id=prescription_id)
+
+    mock_db = _make_db_for_generate(mock_p, [])  # empty items
+
+    no_such_key = botocore.exceptions.ClientError(
+        {"Error": {"Code": "NoSuchKey", "Message": ""}}, "GetObject"
+    )
+    mock_s3 = MagicMock()
+    mock_s3.get_object.side_effect = no_such_key
+
+    with pytest.raises(ValueError, match="no items"):
+        await generate_107_blank(prescription_id, mock_db, s3=mock_s3)
+
+
+@pytest.mark.asyncio
 async def test_generate_107_blank_s3_key_format():
     """S3 key follows expected path pattern."""
     import botocore.exceptions
@@ -186,11 +239,9 @@ async def test_generate_107_blank_s3_key_format():
     user_id = uuid.uuid4()
     prescription_id = uuid.uuid4()
     mock_p = _make_prescription(id=prescription_id, user_id=user_id)
+    mock_items = [_make_item()]
 
-    mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(return_value=MagicMock(
-        scalar_one_or_none=MagicMock(return_value=mock_p)
-    ))
+    mock_db = _make_db_for_generate(mock_p, mock_items)
 
     no_such_key = botocore.exceptions.ClientError(
         {"Error": {"Code": "NoSuchKey", "Message": ""}}, "GetObject"

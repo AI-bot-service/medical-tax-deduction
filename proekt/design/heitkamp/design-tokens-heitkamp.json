@@ -1,0 +1,473 @@
+{
+  "_meta": {
+    "name": "HEITKAMP Design System",
+    "version": "1.0.0",
+    "source": "Behance — Real Estate CRM Software by Azmir Sheikh",
+    "url": "https://www.behance.net/gallery/222144403/Real-Estate-CRM-Software",
+    "extracted": "2025-03-19",
+    "compatible_projects": ["SaaS Dashboard", "CRM", "Admin Panel", "Personal Cabinet", "FinTech", "MedTech"],
+    "note": "Pass this file to Claude and say: 'Use HEITKAMP design tokens from this file'"
+  },
+
+  "typography": {
+    "font_family": {
+      "primary": "Urbanist",
+      "fallback": "system-ui, -apple-system, sans-serif",
+      "google_fonts_url": "https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&display=swap",
+      "preconnect": [
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com"
+      ]
+    },
+    "weights": {
+      "light":     300,
+      "regular":   400,
+      "medium":    500,
+      "semibold":  600,
+      "bold":      700,
+      "extrabold": 800
+    },
+    "scale": {
+      "display":   { "size": "clamp(2rem, 5vw, 3.5rem)", "weight": 800, "line_height": 1.0,  "letter_spacing": "-0.04em", "usage": "Hero заголовки, splash" },
+      "h1":        { "size": "clamp(1.5rem, 3vw, 2rem)",  "weight": 700, "line_height": 1.1,  "letter_spacing": "-0.03em", "usage": "Заголовок страницы" },
+      "h2":        { "size": "1.25rem",                    "weight": 700, "line_height": 1.2,  "letter_spacing": "-0.02em", "usage": "Заголовок секции" },
+      "h3":        { "size": "1rem",                       "weight": 700, "line_height": 1.3,  "letter_spacing": "-0.01em", "usage": "Заголовок карточки" },
+      "body_lg":   { "size": "0.9375rem",                  "weight": 400, "line_height": 1.6,  "letter_spacing": "0",       "usage": "Основной текст" },
+      "body":      { "size": "0.875rem",                   "weight": 400, "line_height": 1.6,  "letter_spacing": "0",       "usage": "Интерфейсный текст" },
+      "body_sm":   { "size": "0.8125rem",                  "weight": 400, "line_height": 1.5,  "letter_spacing": "0",       "usage": "Вторичный текст, подписи" },
+      "caption":   { "size": "0.75rem",                    "weight": 500, "line_height": 1.4,  "letter_spacing": "0",       "usage": "Метки дат, мета-данные" },
+      "label":     { "size": "0.6875rem",                  "weight": 600, "line_height": 1.3,  "letter_spacing": "0.04em",  "usage": "Uppercase лейблы, колонки таблиц" },
+      "kpi_value": { "size": "clamp(1.5rem, 3vw, 1.75rem)","weight": 800, "line_height": 1.0,  "letter_spacing": "-0.05em", "usage": "Цифры KPI-карточек" },
+      "big_number":{ "size": "2.125rem",                   "weight": 800, "line_height": 1.0,  "letter_spacing": "-0.06em", "usage": "Hero-цифра (возврат, сумма)" }
+    },
+    "text_transform": {
+      "label":      "uppercase",
+      "badge":      "none",
+      "nav_item":   "none",
+      "table_head": "uppercase"
+    }
+  },
+
+  "colors": {
+    "brand": {
+      "accent":       "#7B6FD4",
+      "accent_mid":   "#A89FE0",
+      "accent_light": "#EEEDFC",
+      "accent_dark":  "#5A4FB8",
+      "note": "Основной лавандово-фиолетовый — кнопки, активные состояния, прогресс"
+    },
+    "neutrals": {
+      "bg_page":      "#F2F2F7",
+      "bg_surface":   "#FFFFFF",
+      "bg_subtle":    "#F9F9FB",
+      "text_primary": "#1A1A2E",
+      "text_secondary":"#6B7280",
+      "text_muted":   "#9CA3AF",
+      "text_disabled":"#D1D5DB",
+      "border":       "#E5E7EB",
+      "border_light": "#F3F4F6",
+      "border_strong":"#D1D5DB"
+    },
+    "sidebar": {
+      "bg":           "#1A1A2E",
+      "bg_hover":     "#252543",
+      "bg_active":    "rgba(123,111,212,0.18)",
+      "active_bar":   "#7B6FD4",
+      "text":         "#A0A8C0",
+      "text_hover":   "#FFFFFF",
+      "text_active":  "#A89FE0",
+      "section_label":"rgba(160,168,192,0.5)"
+    },
+    "status": {
+      "success": {
+        "base":       "#22C55E",
+        "bg":         "#DCFCE7",
+        "text":       "#15803D",
+        "usage":      "Готово, подтверждено, возвращено"
+      },
+      "warning": {
+        "base":       "#F59E0B",
+        "bg":         "#FEF3C7",
+        "text":       "#B45309",
+        "usage":      "На ревью, требует внимания, черновик"
+      },
+      "error": {
+        "base":       "#EF4444",
+        "bg":         "#FEE2E2",
+        "text":       "#B91C1C",
+        "usage":      "Ошибка OCR, не распознано, истёк срок"
+      },
+      "info": {
+        "base":       "#3B82F6",
+        "bg":         "#DBEAFE",
+        "text":       "#1D4ED8",
+        "usage":      "OCR в процессе, обрабатывается"
+      },
+      "pending": {
+        "base":       "#7B6FD4",
+        "bg":         "#EDE9FE",
+        "text":       "#5B21B6",
+        "usage":      "В очереди, ожидает"
+      }
+    },
+    "kanban_tints": {
+      "green":  "#AAFFD8",
+      "pink":   "#FFD5D5",
+      "blue":   "#AAEEFF",
+      "purple": "#E8E5FF",
+      "note": "Пастельные фоны Kanban-карточек — фирменный HEITKAMP стиль"
+    },
+    "gradients": {
+      "accent_card":   "linear-gradient(135deg, #7B6FD4 0%, #A89FE0 100%)",
+      "accent_bar":    "linear-gradient(90deg, #7B6FD4, #A89FE0)",
+      "hero_orb_1":    "radial-gradient(circle, rgba(123,111,212,0.15), transparent 70%)",
+      "hero_orb_2":    "radial-gradient(circle, rgba(168,159,224,0.10), transparent 70%)"
+    }
+  },
+
+  "layout": {
+    "grid": {
+      "columns":      12,
+      "gutter":       "24px",
+      "margin":       "20px",
+      "container_max":"1440px",
+      "note": "Из модуля Grid System в оригинальном проекте HEITKAMP"
+    },
+    "sidebar": {
+      "width_desktop": "232px",
+      "width_tablet":  "200px",
+      "width_mobile":  "0 (off-canvas)",
+      "breakpoint_hide":"768px"
+    },
+    "topbar": {
+      "height": "60px",
+      "position": "sticky top-0",
+      "z_index": 50
+    },
+    "content_padding": {
+      "desktop": "24px 28px 40px",
+      "tablet":  "20px",
+      "mobile":  "16px"
+    },
+    "breakpoints": {
+      "desktop": "1280px+",
+      "laptop":  "1024px",
+      "tablet":  "768px",
+      "mobile":  "480px"
+    }
+  },
+
+  "spacing": {
+    "scale": {
+      "1":  "4px",
+      "2":  "8px",
+      "3":  "12px",
+      "4":  "16px",
+      "5":  "20px",
+      "6":  "24px",
+      "7":  "28px",
+      "8":  "32px",
+      "10": "40px",
+      "12": "48px"
+    },
+    "component_gaps": {
+      "kpi_row":       "16px",
+      "section":       "22px",
+      "card_padding":  "18px 20px",
+      "table_cell":    "12px 16px",
+      "nav_item":      "9px 20px",
+      "badge":         "3px 10px",
+      "button_sm":     "7px 14px",
+      "button_md":     "9px 18px",
+      "button_lg":     "12px 24px"
+    }
+  },
+
+  "border_radius": {
+    "none":   "0",
+    "sm":     "6px",
+    "md":     "8px",
+    "lg":     "12px",
+    "xl":     "16px",
+    "pill":   "9999px",
+    "circle": "50%",
+    "usage": {
+      "card":         "12px (--radius-lg)",
+      "button":       "8px  (--radius-md)",
+      "badge":        "9999px (pill)",
+      "avatar":       "50%",
+      "input":        "8px",
+      "nav_active":   "0 3px 3px 0 (left border bar only)",
+      "chart_bar":    "4px 4px 0 0",
+      "logo_icon":    "10px",
+      "kanban_card":  "8px"
+    }
+  },
+
+  "shadows": {
+    "none":   "none",
+    "sm":     "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    "md":     "0 4px 16px rgba(0,0,0,0.08)",
+    "lg":     "0 8px 32px rgba(0,0,0,0.10)",
+    "accent": "0 8px 24px rgba(123,111,212,0.35)",
+    "usage": {
+      "card_default":  "sm",
+      "card_hover":    "md",
+      "modal":         "lg",
+      "deduction_cta": "accent"
+    }
+  },
+
+  "components": {
+    "card": {
+      "bg":            "var(--surface) = #FFFFFF",
+      "border":        "1px solid #E5E7EB",
+      "border_radius": "12px",
+      "shadow":        "0 1px 3px rgba(0,0,0,0.06)",
+      "hover_transform":"translateY(-3px)",
+      "hover_shadow":  "0 4px 16px rgba(0,0,0,0.08)",
+      "header_padding":"18px 20px 14px",
+      "header_border": "1px solid #F3F4F6"
+    },
+    "kpi_card": {
+      "padding":         "18px 20px",
+      "label_size":      "11px",
+      "label_weight":    600,
+      "label_transform": "uppercase",
+      "label_spacing":   "0.04em",
+      "value_size":      "26px",
+      "value_weight":    800,
+      "value_spacing":   "-0.08em",
+      "orb_size":        "80px",
+      "orb_opacity":     0.07,
+      "orb_offset":      "translate(20px,-20px)"
+    },
+    "badge": {
+      "font_size":    "11px",
+      "font_weight":  600,
+      "padding":      "3px 10px",
+      "border_radius":"9999px",
+      "dot_size":     "5px",
+      "gap":          "4px",
+      "variants": {
+        "done":    { "bg": "#DCFCE7", "color": "#15803D" },
+        "review":  { "bg": "#FEF3C7", "color": "#B45309" },
+        "ocr":     { "bg": "#DBEAFE", "color": "#1D4ED8" },
+        "failed":  { "bg": "#FEE2E2", "color": "#B91C1C" },
+        "pending": { "bg": "#EDE9FE", "color": "#5B21B6" }
+      }
+    },
+    "button_primary": {
+      "bg":            "#7B6FD4",
+      "color":         "#FFFFFF",
+      "font_size":     "13px",
+      "font_weight":   600,
+      "padding":       "9px 18px",
+      "border_radius": "8px",
+      "hover_opacity": 0.88,
+      "hover_transform":"translateY(-1px)",
+      "transition":    "opacity .2s, transform .15s"
+    },
+    "button_secondary": {
+      "bg":            "#FFFFFF",
+      "color":         "#1A1A2E",
+      "border":        "1px solid #E5E7EB",
+      "font_size":     "13px",
+      "font_weight":   600,
+      "padding":       "9px 18px",
+      "border_radius": "8px",
+      "hover_bg":      "#F2F2F7",
+      "transition":    "background .15s, transform .15s"
+    },
+    "nav_item": {
+      "padding":       "9px 20px",
+      "font_size":     "13px",
+      "font_weight":   500,
+      "gap":           "10px",
+      "icon_size":     "18px",
+      "active_bar_width":"3px",
+      "active_bar_radius":"0 3px 3px 0",
+      "transition":    "background .15s, color .15s"
+    },
+    "topbar": {
+      "height":        "60px",
+      "padding":       "0 28px",
+      "bg":            "#FFFFFF",
+      "border":        "1px solid #E5E7EB",
+      "search_width":  "220px",
+      "icon_btn_size": "34px",
+      "icon_btn_radius":"8px"
+    },
+    "progress_bar": {
+      "height":        "8px",
+      "bg_track":      "#F2F2F7",
+      "border_radius": "9999px",
+      "fill_gradient": "linear-gradient(90deg, #7B6FD4, #A89FE0)",
+      "transition":    "width 1.2s cubic-bezier(0.16,1,0.3,1)"
+    },
+    "deduction_card": {
+      "bg":            "linear-gradient(135deg, #7B6FD4, #A89FE0)",
+      "border_radius": "12px",
+      "padding":       "22px",
+      "shadow":        "0 8px 24px rgba(123,111,212,0.35)",
+      "text_color":    "#FFFFFF",
+      "orb1":          "140px circle, rgba(255,255,255,0.08), right:-30px top:-30px",
+      "orb2":          "100px circle, rgba(255,255,255,0.06), right:20px bottom:-40px"
+    },
+    "upload_zone": {
+      "border":        "2px dashed #E5E7EB",
+      "border_radius": "12px",
+      "padding":       "28px 20px",
+      "hover_border":  "#7B6FD4",
+      "hover_bg":      "#EEEDFC",
+      "transition":    "border-color .2s, background .2s"
+    },
+    "kanban_card": {
+      "border_radius": "8px",
+      "padding":       "12px 14px",
+      "title_size":    "13px",
+      "title_weight":  700,
+      "drug_size":     "11px",
+      "meta_size":     "10px"
+    },
+    "step_circle": {
+      "size":          "28px",
+      "font_size":     "11px",
+      "font_weight":   700,
+      "variants": {
+        "done":    { "bg": "#DCFCE7", "color": "#15803D" },
+        "active":  { "bg": "#7B6FD4", "color": "#FFFFFF" },
+        "pending": { "bg": "#F2F2F7", "color": "#9CA3AF", "border": "1px solid #E5E7EB" }
+      }
+    },
+    "chart_bar": {
+      "gap":           "8px",
+      "height_area":   "80px",
+      "inactive_color":"#EEEDFC",
+      "active_color":  "#7B6FD4",
+      "border_radius": "4px 4px 0 0",
+      "label_size":    "10px",
+      "label_color":   "#9CA3AF"
+    },
+    "avatar": {
+      "sm":  { "size": "28px", "font_size": "11px" },
+      "md":  { "size": "36px", "font_size": "14px" },
+      "lg":  { "size": "44px", "font_size": "16px" },
+      "gradient": "linear-gradient(135deg, #7B6FD4, #A89FE0)",
+      "border_radius": "50%"
+    }
+  },
+
+  "animation": {
+    "easing": {
+      "spring":   "cubic-bezier(0.16, 1, 0.3, 1)",
+      "smooth":   "cubic-bezier(0.4, 0, 0.2, 1)",
+      "bounce":   "cubic-bezier(0.34, 1.56, 0.64, 1)"
+    },
+    "durations": {
+      "instant":  "100ms",
+      "fast":     "150ms",
+      "normal":   "200ms",
+      "slow":     "700ms",
+      "progress": "1200ms"
+    },
+    "reveal_on_scroll": {
+      "initial":      "opacity:0; transform:translateY(24px)",
+      "visible":      "opacity:1; transform:translateY(0)",
+      "transition":   "opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)",
+      "stagger_step": "80ms",
+      "threshold":    0.08,
+      "root_margin":  "0px 0px -40px 0px"
+    },
+    "card_hover": {
+      "transform":    "translateY(-3px)",
+      "shadow":       "0 4px 16px rgba(0,0,0,0.08)",
+      "transition":   "transform .2s, box-shadow .2s"
+    },
+    "reduced_motion": "@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }"
+  },
+
+  "accessibility": {
+    "contrast_min": {
+      "body_text":   "4.5:1",
+      "large_text":  "3:1",
+      "ui_elements": "3:1"
+    },
+    "focus_visible": "outline: 2px solid #7B6FD4; outline-offset: 3px;",
+    "skip_link": "position:absolute; top:-40px; left:0; padding:8px 16px; background:#7B6FD4; color:#fff; z-index:10000; transition:top .2s;",
+    "skip_link_focus": "top: 0",
+    "touch_target_min": "44px",
+    "required_aria": [
+      "nav[aria-label]",
+      "main[id='main-content']",
+      "img[alt]",
+      "button[aria-label] (icon-only)",
+      "progressbar[aria-valuenow][aria-valuemin][aria-valuemax]"
+    ]
+  },
+
+  "css_variables": {
+    "comment": "Вставь этот блок в :root {} любого проекта",
+    "code": "
+:root {
+  /* Brand */
+  --accent:        #7B6FD4;
+  --accent-light:  #EEEDFC;
+  --accent-mid:    #A89FE0;
+  --accent-dark:   #5A4FB8;
+
+  /* Neutrals */
+  --bg:            #F2F2F7;
+  --surface:       #FFFFFF;
+  --text-primary:  #1A1A2E;
+  --text-secondary:#6B7280;
+  --text-muted:    #9CA3AF;
+  --border:        #E5E7EB;
+  --border-light:  #F3F4F6;
+
+  /* Sidebar */
+  --sidebar-bg:    #1A1A2E;
+  --sidebar-hover: #252543;
+  --sidebar-w:     232px;
+
+  /* Status */
+  --green:  #22C55E; --green-bg:  #DCFCE7;
+  --yellow: #F59E0B; --yellow-bg: #FEF3C7;
+  --red:    #EF4444; --red-bg:    #FEE2E2;
+  --blue:   #3B82F6; --blue-bg:   #DBEAFE;
+  --purple: #7B6FD4; --purple-bg: #EDE9FE;
+
+  /* Kanban tints */
+  --tint-green:  #AAFFD8;
+  --tint-pink:   #FFD5D5;
+  --tint-blue:   #AAEEFF;
+  --tint-purple: #E8E5FF;
+
+  /* Geometry */
+  --topbar-h:  60px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.10);
+  --shadow-accent: 0 8px 24px rgba(123,111,212,.35);
+}"
+  },
+
+  "usage_instruction": {
+    "how_to_use_with_claude": [
+      "1. Прикрепи этот JSON файл к сообщению в Claude",
+      "2. Напиши: 'Используй дизайн-токены HEITKAMP из этого файла для создания [описание проекта]'",
+      "3. Claude прочитает все параметры и применит их точно"
+    ],
+    "quick_prompt": "Используй дизайн-систему из файла design-tokens-heitkamp.json. Шрифт Urbanist, акцент #7B6FD4, тёмный sidebar #1A1A2E. Применяй все CSS-переменные, компоненты и анимации из токенов.",
+    "compatible_with": [
+      "HTML/CSS/JS (статический)",
+      "Next.js (Tailwind + CSS Variables)",
+      "React (styled-components)",
+      "Vue 3",
+      "Figma (CSS variables → стили)"
+    ]
+  }
+}

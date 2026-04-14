@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-TASKS_FILE="proekt/tasks.json"
+TASKS_FILE="proekt/tasks_dashboard_redesign.json"
 
 # Agent selection:
 # - Set RALPH_AGENT=claude or RALPH_AGENT=codex to force.
@@ -69,7 +69,7 @@ while has_pending_tasks; do
     }
 
     prompt=$(cat <<'EOF'
-@proekt/tasks.json @proekt/progress.txt
+@proekt/tasks_dashboard_redesign.json @proekt/progress.txt
 1. Найди фичу с наивысшим приоритетом и работай ТОЛЬКО над ней.
 Это должна быть фича, которую ТЫ считаешь наиболее приоритетной — не обязательно первая в списке.
 2. Проверь, что типы проходят через 'uv run ruff check .' и тесты через 'uv run pytest'.
@@ -82,12 +82,12 @@ while has_pending_tasks; do
 EOF
 )
 
-    result=$(run_agent "$agent" "$prompt")
-    echo "$result"
-    # tmp_out="$(mktemp)"
-    # run_agent "$agent" "$prompt" | tee "$tmp_out"
-    # result="$(cat "$tmp_out")"
-    # rm -f "$tmp_out"
+    # result=$(run_agent "$agent" "$prompt")
+    # echo "$result"
+    tmp_out="$(mktemp)"
+    run_agent "$agent" "$prompt" | tee "$tmp_out"
+    result="$(cat "$tmp_out")"
+    rm -f "$tmp_out"
 
     if [[ "$result" == *"<promise>COMPLETE</promise>"* ]]; then
         echo "✓ TASK выполнен!"

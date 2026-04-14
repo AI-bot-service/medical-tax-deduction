@@ -54,6 +54,13 @@ class Receipt(TimestampMixin, Base):
         index=True,
     )
 
+    prescription_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("prescriptions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     user: Mapped["User"] = relationship("User", back_populates="receipts")  # noqa: F821
     items: Mapped[list["ReceiptItem"]] = relationship(  # noqa: F821
         "ReceiptItem", back_populates="receipt", cascade="all, delete-orphan"
@@ -63,4 +70,7 @@ class Receipt(TimestampMixin, Base):
     )
     duplicate_of: Mapped["Receipt | None"] = relationship(  # noqa: F821
         "Receipt", remote_side="Receipt.id", foreign_keys=[duplicate_of_id], lazy="noload"
+    )
+    prescription: Mapped["Prescription | None"] = relationship(  # noqa: F821
+        "Prescription", back_populates="receipts", lazy="noload"
     )

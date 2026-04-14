@@ -108,11 +108,12 @@ def _make_parsed(confidence: float = 0.90, has_rx: bool = False) -> ParsedReceip
 
 
 class TestOCRStatusMapping:
-    def test_high_confidence_is_done(self):
+    def test_high_confidence_is_review(self):
+        """Воркер всегда выставляет REVIEW — только пользователь может подтвердить DONE."""
         from workers.tasks.ocr_task import _ocr_status_from_confidence
 
-        assert _ocr_status_from_confidence(0.95) == OCRStatus.DONE
-        assert _ocr_status_from_confidence(0.85) == OCRStatus.DONE
+        assert _ocr_status_from_confidence(0.95) == OCRStatus.REVIEW
+        assert _ocr_status_from_confidence(0.85) == OCRStatus.REVIEW
 
     def test_medium_confidence_is_review(self):
         from workers.tasks.ocr_task import _ocr_status_from_confidence
@@ -134,8 +135,8 @@ class TestOCRStatusMapping:
 
 class TestRunTask:
     @pytest.mark.anyio
-    async def test_receipt_status_updated_to_done(self, pending_receipt, engine):
-        """High-confidence result → receipt status = DONE."""
+    async def test_receipt_status_updated_to_review(self, pending_receipt, engine):
+        """High-confidence result → receipt status = REVIEW (только пользователь ставит DONE)."""
         parsed = _make_parsed(confidence=0.92)
         factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -158,7 +159,7 @@ class TestRunTask:
             )
             updated = result.scalar_one()
 
-        assert updated.ocr_status == OCRStatus.DONE
+        assert updated.ocr_status == OCRStatus.REVIEW
         assert updated.pharmacy_name == "Аптека Здоровье"
         assert float(updated.total_amount) == 250.0
         assert updated.ocr_confidence == pytest.approx(0.92)

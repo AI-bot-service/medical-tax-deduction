@@ -2,9 +2,9 @@
 
 Finds a matching prescription for an rx receipt item using 4 levels:
 
-  L1 — exact INN match, purchase date within prescription validity period
-  L2 — exact INN match, prescription expired ≤ 30 days before purchase
-  L3 — fuzzy drug_name match (rapidfuzz WRatio ≥ 85) among active prescriptions
+  L1 — exact INN match via prescription_items, purchase date within prescription validity period
+  L2 — exact INN match via prescription_items, prescription expired ≤ 30 days before purchase
+  L3 — fuzzy drug_name match (rapidfuzz WRatio ≥ 85) among active prescription_items
   L4 — no match → return None
 
 Called from workers/tasks/ocr_task.py after OCR for each is_rx=True item.
@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def find_prescription(
     """Search for a matching prescription using L1→L2→L3→L4 strategy.
 
     Args:
-        user_id: UUID of the receipt owner (used for RLS-safe queries)
+        user_id: UUID of the receipt owner
         drug_inn: normalised INN from DrugNormalizer (may be None)
         drug_name: raw drug name from receipt (used for L3 fuzzy search)
         purchase_date: date of the receipt purchase (may be None → skip L1/L2)
@@ -56,13 +56,17 @@ async def find_prescription(
 
     # ── L1: exact INN + purchase date inside validity window ──────────────────
     if drug_inn and purchase_date:
-        stmt = select(Prescription).where(
-            and_(
-                Prescription.user_id == user_id,
-                Prescription.drug_inn == drug_inn,
-                Prescription.issue_date <= purchase_date,
-                Prescription.expires_at >= purchase_date,
-                Prescription.status != "deleted",
+        stmt = (
+            select(Prescription)
+            .join(PrescriptionItem, PrescriptionItem.prescription_id == Prescription.id)
+            .where(
+                and_(
+                    Prescription.user_id == user_id,
+                    PrescriptionItem.drug_inn == drug_inn,
+                    Prescription.issue_date <= purchase_date,
+                    Prescription.expires_at >= purchase_date,
+                    Prescription.status != "deleted",
+                )
             )
         )
         result = await db.execute(stmt)
@@ -79,13 +83,17 @@ async def find_prescription(
     # ── L2: exact INN, expired ≤ 30 days before purchase ─────────────────────
     if drug_inn and purchase_date:
         cutoff = purchase_date - timedelta(days=_L2_MAX_OVERDUE_DAYS)
-        stmt = select(Prescription).where(
-            and_(
-                Prescription.user_id == user_id,
-                Prescription.drug_inn == drug_inn,
-                Prescription.expires_at >= cutoff,
-                Prescription.expires_at < purchase_date,
-                Prescription.status != "deleted",
+        stmt = (
+            select(Prescription)
+            .join(PrescriptionItem, PrescriptionItem.prescription_id == Prescription.id)
+            .where(
+                and_(
+                    Prescription.user_id == user_id,
+                    PrescriptionItem.drug_inn == drug_inn,
+                    Prescription.expires_at >= cutoff,
+                    Prescription.expires_at < purchase_date,
+                    Prescription.status != "deleted",
+                )
             )
         )
         result = await db.execute(stmt)
@@ -107,31 +115,35 @@ async def find_prescription(
     try:
         from rapidfuzz import fuzz
 
-        stmt = select(Prescription).where(
-            and_(
-                Prescription.user_id == user_id,
-                Prescription.status != "deleted",
+        stmt = (
+            select(PrescriptionItem, Prescription)
+            .join(Prescription, Prescription.id == PrescriptionItem.prescription_id)
+            .where(
+                and_(
+                    Prescription.user_id == user_id,
+                    Prescription.status != "deleted",
+                )
             )
         )
         result = await db.execute(stmt)
-        prescriptions = result.scalars().all()
+        rows = result.all()
 
-        best: Prescription | None = None
+        best_presc: Prescription | None = None
         best_score = 0.0
 
-        for presc in prescriptions:
-            score = fuzz.WRatio(drug_name.lower(), presc.drug_name.lower())
+        for item, presc in rows:
+            score = fuzz.WRatio(drug_name.lower(), item.drug_name.lower())
             if score >= _L3_FUZZY_THRESHOLD and score > best_score:
                 best_score = score
-                best = presc
+                best_presc = presc
 
-        if best is not None:
+        if best_presc is not None:
             logger.debug(
-                "L3 fuzzy match for '%s' → '%s' (score=%.1f): prescription %s",
-                drug_name, best.drug_name, best_score, best.id,
+                "L3 fuzzy match for '%s' → prescription %s (score=%.1f)",
+                drug_name, best_presc.id, best_score,
             )
             return PrescriptionSearchResult(
-                prescription=best,
+                prescription=best_presc,
                 match_level="L3",
                 days_overdue=None,
                 confidence_score=round(best_score / 100.0, 3),

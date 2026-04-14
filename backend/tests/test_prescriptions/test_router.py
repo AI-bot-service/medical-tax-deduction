@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.models.base import Base
 from app.models.enums import DocType, OCRStatus, RiskLevel
-from app.models.prescription import Prescription
+from app.models.prescription import Prescription, PrescriptionItem
 from app.models.receipt import Receipt
 from app.models.receipt_item import ReceiptItem
 from app.models.user import User
@@ -114,7 +114,7 @@ def _rx_body(**kwargs) -> dict:
         "doc_type": "recipe_107",
         "doctor_name": "Иванов И.И.",
         "issue_date": "2024-01-15",
-        "drug_name": "Амоксициллин",
+        "items": [{"drug_name": "Амоксициллин"}],
     }
     defaults.update(kwargs)
     return defaults
@@ -167,10 +167,32 @@ class TestCreatePrescription:
         resp = app_client.post("/api/v1/prescriptions", json=_rx_body())
         assert resp.json()["status"] == "active"
 
-    def test_drug_inn_optional(self, app_client):
-        resp = app_client.post("/api/v1/prescriptions", json=_rx_body(drug_name="Ибупрофен"))
+    def test_items_returned_in_response(self, app_client):
+        resp = app_client.post("/api/v1/prescriptions", json=_rx_body())
         assert resp.status_code == 201
-        assert resp.json()["drug_inn"] is None
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["drug_name"] == "Амоксициллин"
+
+    def test_drug_inn_optional(self, app_client):
+        body = _rx_body(items=[{"drug_name": "Ибупрофен"}])
+        resp = app_client.post("/api/v1/prescriptions", json=body)
+        assert resp.status_code == 201
+        assert resp.json()["items"][0]["drug_inn"] is None
+
+    def test_multiple_items(self, app_client):
+        body = _rx_body(items=[
+            {"drug_name": "Амоксициллин", "drug_inn": "amoxicillin"},
+            {"drug_name": "Ибупрофен", "dosage": "400 мг"},
+        ])
+        resp = app_client.post("/api/v1/prescriptions", json=body)
+        assert resp.status_code == 201
+        assert len(resp.json()["items"]) == 2
+
+    def test_empty_items_returns_422(self, app_client):
+        body = _rx_body(items=[])
+        resp = app_client.post("/api/v1/prescriptions", json=body)
+        assert resp.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +211,6 @@ class TestListPrescriptions:
             doctor_name="Врач А",
             issue_date=today - timedelta(days=30),
             expires_at=today + timedelta(days=30),
-            drug_name="Препарат А",
             risk_level=RiskLevel.STANDARD,
             status="active",
         )
@@ -200,11 +221,13 @@ class TestListPrescriptions:
             doctor_name="Врач Б",
             issue_date=today - timedelta(days=100),
             expires_at=today - timedelta(days=40),  # expired
-            drug_name="Препарат Б",
             risk_level=RiskLevel.DISPUTED,
             status="active",
         )
         db.add_all([r1, r2])
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=r1.id, drug_name="Препарат А", is_rx=True))
+        db.add(PrescriptionItem(prescription_id=r2.id, drug_name="Препарат Б", is_rx=True))
         await db.commit()
         return [r1, r2]
 
@@ -248,11 +271,12 @@ class TestGetPrescription:
             doctor_name="Петров П.П.",
             issue_date=today,
             expires_at=today + timedelta(days=60),
-            drug_name="Кларитромицин",
             risk_level=RiskLevel.STANDARD,
             status="active",
         )
         db.add(p)
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=p.id, drug_name="Кларитромицин", is_rx=True))
         await db.commit()
         await db.refresh(p)
         return p
@@ -260,7 +284,7 @@ class TestGetPrescription:
     def test_get_own_prescription(self, app_client, prescription):
         resp = app_client.get(f"/api/v1/prescriptions/{prescription.id}")
         assert resp.status_code == 200
-        assert resp.json()["drug_name"] == "Кларитромицин"
+        assert resp.json()["items"][0]["drug_name"] == "Кларитромицин"
 
     def test_get_foreign_prescription_404(self, other_client, prescription):
         """Other user cannot see this prescription."""
@@ -288,11 +312,12 @@ class TestDeletePrescription:
             doctor_name="Сидоров",
             issue_date=today,
             expires_at=today + timedelta(days=60),
-            drug_name="Метформин",
             risk_level=RiskLevel.STANDARD,
             status="active",
         )
         db.add(p)
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=p.id, drug_name="Метформин", is_rx=True))
         await db.commit()
         await db.refresh(p)
         return p
@@ -338,7 +363,6 @@ class TestLinkPrescription:
             doctor_name="Врач",
             issue_date=today,
             expires_at=today + timedelta(days=60),
-            drug_name="Аспирин",
             risk_level=RiskLevel.STANDARD,
             status="active",
         )
@@ -353,6 +377,8 @@ class TestLinkPrescription:
         )
         db.add(receipt)
         await db.flush()
+
+        db.add(PrescriptionItem(prescription_id=presc.id, drug_name="Аспирин", is_rx=True))
 
         item = ReceiptItem(
             id=uuid.uuid4(),
@@ -373,11 +399,12 @@ class TestLinkPrescription:
             doctor_name="Другой врач",
             issue_date=today,
             expires_at=today + timedelta(days=60),
-            drug_name="Ибупрофен",
             risk_level=RiskLevel.STANDARD,
             status="active",
         )
         db.add(other_presc)
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=other_presc.id, drug_name="Ибупрофен", is_rx=True))
 
         await db.commit()
         return presc, item, other_presc
@@ -416,3 +443,249 @@ class TestLinkPrescription:
             },
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# PATCH /prescriptions/{id}
+# ---------------------------------------------------------------------------
+
+
+class TestPatchPrescription:
+    @pytest.fixture
+    async def prescription(self, db: AsyncSession, test_user: User) -> Prescription:
+        today = date.today()
+        p = Prescription(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            doc_type=DocType.RECIPE_107,
+            doctor_name="Старый Врач",
+            issue_date=today,
+            expires_at=today + timedelta(days=60),
+            risk_level=RiskLevel.STANDARD,
+            status="active",
+        )
+        db.add(p)
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=p.id, drug_name="Амоксициллин", is_rx=True))
+        await db.commit()
+        await db.refresh(p)
+        return p
+
+    def test_patch_doctor_name(self, app_client, prescription):
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{prescription.id}",
+            json={"doctor_name": "Новый Врач"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["doctor_name"] == "Новый Врач"
+
+    def test_patch_validity_days_recalculates_expires(self, app_client, prescription):
+        issue = prescription.issue_date.isoformat()
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{prescription.id}",
+            json={"validity_days": 365},
+        )
+        assert resp.status_code == 200
+        # expires_at should be issue_date + 365 days
+        from datetime import date as dt, timedelta as td
+        expected = (prescription.issue_date + timedelta(days=365)).isoformat()
+        assert resp.json()["expires_at"] == expected
+
+    def test_patch_nonexistent_404(self, app_client):
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{uuid.uuid4()}",
+            json={"doctor_name": "Кто-то"},
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /prescriptions/{id}/items
+# ---------------------------------------------------------------------------
+
+
+class TestAddPrescriptionItem:
+    @pytest.fixture
+    async def prescription(self, db: AsyncSession, test_user: User) -> Prescription:
+        today = date.today()
+        p = Prescription(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            doc_type=DocType.RECIPE_107,
+            doctor_name="Врач",
+            issue_date=today,
+            expires_at=today + timedelta(days=60),
+            risk_level=RiskLevel.STANDARD,
+            status="active",
+        )
+        db.add(p)
+        await db.flush()
+        db.add(PrescriptionItem(prescription_id=p.id, drug_name="Первый препарат", is_rx=True))
+        await db.commit()
+        await db.refresh(p)
+        return p
+
+    def test_add_item_returns_201(self, app_client, prescription):
+        resp = app_client.post(
+            f"/api/v1/prescriptions/{prescription.id}/items",
+            json={"drug_name": "Ибупрофен", "dosage": "400 мг"},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["drug_name"] == "Ибупрофен"
+        assert resp.json()["dosage"] == "400 мг"
+
+    def test_add_item_increases_items_count(self, app_client, prescription):
+        app_client.post(
+            f"/api/v1/prescriptions/{prescription.id}/items",
+            json={"drug_name": "Второй"},
+        )
+        resp = app_client.get(f"/api/v1/prescriptions/{prescription.id}")
+        assert len(resp.json()["items"]) == 2
+
+    def test_add_item_to_nonexistent_404(self, app_client):
+        resp = app_client.post(
+            f"/api/v1/prescriptions/{uuid.uuid4()}/items",
+            json={"drug_name": "Что-то"},
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# PATCH /prescriptions/{id}/items/{item_id}
+# ---------------------------------------------------------------------------
+
+
+class TestPatchPrescriptionItem:
+    @pytest.fixture
+    async def setup_item(self, db: AsyncSession, test_user: User):
+        today = date.today()
+        p = Prescription(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            doc_type=DocType.RECIPE_107,
+            doctor_name="Врач",
+            issue_date=today,
+            expires_at=today + timedelta(days=60),
+            risk_level=RiskLevel.STANDARD,
+            status="active",
+        )
+        db.add(p)
+        await db.flush()
+        item = PrescriptionItem(
+            id=uuid.uuid4(),
+            prescription_id=p.id,
+            drug_name="Амоксициллин",
+            drug_inn=None,
+            dosage=None,
+            is_rx=True,
+        )
+        db.add(item)
+        await db.commit()
+        return p, item
+
+    def test_patch_drug_name(self, app_client, setup_item):
+        p, item = setup_item
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{p.id}/items/{item.id}",
+            json={"drug_name": "Амоксиклав"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["drug_name"] == "Амоксиклав"
+
+    def test_patch_drug_inn(self, app_client, setup_item):
+        p, item = setup_item
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{p.id}/items/{item.id}",
+            json={"drug_inn": "амоксициллин"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["drug_inn"] == "амоксициллин"
+
+    def test_patch_item_not_found_404(self, app_client, setup_item):
+        p, _ = setup_item
+        resp = app_client.patch(
+            f"/api/v1/prescriptions/{p.id}/items/{uuid.uuid4()}",
+            json={"drug_name": "Что-то"},
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# DELETE /prescriptions/{id}/items/{item_id}
+# ---------------------------------------------------------------------------
+
+
+class TestDeletePrescriptionItem:
+    @pytest.fixture
+    async def setup_two_items(self, db: AsyncSession, test_user: User):
+        today = date.today()
+        p = Prescription(
+            id=uuid.uuid4(),
+            user_id=test_user.id,
+            doc_type=DocType.RECIPE_107,
+            doctor_name="Врач",
+            issue_date=today,
+            expires_at=today + timedelta(days=60),
+            risk_level=RiskLevel.STANDARD,
+            status="active",
+        )
+        db.add(p)
+        await db.flush()
+        item1 = PrescriptionItem(
+            id=uuid.uuid4(), prescription_id=p.id, drug_name="Первый", is_rx=True
+        )
+        item2 = PrescriptionItem(
+            id=uuid.uuid4(), prescription_id=p.id, drug_name="Второй", is_rx=True
+        )
+        db.add_all([item1, item2])
+        await db.commit()
+        return p, item1, item2
+
+    def test_delete_item_returns_204(self, app_client, setup_two_items):
+        p, item1, _ = setup_two_items
+        resp = app_client.delete(f"/api/v1/prescriptions/{p.id}/items/{item1.id}")
+        assert resp.status_code == 204
+
+    def test_delete_item_reduces_count(self, app_client, setup_two_items):
+        p, item1, _ = setup_two_items
+        app_client.delete(f"/api/v1/prescriptions/{p.id}/items/{item1.id}")
+        resp = app_client.get(f"/api/v1/prescriptions/{p.id}")
+        assert len(resp.json()["items"]) == 1
+
+    def test_delete_last_item_returns_422(self, app_client, db, test_user):
+        """Cannot delete the last item."""
+        import asyncio
+        factory = None
+
+        # Use the setup_two_items fixture logic but with only one item
+        async def create_single():
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+            # We already have db fixture, just create directly
+            today = date.today()
+            p = Prescription(
+                id=uuid.uuid4(),
+                user_id=test_user.id,
+                doc_type=DocType.RECIPE_107,
+                doctor_name="Врач",
+                issue_date=today,
+                expires_at=today + timedelta(days=60),
+                risk_level=RiskLevel.STANDARD,
+                status="active",
+            )
+            db.add(p)
+            await db.flush()
+            item = PrescriptionItem(
+                id=uuid.uuid4(), prescription_id=p.id, drug_name="Единственный", is_rx=True
+            )
+            db.add(item)
+            await db.commit()
+            return p, item
+
+        p, item = asyncio.get_event_loop().run_until_complete(create_single())
+        resp = app_client.delete(f"/api/v1/prescriptions/{p.id}/items/{item.id}")
+        assert resp.status_code == 422
+
+    def test_delete_item_not_found_404(self, app_client, setup_two_items):
+        p, _, _ = setup_two_items
+        resp = app_client.delete(f"/api/v1/prescriptions/{p.id}/items/{uuid.uuid4()}")
+        assert resp.status_code == 404

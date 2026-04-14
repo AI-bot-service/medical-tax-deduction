@@ -47,11 +47,11 @@ export function LimitsPanel() {
     );
   }
 
-  if (!taxLimits || !expenses) return null;
+  if (!taxLimits) return null;
 
-  // expense_key → amount
+  // expense_key → amount (expenses require auth; show zeros if unavailable)
   const expenseMap: Record<string, number> = {};
-  for (const cat of expenses.categories) {
+  for (const cat of expenses?.categories ?? []) {
     expenseMap[cat.category_key] = cat.amount;
   }
 

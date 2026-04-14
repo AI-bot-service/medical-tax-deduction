@@ -144,6 +144,30 @@ export interface PrescriptionListResponse {
   total: number;
 }
 
+export interface PrescriptionItemDetail {
+  id: string;
+  drug_name: string;
+  drug_inn: string | null;
+  dosage: string | null;
+  is_rx: boolean;
+}
+
+export interface PrescriptionDetail {
+  id: string;
+  doc_type: DocType;
+  doctor_name: string;
+  doctor_specialty: string | null;
+  clinic_name: string | null;
+  issue_date: string;
+  expires_at: string;
+  s3_key: string | null;
+  risk_level: RiskLevel;
+  status: string;
+  batch_id: string | null;
+  created_at: string;
+  items: PrescriptionItemDetail[];
+}
+
 // ---------------------------------------------------------------------------
 // Batch
 // ---------------------------------------------------------------------------

@@ -120,7 +120,7 @@ export default function DuplicatesPage() {
       ? new Date(receipt.purchase_date).getFullYear()
       : new Date().getFullYear();
     setSelectedYear(year);
-    router.push("/receipts");
+    router.back();
   }
 
   function handlePrev() {

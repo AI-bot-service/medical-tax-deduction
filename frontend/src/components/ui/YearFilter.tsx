@@ -19,9 +19,9 @@ export function YearFilter() {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
-        padding: "6px",
-        background: "var(--surface)",
+        gap: "4px",
+        padding: "3px",
+        background: "var(--bg)",
         borderRadius: "var(--r-md)",
         border: "1px solid var(--border)",
         width: "fit-content",
@@ -34,7 +34,7 @@ export function YearFilter() {
             key={year}
             onClick={() => setSelectedYear(year)}
             style={{
-              padding: "6px 18px",
+              padding: "4px 14px",
               borderRadius: "var(--r-sm)",
               border: "none",
               cursor: "pointer",

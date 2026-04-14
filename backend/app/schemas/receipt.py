@@ -54,6 +54,7 @@ class ReceiptListItem(BaseModel):
     total_amount: Decimal | None = None
     ocr_confidence: float | None = None
     needs_prescription: bool
+    prescription_id: uuid.UUID | None = None
     created_at: datetime
     items: list[ReceiptItemSchema] = Field(default_factory=list)
 
@@ -88,6 +89,7 @@ class ReceiptDetail(BaseModel):
     fiscal_fn: str | None = None
     fiscal_fd: str | None = None
     duplicate_of_id: uuid.UUID | None = None
+    prescription_id: uuid.UUID | None = None
     image_url: str | None = None      # presigned URL, injected after DB fetch
     download_url: str | None = None   # presigned URL with Content-Disposition: attachment
     items: list[ReceiptItemSchema] = Field(default_factory=list)
