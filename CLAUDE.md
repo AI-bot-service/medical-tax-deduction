@@ -52,4 +52,50 @@ cd frontend && npm run lint && npm run tsc
 
 Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
+## Деплой на новый сервер
+
+### Требования
+- Docker, nginx, git установлены
+- SSH-ключ добавлен в GitHub (repo: `AI-bot-service/medical-tax-deduction`)
+
+### Порядок действий
+
+```bash
+# 1. Создать папку и клонировать (без sudo!)
+sudo mkdir -p /opt/medvychet && sudo chown $USER:$USER /opt/medvychet
+git clone git@github.com:AI-bot-service/medical-tax-deduction.git /opt/medvychet
+
+# 2. Скопировать .env со старого сервера
+scp user@OLD_SERVER:/opt/medvychet/.env /opt/medvychet/.env
+
+# 3. ВАЖНО: создать симлинк .env в папке infra
+# docker compose ищет переменные (${POSTGRES_PASSWORD} и др.) в infra/.env,
+# а не в родительской папке — без симлинка POSTGRES_PASSWORD будет пустым
+ln -s /opt/medvychet/.env /opt/medvychet/infra/.env
+
+# 4. Запустить postgres и залить дамп БД
+cd /opt/medvychet/infra
+docker compose up -d postgres
+# (подождать статус healthy)
+docker compose exec -T postgres psql -U medvychet medvychet < ~/medvychet_backup.sql
+
+# 5. Запустить всё
+docker compose up -d --build
+
+# 6. Настроить nginx
+# Конфиг: /etc/nginx/sites-available/medvychet (см. текущий сервер)
+# SSL-сертификаты: /etc/ssl/medvychet/fullchain.pem и key.pem
+ln -s /etc/nginx/sites-available/medvychet /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+### Что не в гите — перенести вручную
+| Данные | Путь |
+|---|---|
+| Переменные окружения | `/opt/medvychet/.env` |
+| База данных | дамп через `pg_dump` → `psql` |
+| SSL-сертификаты | `/etc/ssl/medvychet/` |
+
+> Фото чеков/рецептов в Yandex Object Storage — переезжают автоматически через `.env`.
+
 Если я даю тебе слишком большие задачи, разбивай их на маленькие атомарные и решай их постепенно, для лучшего понимания контекста.
