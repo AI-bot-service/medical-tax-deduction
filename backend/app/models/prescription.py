@@ -60,7 +60,6 @@ class Prescription(TimestampMixin, Base):
     risk_level: Mapped[RiskLevel] = mapped_column(
         Enum(RiskLevel, name="risklevel", values_callable=lambda x: [e.value for e in x]), default=RiskLevel.STANDARD, nullable=False
     )
-    status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),

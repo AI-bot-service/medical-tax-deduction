@@ -106,20 +106,6 @@ function PlainTh({
 // ---------------------------------------------------------------------------
 
 function StatusBadge({ prescription }: { prescription: Prescription }) {
-  if (prescription.status === "deleted") {
-    return (
-      <span className="badge" style={{
-        background: "var(--bg)", color: "var(--text-muted)",
-        border: "1px solid var(--border)", fontSize: "10px",
-        padding: "2px 8px", borderRadius: "var(--r-pill)",
-        display: "inline-flex", alignItems: "center", gap: 4,
-      }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block" }} />
-        Удалён
-      </span>
-    );
-  }
-
   const daysLeft = getDaysLeft(prescription.expires_at);
 
   if (daysLeft < 0) {

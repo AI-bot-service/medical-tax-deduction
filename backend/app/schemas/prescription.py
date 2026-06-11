@@ -71,7 +71,6 @@ class PrescriptionResponse(BaseModel):
     expires_at: date
     s3_key: str | None = None
     risk_level: RiskLevel
-    status: str
     batch_id: uuid.UUID | None = None
     created_at: datetime
     items: list[PrescriptionItemSchema] = []

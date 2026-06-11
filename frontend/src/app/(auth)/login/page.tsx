@@ -45,12 +45,9 @@ function BrandPanel() {
       }} />
 
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 1 }}>
-        <div className="logo-icon" style={{ width: "44px", height: "44px", fontSize: "22px" }}>💊</div>
-        <div>
-          <div style={{ fontSize: "18px", fontWeight: 800, color: "#fff", letterSpacing: "-.3px" }}>МедВычет</div>
-          <div style={{ fontSize: "11px", color: "var(--sidebar-text)", marginTop: "1px" }}>Налоговый вычет на лекарства</div>
-        </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <img src="/logo-white.svg" alt="МедВычет" width={160} height={38} style={{ display: "block" }} />
+        <div style={{ fontSize: "11px", color: "var(--sidebar-text)", marginTop: "4px" }}>Налоговый вычет на лекарства</div>
       </div>
 
       {/* Center content */}
@@ -226,13 +223,9 @@ export default function LoginPage() {
           gap: "0",
         }}>
           {/* Mobile logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "40px" }}
-               className="login-mobile-logo">
-            <div className="logo-icon">💊</div>
-            <div>
-              <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-primary)" }}>МедВычет</div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Налоговый вычет на лекарства</div>
-            </div>
+          <div style={{ marginBottom: "40px" }} className="login-mobile-logo">
+            <img src="/logo.svg" alt="МедВычет" width={160} height={38} style={{ display: "block" }} />
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Налоговый вычет на лекарства</div>
           </div>
 
           {/* Heading */}

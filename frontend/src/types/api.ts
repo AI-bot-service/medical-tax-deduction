@@ -134,9 +134,9 @@ export interface Prescription {
   dosage: string | null;
   s3_key: string | null;
   risk_level: RiskLevel;
-  status: string;
   batch_id: string | null;
   created_at: string;
+  status: string | null;
 }
 
 export interface PrescriptionListResponse {
@@ -162,9 +162,9 @@ export interface PrescriptionDetail {
   expires_at: string;
   s3_key: string | null;
   risk_level: RiskLevel;
-  status: string;
   batch_id: string | null;
   created_at: string;
+  status: string | null;
   items: PrescriptionItemDetail[];
 }
 

@@ -565,7 +565,7 @@ function ItemsTable({ items, receiptId, onLinked }: ItemsTableProps) {
             <col />
             <col style={{ width: 140 }} />
             <col style={{ width: 72 }} />
-            <col style={{ width: 90 }} />
+            <col style={{ width: 120 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 36 }} />
           </colgroup>

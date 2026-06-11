@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { ReceiptPhotoPanel } from "@/components/ui/ReceiptPhotoPanel";
 import type { PrescriptionDetail, PrescriptionItemDetail, DocType, RiskLevel } from "@/types/api";
 
@@ -241,8 +241,10 @@ function PrescriptionEditor({ prescription, onSaved, onDeleted }: PrescriptionEd
     try {
       await api.delete(`/api/v1/prescriptions/${prescription.id}`);
       onDeleted();
-    } catch {
-      // ignore
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        alert(e.message);
+      }
     } finally {
       setDeleting(false);
     }

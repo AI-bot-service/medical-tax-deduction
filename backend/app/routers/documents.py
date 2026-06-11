@@ -51,7 +51,7 @@ async def get_document_stats(
     rec_total = await db.scalar(
         select(func.count()).where(
             Prescription.user_id == uid,
-            Prescription.status != "deleted",
+
             func.extract("year", Prescription.issue_date) == year,
             Prescription.doc_type.in_([t.value for t in _RECIPE_TYPES]),
         )
@@ -59,7 +59,7 @@ async def get_document_stats(
     rec_pending = await db.scalar(
         select(func.count()).where(
             Prescription.user_id == uid,
-            Prescription.status != "deleted",
+
             func.extract("year", Prescription.issue_date) == year,
             Prescription.doc_type.in_([t.value for t in _RECIPE_TYPES]),
             Prescription.duplicate_of_id.isnot(None),
@@ -70,7 +70,7 @@ async def get_document_stats(
     presc_certs_total = await db.scalar(
         select(func.count()).where(
             Prescription.user_id == uid,
-            Prescription.status != "deleted",
+
             func.extract("year", Prescription.issue_date) == year,
             Prescription.doc_type.in_([t.value for t in _DOC_TYPES]),
         )
@@ -78,7 +78,7 @@ async def get_document_stats(
     presc_certs_pending = await db.scalar(
         select(func.count()).where(
             Prescription.user_id == uid,
-            Prescription.status != "deleted",
+
             func.extract("year", Prescription.issue_date) == year,
             Prescription.doc_type.in_([t.value for t in _DOC_TYPES]),
             Prescription.duplicate_of_id.isnot(None),

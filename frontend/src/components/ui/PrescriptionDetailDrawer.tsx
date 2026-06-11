@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { PrescriptionDetail, DocType, RiskLevel } from "@/types/api";
 
 // ---------------------------------------------------------------------------
@@ -308,8 +308,10 @@ export default function PrescriptionDetailDrawer({
       await api.delete(`/api/v1/prescriptions/${prescriptionId}`);
       onDeleted();
       onClose();
-    } catch {
-      // ignore
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        alert(e.message);
+      }
     } finally {
       setDeleting(false);
     }
@@ -404,7 +406,7 @@ export default function PrescriptionDetailDrawer({
                 </span>
               )}
               {prescription && (
-                <StatusChip expiresAt={prescription.expires_at} status={prescription.status} />
+                <StatusChip expiresAt={prescription.expires_at} status={prescription.status ?? ""} />
               )}
             </div>
           </div>

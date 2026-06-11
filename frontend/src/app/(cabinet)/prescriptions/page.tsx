@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { useDashboardStore } from "@/lib/store";
 import PrescriptionTable from "@/components/ui/PrescriptionTable";
 import PrescriptionDetailDrawer from "@/components/ui/PrescriptionDetailDrawer";
@@ -140,7 +140,7 @@ function MonthAccordion({
   const [open, setOpen] = useState(defaultOpen);
 
   const sorted       = sortPrescriptions(group.prescriptions, sortField, sortDir);
-  const activeCount  = group.prescriptions.filter(p => getDaysLeft(p.expires_at) >= 0 && p.status !== "deleted").length;
+  const activeCount  = group.prescriptions.filter(p => getDaysLeft(p.expires_at) >= 0).length;
   const soonCount    = group.prescriptions.filter(p => { const d = getDaysLeft(p.expires_at); return d >= 0 && d <= 14; }).length;
   const expiredCount = group.prescriptions.filter(p => getDaysLeft(p.expires_at) < 0).length;
   const n            = group.prescriptions.length;
@@ -304,9 +304,15 @@ export default function PrescriptionsPage() {
   }
 
   async function handleDelete(id: string) {
-    await api.delete(`/api/v1/prescriptions/${id}`);
-    void queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
-    void refetch();
+    try {
+      await api.delete(`/api/v1/prescriptions/${id}`);
+      void queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
+      void refetch();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        alert(e.message);
+      }
+    }
   }
 
   const items  = data?.items ?? [];

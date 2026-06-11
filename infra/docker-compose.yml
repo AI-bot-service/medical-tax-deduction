@@ -1,61 +1,53 @@
+name: medvychet
+
 services:
-  postgres:
-    image: postgres:15
-    env_file: ../.env
-    environment:
-      POSTGRES_USER: medvychet
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: medvychet
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medvychet -d medvychet"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-
   backend:
+    container_name: medvychet-infra-backend
     build:
       context: ../backend
       dockerfile: Dockerfile
     env_file: ../.env
     ports:
       - "127.0.0.1:8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - default
+      - traefik
+      - shared_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      # SSE batch stream
+      - "traefik.http.routers.medvychet-sse.rule=Host(`medvychet.systemtool.ru`) && PathRegexp(`^/api/v1/batch/.+/stream`)"
+      - "traefik.http.routers.medvychet-sse.entrypoints=websecure"
+      - "traefik.http.routers.medvychet-sse.tls=true"
+      - "traefik.http.routers.medvychet-sse.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.medvychet-sse.service=medvychet-backend-svc"
+      - "traefik.http.routers.medvychet-sse.priority=20"
+      # Backend API (/api/, /docs, /redoc, /openapi.json)
+      - "traefik.http.routers.medvychet-api.rule=Host(`medvychet.systemtool.ru`) && (PathPrefix(`/api/`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || Path(`/openapi.json`))"
+      - "traefik.http.routers.medvychet-api.entrypoints=websecure"
+      - "traefik.http.routers.medvychet-api.tls=true"
+      - "traefik.http.routers.medvychet-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.medvychet-api.service=medvychet-backend-svc"
+      - "traefik.http.routers.medvychet-api.priority=10"
+      # Backend service
+      - "traefik.http.services.medvychet-backend-svc.loadbalancer.server.port=8000"
 
   celery_worker:
+    container_name: medvychet-infra-celery-worker
     build:
       context: ../backend
       dockerfile: Dockerfile
     command: celery -A workers.celery_app worker --loglevel=info
     env_file: ../.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - default
+      - shared_network
 
   bot:
+    container_name: medvychet-infra-bot
     build:
       context: ../bot
       dockerfile: Dockerfile
@@ -65,18 +57,38 @@ services:
     restart: unless-stopped
 
   frontend:
+    container_name: medvychet-infra-frontend
     build:
       context: ../frontend
       dockerfile: Dockerfile
     env_file: ../.env
     environment:
-      BACKEND_URL: http://backend:8000
+      BACKEND_URL: http://medvychet-infra-backend:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - default
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      # Frontend (всё остальное, низкий приоритет)
+      - "traefik.http.routers.medvychet.rule=Host(`medvychet.systemtool.ru`)"
+      - "traefik.http.routers.medvychet.entrypoints=websecure"
+      - "traefik.http.routers.medvychet.tls=true"
+      - "traefik.http.routers.medvychet.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.medvychet.service=medvychet-frontend-svc"
+      - "traefik.http.routers.medvychet.priority=1"
+      # Frontend service
+      - "traefik.http.services.medvychet-frontend-svc.loadbalancer.server.port=3000"
 
-volumes:
-  postgres_data:
-  redis_data:
+networks:
+  traefik:
+    external: true
+    name: traefik-public
+  shared_network:
+    external: true
+    name: shared_network

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" role="img" aria-label="МедВычет">
+  <title>МедВычет</title>
+  <defs>
+    <clipPath id="pill-r-w">
+      <rect x="23" y="14" width="19" height="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Pill: left half — translucent white -->
+  <rect x="4" y="15" width="36" height="18" rx="9" fill="rgba(255,255,255,0.15)"/>
+
+  <!-- Pill: right half — solid white, clipped -->
+  <rect x="4" y="15" width="36" height="18" rx="9" fill="white" clip-path="url(#pill-r-w)"/>
+
+  <!-- Pill outline -->
+  <rect x="4" y="15" width="36" height="18" rx="9" fill="none" stroke="white" stroke-width="1.5"/>
+
+  <!-- Center split line -->
+  <line x1="23" y1="16" x2="23" y2="32" stroke="white" stroke-width="1.5"/>
+
+  <!-- % inside right half — purple on white -->
+  <text
+    x="32"
+    y="24"
+    dominant-baseline="central"
+    text-anchor="middle"
+    fill="#6D28D9"
+    font-family="system-ui, sans-serif"
+    font-size="9"
+    font-weight="800">%</text>
+
+  <!-- МедВычет: Мед light, Вычет bold — both white -->
+  <text
+    x="50"
+    y="24"
+    dominant-baseline="central"
+    font-family="Manrope, Rubik, 'Segoe UI', system-ui, sans-serif"
+    font-size="19"
+    letter-spacing="-0.3">
+    <tspan fill="rgba(255,255,255,0.75)" font-weight="500">Мед</tspan><tspan fill="white" font-weight="800">Вычет</tspan>
+  </text>
+</svg>

@@ -21,7 +21,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db_rls
@@ -77,7 +77,6 @@ async def create_prescription(
         issue_date=body.issue_date,
         expires_at=body.expires_at,
         risk_level=risk_level,
-        status="active",
     )
     db.add(prescription)
     await db.flush()  # получаем prescription.id до добавления items
@@ -156,7 +155,6 @@ async def get_prescription_image(
         select(Prescription).where(
             Prescription.id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     prescription = result.scalar_one_or_none()
@@ -194,7 +192,6 @@ async def get_prescription_pdf_blank(
         select(Prescription).where(
             Prescription.id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     if result.scalar_one_or_none() is None:
@@ -222,7 +219,7 @@ async def get_prescription_pdf_blank(
 @router.get("", response_model=PrescriptionListResponse)
 async def list_prescriptions(
     doc_type: DocType | None = Query(default=None),
-    status: str | None = Query(default=None, description="active | expired | deleted"),
+    status: str | None = Query(default=None, description="active | expired"),
     batch_id: uuid.UUID | None = Query(default=None, description="Фильтр по batch_id"),
     db: AsyncSession = Depends(get_db_rls),
     current_user=Depends(get_current_user),
@@ -237,13 +234,9 @@ async def list_prescriptions(
 
     today = date.today()
     if status == "active":
-        stmt = stmt.where(Prescription.expires_at >= today, Prescription.status == "active")
+        stmt = stmt.where(Prescription.expires_at >= today)
     elif status == "expired":
-        stmt = stmt.where(Prescription.expires_at < today, Prescription.status == "active")
-    elif status == "deleted":
-        stmt = stmt.where(Prescription.status == "deleted")
-    else:
-        stmt = stmt.where(Prescription.status != "deleted")
+        stmt = stmt.where(Prescription.expires_at < today)
 
     stmt = stmt.order_by(Prescription.created_at.desc())
     result = await db.execute(stmt)
@@ -270,7 +263,6 @@ async def get_prescription(
         select(Prescription).where(
             Prescription.id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     prescription = result.scalar_one_or_none()
@@ -296,7 +288,6 @@ async def patch_prescription(
         select(Prescription).where(
             Prescription.id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     prescription = result.scalar_one_or_none()
@@ -340,7 +331,6 @@ async def patch_prescription_item(
             PrescriptionItem.id == item_id,
             PrescriptionItem.prescription_id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     item = result.scalar_one_or_none()
@@ -376,7 +366,6 @@ async def add_prescription_item(
         select(Prescription).where(
             Prescription.id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     if result.scalar_one_or_none() is None:
@@ -415,7 +404,6 @@ async def delete_prescription_item(
             PrescriptionItem.id == item_id,
             PrescriptionItem.prescription_id == prescription_id,
             Prescription.user_id == current_user.id,
-            Prescription.status != "deleted",
         )
     )
     item = result.scalar_one_or_none()
@@ -458,7 +446,16 @@ async def delete_prescription(
     if prescription is None:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
 
-    prescription.status = "deleted"
+    linked_count = await db.scalar(
+        select(func.count()).where(ReceiptItem.prescription_id == prescription_id)
+    )
+    if linked_count:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Нельзя удалить: к рецепту привязано {linked_count} позиций в чеках",
+        )
+
+    await db.delete(prescription)
     await db.commit()
 
 

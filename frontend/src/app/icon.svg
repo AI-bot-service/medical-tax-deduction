@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <clipPath id="rh">
+      <rect x="16" y="9" width="15" height="14"/>
+    </clipPath>
+  </defs>
+
+  <!-- Left half: soft lavender -->
+  <rect x="2" y="10" width="28" height="12" rx="6" fill="#EDE9FE"/>
+
+  <!-- Right half: deep purple -->
+  <rect x="2" y="10" width="28" height="12" rx="6" fill="#6D28D9" clip-path="url(#rh)"/>
+
+  <!-- Border -->
+  <rect x="2" y="10" width="28" height="12" rx="6" fill="none" stroke="#6D28D9" stroke-width="1.5"/>
+
+  <!-- Divider -->
+  <line x1="16" y1="10.75" x2="16" y2="21.25" stroke="#6D28D9" stroke-width="1.5"/>
+
+  <!-- % white -->
+  <text x="23" y="16" dominant-baseline="central" text-anchor="middle"
+        fill="white" font-family="system-ui,sans-serif" font-size="7" font-weight="800">%</text>
+</svg>
